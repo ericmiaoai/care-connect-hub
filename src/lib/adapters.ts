@@ -19,6 +19,7 @@ export interface UITask {
   title:        string;
   detail:       string | null;
   kind:         TaskKind;
+  status:       DBTask["status"];
   priority:     DBTask["priority"];
   assigneeId:   string | null;  // UUID of assigned profile
   rawDueDate:   string | null;  // original ISO string for sorting
@@ -43,6 +44,15 @@ function extractTime(iso: string | null): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
+/** Format a Date as "YYYY-MM-DD" using LOCAL date components (not UTC) */
+function toLocalDateKey(d: Date): string {
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 export function adaptTask(row: DBTask): UITask {
   return {
     id:          row.id,
@@ -50,6 +60,7 @@ export function adaptTask(row: DBTask): UITask {
     title:       row.title,
     detail:      row.notes ?? null,
     kind:        inferKind(row.title),
+    status:      row.status,
     priority:    row.priority,
     assigneeId:  row.assigned_to ?? null,
     rawDueDate:  row.due_date ?? null,
@@ -81,7 +92,7 @@ export function adaptCalendarEvent(row: DBCalendarEventWithCompleter): UICalenda
   const d = new Date(row.start_time);
   return {
     id:              row.id,
-    date:            d.toISOString().slice(0, 10),
+    date:            toLocalDateKey(d),
     time:            d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
     title:           row.title,
     description:     row.description ?? null,
