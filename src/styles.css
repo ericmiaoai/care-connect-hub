@@ -1,0 +1,119 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-elevated: var(--card-elevated);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  --color-user-mom: var(--user-mom);
+  --color-user-dad: var(--user-dad);
+  --color-user-nurse: var(--user-nurse);
+  --color-user-sister: var(--user-sister);
+  --color-user-admin: var(--user-admin);
+}
+
+:root,
+.dark {
+  --radius: 0.75rem;
+
+  /* Strict dark — Apple HIG inspired */
+  --background: oklch(0.13 0.005 270);            /* zinc-950 */
+  --foreground: oklch(0.985 0 0);                 /* near white */
+
+  --card: oklch(0.18 0.006 270);                  /* zinc-900 elevated */
+  --card-foreground: oklch(0.985 0 0);
+  --card-elevated: oklch(0.22 0.006 270);
+
+  --popover: oklch(0.18 0.006 270);
+  --popover-foreground: oklch(0.985 0 0);
+
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.15 0.005 270);
+
+  --secondary: oklch(0.24 0.006 270);
+  --secondary-foreground: oklch(0.985 0 0);
+
+  --muted: oklch(0.22 0.006 270);
+  --muted-foreground: oklch(0.65 0.01 270);       /* zinc-400 */
+
+  --accent: oklch(0.26 0.006 270);
+  --accent-foreground: oklch(0.985 0 0);
+
+  --destructive: oklch(0.62 0.22 25);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  --success: oklch(0.72 0.17 152);                /* emerald */
+  --success-foreground: oklch(0.13 0.005 270);
+
+  --warning: oklch(0.82 0.16 85);                 /* amber */
+  --warning-foreground: oklch(0.13 0.005 270);
+
+  --border: oklch(0.27 0.006 270);                /* zinc-800 subtle */
+  --border-strong: oklch(0.34 0.006 270);
+  --input: oklch(0.27 0.006 270);
+  --ring: oklch(0.65 0.01 270);
+
+  /* User color tokens — Cozi-style assignment palette */
+  --user-mom: oklch(0.66 0.18 255);               /* blue-500 */
+  --user-dad: oklch(0.78 0.16 75);                /* amber-500 */
+  --user-nurse: oklch(0.72 0.17 152);             /* emerald-500 */
+  --user-sister: oklch(0.62 0.21 295);            /* violet-500 */
+  --user-admin: oklch(0.7 0.15 200);              /* sky/teal */
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+@layer utilities {
+  /* Min 44x44 touch target for accessibility */
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
