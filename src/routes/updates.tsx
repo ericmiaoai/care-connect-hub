@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { UpdateCard } from "@/components/UpdateCard";
-import { MOCK_UPDATES } from "@/lib/mock-data";
+import { useAuth } from "@/hooks/useAuth";
+import { useCareCircle } from "@/hooks/useCareCircle";
+import { useBroadcasts } from "@/hooks/useBroadcasts";
 
 export const Route = createFileRoute("/updates")({
   head: () => ({
@@ -13,6 +15,10 @@ export const Route = createFileRoute("/updates")({
 });
 
 function UpdatesBoard() {
+  const { user }                       = useAuth();
+  const { careCircleId }               = useCareCircle(user?.id);
+  const { broadcasts, isLoading, error } = useBroadcasts(careCircleId);
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6">
       <header className="mb-6">
@@ -25,11 +31,31 @@ function UpdatesBoard() {
         </p>
       </header>
 
-      <div className="flex flex-col gap-3">
-        {MOCK_UPDATES.map((u, i) => (
-          <UpdateCard key={u.id} update={u} index={i} />
-        ))}
-      </div>
+      {isLoading && (
+        <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+          Loading updates…
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+          {error}
+        </div>
+      )}
+
+      {!isLoading && !error && broadcasts.length === 0 && (
+        <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+          No updates yet.
+        </div>
+      )}
+
+      {!isLoading && !error && broadcasts.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {broadcasts.map((u, i) => (
+            <UpdateCard key={u.id} update={u} index={i} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
