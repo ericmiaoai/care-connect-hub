@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Trash2 } from "lucide-react";
 import type { UIBroadcast } from "@/lib/adapters";
 import { cn } from "@/lib/utils";
 
@@ -15,8 +16,9 @@ const SEVERITY_LABEL: Record<UIBroadcast["severity"], string> = {
 };
 
 interface UpdateCardProps {
-  update: UIBroadcast;
-  index:  number;
+  update:    UIBroadcast;
+  index:     number;
+  onDelete?: () => void;
 }
 
 function AuthorAvatar({ name }: { name: string | null }) {
@@ -30,7 +32,7 @@ function AuthorAvatar({ name }: { name: string | null }) {
   );
 }
 
-export function UpdateCard({ update, index }: UpdateCardProps) {
+export function UpdateCard({ update, index, onDelete }: UpdateCardProps) {
   return (
     <motion.article
       initial={{ opacity: 0, y: 8 }}
@@ -52,6 +54,16 @@ export function UpdateCard({ update, index }: UpdateCardProps) {
           {SEVERITY_LABEL[update.severity]}
         </span>
         <span className="ml-auto text-xs text-muted-foreground">{update.timeAgo}</span>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label="Delete update"
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </header>
       <h3 className="mb-1 text-sm font-semibold text-foreground">{update.title}</h3>
       <p className="text-sm leading-relaxed text-foreground/80">{update.content}</p>

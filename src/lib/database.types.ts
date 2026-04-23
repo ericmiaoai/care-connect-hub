@@ -134,6 +134,7 @@ export interface Database {
           priority:        TaskPriority;
           assigned_to:     string | null;
           due_date:        string | null;     // timestamptz as ISO string
+          sort_order:      number | null;     // display order for timeless tasks
           completed_at:    string | null;
           completed_by:    string | null;     // profile UUID who marked it done
           created_by:      string;
@@ -150,6 +151,7 @@ export interface Database {
           priority?:       TaskPriority;
           assigned_to?:    string | null;
           due_date?:       string | null;
+          sort_order?:     number | null;
           completed_at?:   string | null;
           completed_by?:   string | null;
           created_by:      string;
@@ -163,6 +165,7 @@ export interface Database {
           priority?:       TaskPriority;
           assigned_to?:    string | null;
           due_date?:       string | null;
+          sort_order?:     number | null;
           completed_at?:   string | null;
           completed_by?:   string | null;
           updated_at?:     string;

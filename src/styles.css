@@ -117,3 +117,161 @@
     min-height: 44px;
   }
 }
+
+/* ── Gray theme ───────────────────────────────────────────────────────────────
+   Dark charcoal with a soft radial halo: medium-gray top-left fading to
+   near-black bottom-right, with warm gold accent touches.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="gray"] {
+  --background:    oklch(0.17 0.007 255);
+  --card:          oklch(0.21 0.008 255);
+  --card-elevated: oklch(0.25 0.009 255);
+  --popover:       oklch(0.21 0.008 255);
+  --secondary:     oklch(0.25 0.008 255);
+  --muted:         oklch(0.23 0.008 255);
+  --accent:        oklch(0.27 0.009 255);
+  --border:        oklch(0.29 0.008 255);
+  --border-strong: oklch(0.35 0.009 255);
+  --input:         oklch(0.29 0.008 255);
+  --ring:          oklch(0.60 0.01  255);
+}
+[data-theme="gray"] body {
+  background-image: radial-gradient(
+    ellipse 200% 180% at 15% 0%,
+    oklch(0.46 0.013 255) 0%,
+    oklch(0.28 0.009 255) 42%,
+    oklch(0.10 0.005 255) 100%
+  );
+  background-attachment: scroll;
+  min-height: 100dvh;
+}
+/* Let the gradient show through the app wrapper only — not Radix portal divs */
+[data-theme="gray"] [data-app-shell] {
+  background-color: transparent;
+}
+/* Gold accent touches — sidebar separator, nav active state, structural borders */
+[data-theme="gray"] aside {
+  border-right-width: 2px;
+  border-right-color: oklch(0.62 0.13 74 / 0.55);
+  box-shadow: 1px 0 18px oklch(0.62 0.13 74 / 0.11);
+}
+[data-theme="gray"] header.sticky {
+  border-bottom-color: oklch(0.62 0.13 74 / 0.28);
+}
+[data-theme="gray"] footer {
+  border-top-color: oklch(0.62 0.13 74 / 0.22);
+}
+[data-theme="gray"] [data-status=active] {
+  color: oklch(0.76 0.15 76);
+}
+/* Frosted glass panels — sheets & dialogs in the gray theme */
+[data-theme="gray"] [role="dialog"] {
+  background-color: oklch(0.19 0.008 255 / 0.88);
+  backdrop-filter: blur(28px) saturate(1.15);
+  -webkit-backdrop-filter: blur(28px) saturate(1.15);
+  border-color: oklch(0.62 0.13 74 / 0.20);
+  border-left-width: 2px;
+  border-left-color: oklch(0.62 0.13 74 / 0.55);
+  box-shadow: -1px 0 18px oklch(0.62 0.13 74 / 0.10);
+}
+
+/* ── Light theme ──────────────────────────────────────────────────────────────
+   Clean white — plain, high-contrast, fully accessible.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+  --background:          oklch(0.96 0.002 270);
+  --foreground:          oklch(0.12 0.005 270);
+  --card:                oklch(1    0     0  );
+  --card-foreground:     oklch(0.12 0.005 270);
+  --card-elevated:       oklch(0.94 0.003 270);
+  --popover:             oklch(1    0     0  );
+  --popover-foreground:  oklch(0.12 0.005 270);
+  --primary:             oklch(0.18 0.006 270);
+  --primary-foreground:  oklch(0.98 0     0  );
+  --secondary:           oklch(0.91 0.004 270);
+  --secondary-foreground:oklch(0.12 0.005 270);
+  --muted:               oklch(0.92 0.003 270);
+  --muted-foreground:    oklch(0.46 0.010 270);
+  --accent:              oklch(0.91 0.004 270);
+  --accent-foreground:   oklch(0.12 0.005 270);
+  --border:              oklch(0.86 0.004 270);
+  --border-strong:       oklch(0.76 0.006 270);
+  --input:               oklch(0.86 0.004 270);
+  --ring:                oklch(0.50 0.010 270);
+}
+
+/* ── Blue theme ───────────────────────────────────────────────────────────────
+   Midnight navy gradient: muted slate-blue at top → deep near-black navy at
+   bottom. Low chroma keeps it calm and readable rather than electric.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="blue"] {
+  --background:    oklch(0.24 0.11 256);
+  --foreground:    oklch(0.97 0    0  );
+  --card:          oklch(0.19 0.09 256);
+  --card-foreground:oklch(0.97 0   0  );
+  --card-elevated: oklch(0.23 0.10 256);
+  --popover:       oklch(0.19 0.09 256);
+  --popover-foreground:oklch(0.97 0   0 );
+  --primary:       oklch(0.97 0    0  );
+  --primary-foreground:oklch(0.18 0.10 256);
+  --secondary:     oklch(0.23 0.10 256);
+  --secondary-foreground:oklch(0.97 0  0 );
+  --muted:         oklch(0.21 0.09 256);
+  --muted-foreground:oklch(0.67 0.07 256);
+  --accent:        oklch(0.27 0.10 256);
+  --accent-foreground:oklch(0.97 0   0 );
+  --border:        oklch(0.30 0.10 256);
+  --border-strong: oklch(0.37 0.11 256);
+  --input:         oklch(0.30 0.10 256);
+  --ring:          oklch(0.57 0.09 256);
+}
+[data-theme="blue"] body {
+  background-image: linear-gradient(
+    180deg,
+    oklch(0.44 0.16 248) 0%,
+    oklch(0.27 0.12 256) 45%,
+    oklch(0.09 0.06 268) 100%
+  );
+  background-attachment: scroll;
+  min-height: 100dvh;
+}
+/* Let the gradient show through the app wrapper only — not Radix portal divs */
+[data-theme="blue"] [data-app-shell] {
+  background-color: transparent;
+}
+
+/* ── Black theme — gold sidebar bar ──────────────────────────────────────────
+   Warm gold line on the default dark background; active nav in gold.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="black"] aside {
+  border-right-width: 2px;
+  border-right-color: oklch(0.62 0.13 74 / 0.42);
+  box-shadow: 1px 0 14px oklch(0.62 0.13 74 / 0.07);
+}
+[data-theme="black"] [data-status=active] {
+  color: oklch(0.76 0.15 76);
+}
+[data-theme="black"] [role="dialog"] {
+  border-left-width: 2px;
+  border-left-color: oklch(0.62 0.13 74 / 0.42);
+  box-shadow: -1px 0 14px oklch(0.62 0.13 74 / 0.07);
+}
+
+/* ── Light theme — gold sidebar bar ──────────────────────────────────────────
+   Richer gold opacity to stay visible on a light background; active nav in
+   a darker amber so it contrasts against the near-white surface.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="light"] aside {
+  border-right-width: 2px;
+  border-right-color: oklch(0.65 0.15 74 / 0.52);
+  box-shadow: 1px 0 12px oklch(0.65 0.15 74 / 0.07);
+}
+[data-theme="light"] [data-status=active] {
+  color: oklch(0.50 0.17 72);
+}
+[data-theme="light"] [role="dialog"] {
+  border-left-width: 2px;
+  border-left-color: oklch(0.65 0.15 74 / 0.52);
+  box-shadow: -1px 0 12px oklch(0.65 0.15 74 / 0.07);
+}

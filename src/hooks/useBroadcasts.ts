@@ -1,18 +1,13 @@
-/**
- * useBroadcasts.ts
- * ================
- * Fetches broadcast updates for the current care circle, newest first.
- * Joins the author profile so the UI can display the poster's name.
- */
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { adaptBroadcast, type UIBroadcast, type DBBroadcastWithAuthor } from "@/lib/adapters";
 
 interface UseBroadcastsReturn {
-  broadcasts: UIBroadcast[];
-  isLoading:  boolean;
-  error:      string | null;
+  broadcasts:      UIBroadcast[];
+  isLoading:       boolean;
+  error:           string | null;
+  postBroadcast:   (userId: string, title: string, content: string, severity: UIBroadcast["severity"]) => Promise<{ error: string | null }>;
+  deleteBroadcast: (id: string) => Promise<void>;
 }
 
 export function useBroadcasts(
@@ -54,5 +49,31 @@ export function useBroadcasts(
     fetchBroadcasts();
   }, [fetchBroadcasts]);
 
-  return { broadcasts, isLoading, error };
+  const postBroadcast = useCallback(async (
+    userId: string,
+    title: string,
+    content: string,
+    severity: UIBroadcast["severity"],
+  ): Promise<{ error: string | null }> => {
+    if (!careCircleId) return { error: "No care circle" };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: sbError } = await (supabase.from("broadcast_updates") as any).insert({
+      care_circle_id: careCircleId,
+      author_id: userId,
+      title,
+      content,
+      severity,
+    });
+    if (!sbError) await fetchBroadcasts();
+    return { error: sbError?.message ?? null };
+  }, [careCircleId, fetchBroadcasts]);
+
+  const deleteBroadcast = useCallback(async (id: string): Promise<void> => {
+    setBroadcasts((prev) => prev.filter((b) => b.id !== id));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: sbError } = await (supabase.from("broadcast_updates") as any).delete().eq("id", id);
+    if (sbError) { setError(sbError.message); await fetchBroadcasts(); }
+  }, [fetchBroadcasts]);
+
+  return { broadcasts, isLoading, error, postBroadcast, deleteBroadcast };
 }

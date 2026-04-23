@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { BottomTabBar, SideNav } from "@/components/AppNav";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
+import { applyTheme, getStoredTheme } from "@/lib/theme";
 
 import appCss from "../styles.css?url";
 
@@ -113,6 +114,11 @@ function Disclaimer() {
 }
 
 function RootComponent() {
+  // Apply persisted theme as early as possible on client mount
+  useEffect(() => {
+    applyTheme(getStoredTheme());
+  }, []);
+
   const { user, isLoading: authLoading } = useAuth();
   const { careCircleId, isLoading: circleLoading } = useCareCircle(user?.id);
   const navigate    = useNavigate();
@@ -165,7 +171,7 @@ function RootComponent() {
 
   // Full authenticated app shell
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div data-app-shell className="flex min-h-screen bg-background text-foreground">
       <SideNav />
       <div className="flex min-h-screen flex-1 flex-col">
         <AppHeader />

@@ -1,18 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   ChevronLeft, ChevronRight,
-  Check, RotateCcw,
   Square, CheckSquare2,
   MapPin, CheckCircle2,
   Pill, Stethoscope, Car, Activity,
+  Plus, Trash2, Pencil, CalendarSearch, GripVertical,
 } from "lucide-react";
+import { toast } from "sonner";
 import { EventChip } from "@/components/EventChip";
 import { TaskChip } from "@/components/TaskChip";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useCalendarTasks } from "@/hooks/useCalendarTasks";
+import { can } from "@/lib/permissions";
 import type { UICalendarEvent, UITask, TaskKind } from "@/lib/adapters";
 import {
   Sheet,
@@ -20,7 +38,9 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetFooter,
 } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/calendar")({
@@ -33,7 +53,7 @@ export const Route = createFileRoute("/calendar")({
   component: CalendarView,
 });
 
-// ── Shared lookup maps ────────────────────────────────────────────────────────
+// ── Shared lookup maps ─────────────────────────────────────────────────────────
 
 const KIND_ICON: Record<TaskKind, React.ComponentType<{ className?: string }>> = {
   medication:  Pill,
@@ -70,7 +90,9 @@ const PRIORITY_TEXT: Record<UITask["priority"], string> = {
   low:      "text-muted-foreground",
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const INPUT = "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function startOfWeek(d: Date): Date {
   const date = new Date(d);
@@ -93,15 +115,22 @@ function fmtCompletedAt(iso: string): string {
   });
 }
 
-// ── Day-view card: Appointment ─────────────────────────────────────────────
-
-interface AppointmentCardProps {
-  event:        UICalendarEvent;
-  onComplete:   () => void;
-  onUnmark:     () => void;
+function isoToFormTime(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function AppointmentCard({ event: ev, onComplete, onUnmark }: AppointmentCardProps) {
+// ── Day-view card: Appointment ─────────────────────────────────────────────────
+
+interface AppointmentCardProps {
+  event:      UICalendarEvent;
+  onComplete: () => void;
+  onUnmark:   () => void;
+  onEdit?:    () => void;
+  onDelete?:  () => void;
+}
+
+function AppointmentCard({ event: ev, onComplete, onUnmark, onEdit, onDelete }: AppointmentCardProps) {
   const Icon = KIND_ICON[ev.kind];
   return (
     <div className={cn(
@@ -118,28 +147,53 @@ function AppointmentCard({ event: ev, onComplete, onUnmark }: AppointmentCardPro
               <p className="text-xs tabular-nums text-muted-foreground">{ev.time}</p>
               <p className="mt-0.5 truncate font-medium text-foreground">{ev.title}</p>
             </div>
-            {ev.isCompleted ? (
+            <div className="flex shrink-0 items-center gap-0.5">
+              {onEdit && (
+                <button
+                  onClick={onEdit}
+                  title="Edit appointment"
+                  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={onDelete}
+                  title="Delete appointment"
+                  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
               <button
-                onClick={onUnmark}
-                title="Mark as not done"
-                className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={ev.isCompleted ? onUnmark : onComplete}
+                title={ev.isCompleted ? "Mark as not done" : "Mark as complete"}
+                className={cn(
+                  "rounded-md p-1.5 transition-colors hover:bg-accent",
+                  ev.isCompleted
+                    ? "text-emerald-400 hover:text-muted-foreground"
+                    : "text-muted-foreground hover:text-emerald-400",
+                )}
               >
-                <RotateCcw className="h-4 w-4" />
+                {ev.isCompleted
+                  ? <CheckSquare2 className="h-4 w-4" />
+                  : <Square className="h-4 w-4" />
+                }
               </button>
-            ) : (
-              <button
-                onClick={onComplete}
-                title="Mark as complete"
-                className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-emerald-400"
-              >
-                <Check className="h-4 w-4" />
-              </button>
-            )}
+            </div>
           </div>
           {ev.location && (
-            <p className="mt-1.5 flex items-center gap-1 text-sm text-muted-foreground">
-              <MapPin className="h-3 w-3 shrink-0" />
-              {ev.location}
+            <p className="mt-1.5 flex items-center gap-1 text-[13px] text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <a
+                href={`https://maps.google.com/maps?q=${encodeURIComponent(ev.location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {ev.location}
+              </a>
             </p>
           )}
           {ev.description && (
@@ -158,14 +212,17 @@ function AppointmentCard({ event: ev, onComplete, onUnmark }: AppointmentCardPro
   );
 }
 
-// ── Day-view card: Task ───────────────────────────────────────────────────────
+// ── Day-view card: Task ────────────────────────────────────────────────────────
 
 interface TaskDayCardProps {
-  task:     UITask;
-  onToggle: () => void;
+  task:             UITask;
+  onToggle:         () => void;
+  onEdit?:          () => void;
+  onDelete?:        () => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
 }
 
-function TaskDayCard({ task: t, onToggle }: TaskDayCardProps) {
+function TaskDayCard({ task: t, onToggle, onEdit, onDelete, dragHandleProps }: TaskDayCardProps) {
   const Icon        = KIND_ICON[t.kind];
   const isCompleted = t.status === "completed";
   return (
@@ -184,21 +241,50 @@ function TaskDayCard({ task: t, onToggle }: TaskDayCardProps) {
               <p className="text-xs tabular-nums text-muted-foreground">{t.time}</p>
               <p className="mt-0.5 truncate font-medium text-foreground">{t.title}</p>
             </div>
-            <button
-              onClick={onToggle}
-              title={isCompleted ? "Mark as pending" : "Mark as complete"}
-              className={cn(
-                "shrink-0 rounded-md p-1.5 transition-colors hover:bg-accent",
-                isCompleted
-                  ? "text-emerald-400 hover:text-muted-foreground"
-                  : "text-muted-foreground hover:text-emerald-400",
+            <div className="flex shrink-0 items-center gap-0.5">
+              {dragHandleProps && (
+                <button
+                  {...dragHandleProps}
+                  title="Drag to reorder"
+                  className="cursor-grab rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
+                >
+                  <GripVertical className="h-4 w-4" />
+                </button>
               )}
-            >
-              {isCompleted
-                ? <CheckSquare2 className="h-4 w-4" />
-                : <Square className="h-4 w-4" />
-              }
-            </button>
+              {onEdit && (
+                <button
+                  onClick={onEdit}
+                  title="Edit task"
+                  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={onDelete}
+                  title="Delete task"
+                  className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+              <button
+                onClick={onToggle}
+                title={isCompleted ? "Mark as pending" : "Mark as complete"}
+                className={cn(
+                  "rounded-md p-1.5 transition-colors hover:bg-accent",
+                  isCompleted
+                    ? "text-emerald-400 hover:text-muted-foreground"
+                    : "text-muted-foreground hover:text-emerald-400",
+                )}
+              >
+                {isCompleted
+                  ? <CheckSquare2 className="h-4 w-4" />
+                  : <Square className="h-4 w-4" />
+                }
+              </button>
+            </div>
           </div>
           {t.detail && (
             <p className="mt-1.5 text-sm leading-relaxed text-foreground/70">{t.detail}</p>
@@ -212,11 +298,67 @@ function TaskDayCard({ task: t, onToggle }: TaskDayCardProps) {
   );
 }
 
-// ── Main view ─────────────────────────────────────────────────────────────────
+// ── Section header with optional add button ────────────────────────────────────
+
+function SectionHeader({ label, onAdd }: { label: string; onAdd?: () => void }) {
+  return (
+    <div className="mb-3 flex items-center justify-between">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      {onAdd && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground ring-1 ring-border transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <Plus className="h-3 w-3" />
+          Add
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ── Sortable wrapper for timeless tasks ───────────────────────────────────────
+
+function SortableTaskItem({
+  task, onToggle, onEdit, onDelete,
+}: {
+  task: UITask;
+  onToggle:  () => void;
+  onEdit?:   () => void;
+  onDelete?: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: task.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform:  CSS.Transform.toString(transform),
+        transition,
+        opacity:    isDragging ? 0.5 : 1,
+        touchAction: "none",
+      }}
+    >
+      <TaskDayCard
+        task={task}
+        onToggle={onToggle}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+    </div>
+  );
+}
+
+// ── Main view ──────────────────────────────────────────────────────────────────
 
 function CalendarView() {
-  const { user, profile } = useAuth();
-  const { careCircleId }  = useCareCircle(user?.id);
+  const { user, profile }      = useAuth();
+  const { careCircleId, role } = useCareCircle(user?.id);
 
   const today    = useMemo(() => new Date(), []);
   const todayKey = fmtDate(today);
@@ -225,16 +367,42 @@ function CalendarView() {
   const [referenceDate, setReferenceDate] = useState(new Date());
   const [selected, setSelected]           = useState<string | null>(null);
 
+  // ── Date-jump input ──────────────────────────────────────────────────────
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Appointment sheet state ──────────────────────────────────────────────
+  const [apptSheetOpen,  setApptSheetOpen]  = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [apptTitle,      setApptTitle]      = useState("");
+  const [apptDate,       setApptDate]       = useState("");
+  const [apptTime,       setApptTime]       = useState("09:00");
+  const [apptLocation,   setApptLocation]   = useState("");
+  const [apptNotes,      setApptNotes]      = useState("");
+
+  // ── Task sheet state ─────────────────────────────────────────────────────
+  const [taskSheetOpen,  setTaskSheetOpen]  = useState(false);
+  const [editingTaskId,  setEditingTaskId]  = useState<string | null>(null);
+  const [taskTitle,      setTaskTitle]      = useState("");
+  const [taskDate,       setTaskDate]       = useState("");
+  const [taskTime,       setTaskTime]       = useState("");
+  const [taskPriority,   setTaskPriority]   = useState<UITask["priority"]>("medium");
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const canManage = can(role, "manage_events");
+
+  // ── Drag-and-drop sensors (mouse + touch) ───────────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 150, tolerance: 5 } }),
+  );
+
   function navigate(dir: -1 | 1) {
     setReferenceDate((d) => {
       const next = new Date(d);
-      if (view === "day") {
-        next.setDate(next.getDate() + dir);
-      } else if (view === "week") {
-        next.setDate(next.getDate() + dir * 7);
-      } else {
-        next.setMonth(next.getMonth() + dir);
-      }
+      if (view === "day")        next.setDate(next.getDate() + dir);
+      else if (view === "week")  next.setDate(next.getDate() + dir * 7);
+      else                       next.setMonth(next.getMonth() + dir);
       return next;
     });
   }
@@ -300,10 +468,10 @@ function CalendarView() {
     return referenceDate.toLocaleDateString(undefined, { month: "long", year: "numeric" });
   }, [view, days, referenceDate, todayKey]);
 
-  const { events, isLoading: eventsLoading, markComplete, unmarkComplete } =
+  const { events, isLoading: eventsLoading, markComplete, unmarkComplete, addEvent, updateEvent, deleteEvent } =
     useCalendarEvents(careCircleId, rangeStartISO, rangeEndISO);
 
-  const { tasks, isLoading: tasksLoading, toggleTask } =
+  const { tasks, isLoading: tasksLoading, toggleTask, addCalendarTask, updateCalendarTask, deleteCalendarTask, reorderTasks } =
     useCalendarTasks(careCircleId, rangeStartISO, rangeEndISO);
 
   const isLoading = eventsLoading || tasksLoading;
@@ -322,7 +490,7 @@ function CalendarView() {
     const m: Record<string, UITask[]> = {};
     for (const t of tasks) {
       if (t.rawDueDate) {
-        const key = fmtDate(new Date(t.rawDueDate));
+        const key = t.rawDueDate.slice(0, 10);
         (m[key] ||= []).push(t);
       }
     }
@@ -341,10 +509,132 @@ function CalendarView() {
   const selectedEvents = selected ? (eventsByDate[selected] ?? []) : [];
   const selectedTasks  = selected ? (tasksByDate[selected]  ?? []) : [];
 
-  // For day view — data is already scoped to the single reference date
   const dayKey    = fmtDate(referenceDate);
   const dayEvents = view === "day" ? (eventsByDate[dayKey] ?? []) : [];
-  const dayTasks  = view === "day" ? (tasksByDate[dayKey]  ?? []) : [];
+
+  const allDayTasks    = view === "day" ? (tasksByDate[dayKey] ?? []) : [];
+  const timedDayTasks  = allDayTasks
+    .filter((t) => t.hasTime)
+    .sort((a, b) => (a.rawDueDate ?? "").localeCompare(b.rawDueDate ?? ""));
+  const untimedDayTasks = allDayTasks
+    .filter((t) => !t.hasTime)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+  // ── Sheet open helpers ──────────────────────────────────────────────────────
+
+  const openApptSheet = (forDate?: string) => {
+    setEditingEventId(null);
+    setApptTitle("");
+    setApptDate(forDate ?? fmtDate(referenceDate));
+    setApptTime("09:00");
+    setApptLocation("");
+    setApptNotes("");
+    setApptSheetOpen(true);
+  };
+
+  const openEditApptSheet = (ev: UICalendarEvent) => {
+    setEditingEventId(ev.id);
+    setApptTitle(ev.title);
+    setApptDate(ev.date);
+    setApptTime(isoToFormTime(ev.startISO));
+    setApptLocation(ev.location ?? "");
+    setApptNotes(ev.description ?? "");
+    setApptSheetOpen(true);
+  };
+
+  const openTaskSheet = (forDate?: string) => {
+    setEditingTaskId(null);
+    setTaskTitle("");
+    setTaskDate(forDate ?? fmtDate(referenceDate));
+    setTaskTime("");
+    setTaskPriority("medium");
+    setTaskSheetOpen(true);
+  };
+
+  const openEditTaskSheet = (task: UITask) => {
+    setEditingTaskId(task.id);
+    setTaskTitle(task.title);
+    setTaskDate(task.rawDueDate ? task.rawDueDate.slice(0, 10) : fmtDate(referenceDate));
+    setTaskTime(task.hasTime && task.rawDueDate ? isoToFormTime(task.rawDueDate) : "");
+    setTaskPriority(task.priority);
+    setTaskSheetOpen(true);
+  };
+
+  // ── Save handlers (add + edit unified) ─────────────────────────────────────
+
+  const handleSaveAppt = async () => {
+    if (!apptTitle.trim() || !apptDate) return;
+    setSubmitting(true);
+    const start = new Date(`${apptDate}T${apptTime}:00`);
+    const end   = new Date(start.getTime() + 60 * 60 * 1000);
+
+    if (editingEventId) {
+      const { error } = await updateEvent(
+        editingEventId,
+        apptTitle.trim(),
+        start.toISOString(),
+        end.toISOString(),
+        apptLocation || undefined,
+        apptNotes || undefined,
+      );
+      setSubmitting(false);
+      if (error) toast.error("Failed to update appointment", { description: error });
+      else { setApptSheetOpen(false); toast.success("Appointment updated"); }
+    } else {
+      const { error } = await addEvent(
+        apptTitle.trim(),
+        start.toISOString(),
+        end.toISOString(),
+        user?.id ?? "",
+        apptLocation || undefined,
+        apptNotes || undefined,
+      );
+      setSubmitting(false);
+      if (error) toast.error("Failed to add appointment", { description: error });
+      else { setApptSheetOpen(false); toast.success("Appointment added"); }
+    }
+  };
+
+  const handleSaveTask = async () => {
+    if (!taskTitle.trim() || !taskDate) return;
+    setSubmitting(true);
+
+    const dueDateValue = taskTime
+      ? new Date(`${taskDate}T${taskTime}:00`).toISOString()
+      : taskDate;
+
+    if (editingTaskId) {
+      const { error } = await updateCalendarTask(editingTaskId, taskTitle.trim(), dueDateValue, taskPriority);
+      setSubmitting(false);
+      if (error) toast.error("Failed to update task", { description: error });
+      else { setTaskSheetOpen(false); toast.success("Task updated"); }
+    } else {
+      const { error } = await addCalendarTask(taskTitle.trim(), dueDateValue, taskPriority, user?.id ?? "");
+      setSubmitting(false);
+      if (error) toast.error("Failed to add task", { description: error });
+      else { setTaskSheetOpen(false); toast.success("Task added"); }
+    }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    await deleteEvent(id);
+    toast.success("Appointment deleted");
+  };
+
+  const handleDeleteTask = async (id: string) => {
+    await deleteCalendarTask(id);
+    toast.success("Task deleted");
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = untimedDayTasks.findIndex((t) => t.id === active.id);
+    const newIndex = untimedDayTasks.findIndex((t) => t.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(untimedDayTasks, oldIndex, newIndex);
+    await reorderTasks(reordered.map((t) => t.id));
+  };
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6">
@@ -373,6 +663,28 @@ function CalendarView() {
             >
               <ChevronRight className="h-4 w-4" />
             </button>
+
+            {/* Hidden native date picker — triggered by the calendar icon button */}
+            <input
+              ref={dateInputRef}
+              type="date"
+              className="sr-only"
+              value={fmtDate(referenceDate)}
+              onChange={(e) => {
+                if (!e.target.value) return;
+                const d = new Date(e.target.value + "T00:00:00");
+                if (!isNaN(d.getTime())) setReferenceDate(d);
+              }}
+            />
+            <button
+              onClick={() => dateInputRef.current?.showPicker()}
+              title="Jump to date"
+              aria-label="Jump to date"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-card-elevated hover:text-foreground"
+            >
+              <CalendarSearch className="h-4 w-4" />
+            </button>
+
             {!isCurrentPeriod && (
               <button
                 onClick={() => setReferenceDate(new Date())}
@@ -403,10 +715,7 @@ function CalendarView() {
         </div>
       </header>
 
-      {/* ── Loading ── */}
-      {isLoading && (
-        <div className="h-64 animate-pulse rounded-xl bg-card" />
-      )}
+      {isLoading && <div className="h-64 animate-pulse rounded-xl bg-card" />}
 
       {/* ══════════════════════════════════════════════════════════════
           DAY VIEW
@@ -414,11 +723,11 @@ function CalendarView() {
       {!isLoading && view === "day" && (
         <div className="flex flex-col gap-8">
 
-          {/* Appointments */}
           <section>
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Appointments
-            </p>
+            <SectionHeader
+              label="Appointments"
+              onAdd={canManage ? () => openApptSheet() : undefined}
+            />
             {dayEvents.length === 0 ? (
               <p className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
                 No appointments scheduled.
@@ -431,30 +740,72 @@ function CalendarView() {
                     event={ev}
                     onComplete={() => user && markComplete(ev.id, user.id, displayName)}
                     onUnmark={() => unmarkComplete(ev.id)}
+                    onEdit={canManage ? () => openEditApptSheet(ev) : undefined}
+                    onDelete={canManage ? () => handleDeleteEvent(ev.id) : undefined}
                   />
                 ))}
               </div>
             )}
           </section>
 
-          {/* Tasks */}
           <section>
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Tasks
-            </p>
-            {dayTasks.length === 0 ? (
+            <SectionHeader
+              label="Tasks"
+              onAdd={canManage ? () => openTaskSheet() : undefined}
+            />
+            {allDayTasks.length === 0 ? (
               <p className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
                 No tasks scheduled.
               </p>
             ) : (
               <div className="flex flex-col gap-3">
-                {dayTasks.map((t) => (
+
+                {/* Timed tasks — fixed chronological order */}
+                {timedDayTasks.map((t) => (
                   <TaskDayCard
                     key={t.id}
                     task={t}
                     onToggle={() => toggleTask(t.id, t.status)}
+                    onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
+                    onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
                   />
                 ))}
+
+                {/* Divider between timed and untimed */}
+                {timedDayTasks.length > 0 && untimedDayTasks.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Unscheduled
+                    </span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+                )}
+
+                {/* Untimed tasks — drag-to-reorder */}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={untimedDayTasks.map((t) => t.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="flex flex-col gap-3">
+                      {untimedDayTasks.map((t) => (
+                        <SortableTaskItem
+                          key={t.id}
+                          task={t}
+                          onToggle={() => toggleTask(t.id, t.status)}
+                          onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
+                          onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+
               </div>
             )}
           </section>
@@ -467,7 +818,6 @@ function CalendarView() {
       ══════════════════════════════════════════════════════════════ */}
       {!isLoading && view !== "day" && (
         <>
-          {/* Legend */}
           <div className="mb-3 flex items-center gap-4 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-2.5 rounded-sm bg-card-elevated ring-1 ring-border" />
@@ -565,6 +915,27 @@ function CalendarView() {
                     .filter(Boolean)
                     .join(" · ")}
             </SheetDescription>
+            {/* Add buttons for the selected day */}
+            {canManage && selected && (
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => openApptSheet(selected)}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground ring-1 ring-border transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add Appointment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openTaskSheet(selected)}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground ring-1 ring-border transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add Task
+                </button>
+              </div>
+            )}
           </SheetHeader>
 
           <div className="mt-6 flex flex-col gap-6">
@@ -585,23 +956,39 @@ function CalendarView() {
                       <div className="flex flex-1 flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <div className="flex-1"><EventChip event={ev} /></div>
-                          {ev.isCompleted ? (
+                          {canManage && (
                             <button
-                              onClick={() => unmarkComplete(ev.id)}
-                              title="Mark as not done"
-                              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-card-elevated hover:text-foreground"
+                              onClick={() => openEditApptSheet(ev)}
+                              title="Edit"
+                              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                             >
-                              <RotateCcw className="h-3.5 w-3.5" />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => user && markComplete(ev.id, user.id, displayName)}
-                              title="Mark as complete"
-                              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-card-elevated hover:text-emerald-400"
-                            >
-                              <Check className="h-3.5 w-3.5" />
+                              <Pencil className="h-3.5 w-3.5" />
                             </button>
                           )}
+                          {canManage && (
+                            <button
+                              onClick={() => handleDeleteEvent(ev.id)}
+                              title="Delete"
+                              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => ev.isCompleted ? unmarkComplete(ev.id) : user && markComplete(ev.id, user.id, displayName)}
+                            title={ev.isCompleted ? "Mark as not done" : "Mark as complete"}
+                            className={cn(
+                              "rounded-md p-1 transition-colors hover:bg-card-elevated",
+                              ev.isCompleted
+                                ? "text-emerald-400 hover:text-muted-foreground"
+                                : "text-muted-foreground hover:text-emerald-400",
+                            )}
+                          >
+                            {ev.isCompleted
+                              ? <CheckSquare2 className="h-3.5 w-3.5" />
+                              : <Square className="h-3.5 w-3.5" />
+                            }
+                          </button>
                         </div>
                         {ev.isCompleted && ev.completedByName && (
                           <p className="pl-1 text-[11px] text-emerald-400">
@@ -610,7 +997,17 @@ function CalendarView() {
                           </p>
                         )}
                         {ev.location && (
-                          <p className="pl-1 text-[11px] text-muted-foreground">{ev.location}</p>
+                          <p className="pl-1 flex items-center gap-1 text-xs text-muted-foreground">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <a
+                              href={`https://maps.google.com/maps?q=${encodeURIComponent(ev.location)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline underline-offset-2 hover:text-foreground"
+                            >
+                              {ev.location}
+                            </a>
+                          </p>
                         )}
                       </div>
                     </div>
@@ -634,6 +1031,24 @@ function CalendarView() {
                       </span>
                       <div className="flex flex-1 items-center gap-2">
                         <div className="flex-1"><TaskChip task={t} /></div>
+                        {canManage && (
+                          <button
+                            onClick={() => openEditTaskSheet(t)}
+                            title="Edit"
+                            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {canManage && (
+                          <button
+                            onClick={() => handleDeleteTask(t.id)}
+                            title="Delete"
+                            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => toggleTask(t.id, t.status)}
                           title={t.status === "completed" ? "Mark as pending" : "Mark as complete"}
@@ -657,6 +1072,162 @@ function CalendarView() {
             </section>
 
           </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════════════
+          ADD / EDIT APPOINTMENT SHEET
+      ══════════════════════════════════════════════════════════════ */}
+      <Sheet
+        open={apptSheetOpen}
+        onOpenChange={(o) => { if (!o) { setApptSheetOpen(false); setEditingEventId(null); } }}
+      >
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{editingEventId ? "Edit Appointment" : "Add Appointment"}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Title</label>
+              <input
+                type="text"
+                value={apptTitle}
+                onChange={(e) => setApptTitle(e.target.value)}
+                placeholder="e.g. Cardiology follow-up"
+                className={INPUT}
+                autoFocus
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">Date</label>
+                <input
+                  type="date"
+                  value={apptDate}
+                  onChange={(e) => setApptDate(e.target.value)}
+                  className={INPUT}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">Time</label>
+                <input
+                  type="time"
+                  value={apptTime}
+                  onChange={(e) => setApptTime(e.target.value)}
+                  className={INPUT}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Location <span className="text-muted-foreground font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={apptLocation}
+                onChange={(e) => setApptLocation(e.target.value)}
+                placeholder="e.g. St. Mary's Hospital, Room 204"
+                className={INPUT}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Notes <span className="text-muted-foreground font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={apptNotes}
+                onChange={(e) => setApptNotes(e.target.value)}
+                placeholder="Any relevant details…"
+                rows={3}
+                className={`${INPUT} resize-none`}
+              />
+            </div>
+          </div>
+          <SheetFooter className="mt-6">
+            <Button variant="outline" onClick={() => { setApptSheetOpen(false); setEditingEventId(null); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveAppt}
+              disabled={!apptTitle.trim() || !apptDate || submitting}
+            >
+              {submitting ? "Saving…" : editingEventId ? "Save Changes" : "Add Appointment"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ══════════════════════════════════════════════════════════════
+          ADD / EDIT TASK SHEET
+      ══════════════════════════════════════════════════════════════ */}
+      <Sheet
+        open={taskSheetOpen}
+        onOpenChange={(o) => { if (!o) { setTaskSheetOpen(false); setEditingTaskId(null); } }}
+      >
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{editingTaskId ? "Edit Task" : "Add Task"}</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Title</label>
+              <input
+                type="text"
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveTask()}
+                placeholder="e.g. Check blood pressure"
+                className={INPUT}
+                autoFocus
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">Date</label>
+                <input
+                  type="date"
+                  value={taskDate}
+                  onChange={(e) => setTaskDate(e.target.value)}
+                  className={INPUT}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  Time <span className="text-muted-foreground font-normal">(optional)</span>
+                </label>
+                <input
+                  type="time"
+                  value={taskTime}
+                  onChange={(e) => setTaskTime(e.target.value)}
+                  className={INPUT}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Priority</label>
+              <select
+                value={taskPriority}
+                onChange={(e) => setTaskPriority(e.target.value as UITask["priority"])}
+                className={INPUT}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+          </div>
+          <SheetFooter className="mt-6">
+            <Button variant="outline" onClick={() => { setTaskSheetOpen(false); setEditingTaskId(null); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveTask}
+              disabled={!taskTitle.trim() || !taskDate || submitting}
+            >
+              {submitting ? "Saving…" : editingTaskId ? "Save Changes" : "Add Task"}
+            </Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
 

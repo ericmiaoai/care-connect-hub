@@ -1,4 +1,4 @@
-import { Pill, Stethoscope, Car, Activity } from "lucide-react";
+import { Pill, Stethoscope, Car, Activity, Trash2, GripVertical } from "lucide-react";
 import type { UITask, TaskKind } from "@/lib/adapters";
 import { cn } from "@/lib/utils";
 
@@ -9,7 +9,6 @@ const ICON: Record<TaskKind, React.ComponentType<{ className?: string }>> = {
   vitals:      Activity,
 };
 
-// Priority maps to a left-border accent color
 const PRIORITY_BORDER: Record<UITask["priority"], string> = {
   critical: "border-l-[var(--destructive)]",
   high:     "border-l-[var(--warning)]",
@@ -18,13 +17,15 @@ const PRIORITY_BORDER: Record<UITask["priority"], string> = {
 };
 
 interface TaskCardProps {
-  task:       UITask;
-  onComplete: (id: string) => void;
+  task:             UITask;
+  onComplete:       (id: string) => void;
+  onDelete?:        (id: string) => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
 }
 
-export function TaskCard({ task, onComplete }: TaskCardProps) {
-  const Icon         = ICON[task.kind];
-  const borderClass  = PRIORITY_BORDER[task.priority];
+export function TaskCard({ task, onComplete, onDelete, dragHandleProps }: TaskCardProps) {
+  const Icon        = ICON[task.kind];
+  const borderClass = PRIORITY_BORDER[task.priority];
 
   return (
     <div
@@ -51,15 +52,36 @@ export function TaskCard({ task, onComplete }: TaskCardProps) {
         </div>
       </div>
 
-      {/* Complete button */}
-      <button
-        type="button"
-        aria-label={`Complete ${task.title}`}
-        onClick={() => onComplete(task.id)}
-        className="touch-target group flex items-center justify-center pr-3"
-      >
-        <span className="grid h-7 w-7 place-items-center rounded-full border-2 border-border-strong transition-colors group-hover:border-[var(--success)] group-active:bg-[var(--success)]/20" />
-      </button>
+      {/* Actions */}
+      <div className="flex items-center gap-0.5 pr-2">
+        {dragHandleProps && (
+          <button
+            {...dragHandleProps}
+            title="Drag to reorder"
+            className="cursor-grab touch-target flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            aria-label={`Delete ${task.title}`}
+            onClick={() => onDelete(task.id)}
+            className="touch-target flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+        <button
+          type="button"
+          aria-label={`Complete ${task.title}`}
+          onClick={() => onComplete(task.id)}
+          className="touch-target group flex items-center justify-center pl-1"
+        >
+          <span className="grid h-7 w-7 place-items-center rounded-full border-2 border-border-strong transition-colors group-hover:border-[var(--success)] group-active:bg-[var(--success)]/20" />
+        </button>
+      </div>
     </div>
   );
 }

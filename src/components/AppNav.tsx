@@ -1,13 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { Calendar, MessageSquare, ScanLine, Sun, LogOut } from "lucide-react";
+import { Calendar, MessageSquare, ScanLine, Sun, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
 const NAV = [
-  { to: "/", label: "My Day", icon: Sun },
-  { to: "/calendar", label: "Calendar", icon: Calendar },
-  { to: "/updates", label: "Updates", icon: MessageSquare },
-  { to: "/scan", label: "Scan AVS", icon: ScanLine },
+  { to: "/",        label: "My Day",   icon: Sun         },
+  { to: "/calendar",label: "Calendar", icon: Calendar    },
+  { to: "/updates", label: "Updates",  icon: MessageSquare },
+  { to: "/scan",    label: "Scan AVS", icon: ScanLine    },
+  { to: "/settings",label: "Settings", icon: Settings    },
 ] as const;
 
 export function BottomTabBar() {
@@ -23,7 +24,7 @@ export function BottomTabBar() {
             <Link
               to={to}
               activeOptions={{ exact: to === "/" }}
-              className="touch-target flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] text-muted-foreground transition-colors data-[status=active]:text-foreground"
+              className="touch-target flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] text-muted-foreground transition-colors data-[status=active]:text-foreground"
             >
               <Icon className="h-5 w-5" />
               <span>{label}</span>
@@ -74,7 +75,7 @@ export function SideNav() {
         </ul>
       </nav>
 
-      {/* Spacer pushes user panel to bottom */}
+      {/* Spacer */}
       <div className="flex-1" />
 
       {/* User profile + Sign out */}

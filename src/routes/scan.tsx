@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   AlertTriangle, Check, X, CalendarDays, ClipboardList,
-  Stethoscope, CheckCircle2, ScanLine,
+  Stethoscope, CheckCircle2, ScanLine, Pencil, Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
@@ -30,6 +30,14 @@ interface ApprovalSummary {
   appointmentTitles: string[];
 }
 
+interface EditableAppt {
+  specialty_or_provider: string;
+  date_time:             string;
+  location:              string;
+}
+
+const INPUT_SM = "w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring";
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -43,11 +51,14 @@ function ScanAVS() {
   const { user }         = useAuth();
   const { careCircleId } = useCareCircle(user?.id);
 
-  const [phase,     setPhase]     = useState<Phase>("idle");
-  const [scanError, setScanError] = useState<string | null>(null);
-  const [contract,  setContract]  = useState<AVSContract | null>(null);
-  const [patientId, setPatientId] = useState<string | null>(null);
-  const [summary,   setSummary]   = useState<ApprovalSummary | null>(null);
+  const [phase,          setPhase]          = useState<Phase>("idle");
+  const [scanError,      setScanError]      = useState<string | null>(null);
+  const [contract,       setContract]       = useState<AVSContract | null>(null);
+  const [patientId,      setPatientId]      = useState<string | null>(null);
+  const [summary,        setSummary]        = useState<ApprovalSummary | null>(null);
+  const [editableAppts,  setEditableAppts]  = useState<EditableAppt[]>([]);
+  const [editingIndex,   setEditingIndex]   = useState<number | null>(null);
+  const [editDraft,      setEditDraft]      = useState<EditableAppt>({ specialty_or_provider: "", date_time: "", location: "" });
 
   useEffect(() => {
     if (!careCircleId) return;
@@ -71,6 +82,14 @@ function ScanAVS() {
       const mimeType = (file.type || "image/jpeg") as "image/jpeg" | "image/png" | "image/webp";
       const result   = await processAVSImage(base64, mimeType);
       setContract(result);
+      setEditableAppts(
+        result.upcoming_appointments.map((a) => ({
+          specialty_or_provider: a.specialty_or_provider,
+          date_time:             a.date_time,
+          location:              a.location ?? "",
+        })),
+      );
+      setEditingIndex(null);
       setPhase("review");
     } catch (err: unknown) {
       setScanError(
@@ -103,8 +122,8 @@ function ScanAVS() {
 
     const appointmentTitles: string[] = [];
 
-    if (careCircleId && user?.id && contract && contract.upcoming_appointments.length > 0) {
-      const eventsToInsert = contract.upcoming_appointments
+    if (careCircleId && user?.id && editableAppts.length > 0) {
+      const eventsToInsert = editableAppts
         .map((appt) => {
           const dateStr = appt.date_time.replace(/\s+at\s+/gi, " ").trim();
           const start   = new Date(dateStr);
@@ -115,7 +134,7 @@ function ScanAVS() {
             patient_id:     patientId ?? undefined,
             title:          appt.specialty_or_provider,
             description:    null as null,
-            location:       appt.location ?? null,
+            location:       appt.location || null,
             start_time:     start.toISOString(),
             end_time:       end.toISOString(),
             created_by:     user.id,
@@ -126,7 +145,7 @@ function ScanAVS() {
       if (eventsToInsert.length > 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (supabase.from("calendar_events") as any).insert(eventsToInsert);
-        contract.upcoming_appointments.forEach((appt) =>
+        editableAppts.forEach((appt) =>
           appointmentTitles.push(appt.specialty_or_provider),
         );
       }
@@ -148,6 +167,8 @@ function ScanAVS() {
     setContract(null);
     setScanError(null);
     setSummary(null);
+    setEditableAppts([]);
+    setEditingIndex(null);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -255,7 +276,7 @@ function ScanAVS() {
           </div>
 
           {/* Upcoming appointments — SAVED on approve */}
-          {contract.upcoming_appointments.length > 0 && (
+          {editableAppts.length > 0 && (
             <section className="mb-5">
               <div className="mb-2 flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
@@ -265,17 +286,78 @@ function ScanAVS() {
                 </span>
               </div>
               <div className="flex flex-col gap-2">
-                {contract.upcoming_appointments.map((appt, i) => (
-                  <div key={i} className="rounded-xl border border-border bg-card px-4 py-3">
-                    <p className="text-sm font-medium text-foreground">
-                      {appt.specialty_or_provider}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{appt.date_time}</p>
-                    {appt.location && (
-                      <p className="text-xs text-muted-foreground">{appt.location}</p>
-                    )}
-                  </div>
-                ))}
+                {editableAppts.map((appt, i) =>
+                  editingIndex === i ? (
+                    /* ── Edit mode ── */
+                    <div key={i} className="rounded-xl border border-ring bg-card px-4 py-3 flex flex-col gap-2">
+                      <input
+                        autoFocus
+                        className={INPUT_SM}
+                        placeholder="Provider / specialty"
+                        value={editDraft.specialty_or_provider}
+                        onChange={(e) => setEditDraft((d) => ({ ...d, specialty_or_provider: e.target.value }))}
+                      />
+                      <input
+                        className={INPUT_SM}
+                        placeholder="Date & time (e.g. May 15, 2026 at 10:00 AM)"
+                        value={editDraft.date_time}
+                        onChange={(e) => setEditDraft((d) => ({ ...d, date_time: e.target.value }))}
+                      />
+                      <input
+                        className={INPUT_SM}
+                        placeholder="Location (optional)"
+                        value={editDraft.location}
+                        onChange={(e) => setEditDraft((d) => ({ ...d, location: e.target.value }))}
+                      />
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingIndex(null)}
+                          className="rounded-md px-3 py-1 text-xs text-muted-foreground hover:bg-accent"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditableAppts((prev) =>
+                              prev.map((a, idx) => idx === i ? { ...editDraft } : a),
+                            );
+                            setEditingIndex(null);
+                          }}
+                          className="flex items-center gap-1 rounded-md bg-foreground px-3 py-1 text-xs font-medium text-background"
+                        >
+                          <Save className="h-3 w-3" />
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── Read mode ── */
+                    <div key={i} className="group rounded-xl border border-border bg-card px-4 py-3 flex items-start gap-3">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">
+                          {appt.specialty_or_provider}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{appt.date_time}</p>
+                        {appt.location && (
+                          <p className="text-xs text-muted-foreground">{appt.location}</p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Edit appointment"
+                        onClick={() => {
+                          setEditDraft({ ...appt });
+                          setEditingIndex(i);
+                        }}
+                        className="shrink-0 rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ),
+                )}
               </div>
             </section>
           )}

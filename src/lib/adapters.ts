@@ -15,7 +15,8 @@ export type TaskKind = "medication" | "appointment" | "transport" | "vitals";
 
 export interface UITask {
   id:           string;
-  time:         string;         // "08:00" extracted from due_date
+  time:         string;         // "08:00" extracted from due_date, or "—" when no time set
+  hasTime:      boolean;        // false when due_date was stored without a time component
   title:        string;
   detail:       string | null;
   kind:         TaskKind;
@@ -23,6 +24,7 @@ export interface UITask {
   priority:     DBTask["priority"];
   assigneeId:   string | null;  // UUID of assigned profile
   rawDueDate:   string | null;  // original ISO string for sorting
+  sortOrder:    number | null;  // display order for timeless tasks; null for timed tasks
 }
 
 /** Infer task kind from the title using keyword matching */
@@ -54,9 +56,12 @@ function toLocalDateKey(d: Date): string {
 }
 
 export function adaptTask(row: DBTask): UITask {
+  const d       = row.due_date ? new Date(row.due_date) : null;
+  const hasTime = d ? !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0) : false;
   return {
     id:          row.id,
-    time:        extractTime(row.due_date),
+    time:        hasTime ? extractTime(row.due_date) : "—",
+    hasTime,
     title:       row.title,
     detail:      row.notes ?? null,
     kind:        inferKind(row.title),
@@ -64,6 +69,7 @@ export function adaptTask(row: DBTask): UITask {
     priority:    row.priority,
     assigneeId:  row.assigned_to ?? null,
     rawDueDate:  row.due_date ?? null,
+    sortOrder:   row.sort_order ?? null,
   };
 }
 
@@ -74,6 +80,7 @@ export interface UICalendarEvent {
   id:              string;
   date:            string;         // "YYYY-MM-DD"
   time:            string;         // "HH:MM"
+  startISO:        string;         // full ISO start timestamp (for edit pre-fill)
   title:           string;
   description:     string | null;
   location:        string | null;
@@ -94,6 +101,7 @@ export function adaptCalendarEvent(row: DBCalendarEventWithCompleter): UICalenda
     id:              row.id,
     date:            toLocalDateKey(d),
     time:            d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
+    startISO:        row.start_time,
     title:           row.title,
     description:     row.description ?? null,
     location:        row.location ?? null,
