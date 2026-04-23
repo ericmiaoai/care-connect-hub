@@ -49,6 +49,15 @@ export function useBroadcasts(
     fetchBroadcasts();
   }, [fetchBroadcasts]);
 
+  useEffect(() => {
+    if (!careCircleId) return;
+    const channel = supabase
+      .channel(`broadcasts_rt_${careCircleId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "broadcast_updates", filter: `care_circle_id=eq.${careCircleId}` }, () => { fetchBroadcasts(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [careCircleId, fetchBroadcasts]);
+
   const postBroadcast = useCallback(async (
     userId: string,
     title: string,

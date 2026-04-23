@@ -58,6 +58,15 @@ export function useCalendarEvents(
     fetchEvents();
   }, [fetchEvents]);
 
+  useEffect(() => {
+    if (!careCircleId) return;
+    const channel = supabase
+      .channel(`cal_events_rt_${careCircleId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events", filter: `care_circle_id=eq.${careCircleId}` }, () => { fetchEvents(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [careCircleId, fetchEvents]);
+
   const markComplete = useCallback(
     async (eventId: string, userId: string, displayName: string) => {
       const completedAt = new Date().toISOString();

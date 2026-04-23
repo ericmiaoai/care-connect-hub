@@ -60,6 +60,15 @@ export function useCalendarTasks(
     fetchTasks();
   }, [fetchTasks]);
 
+  useEffect(() => {
+    if (!careCircleId) return;
+    const channel = supabase
+      .channel(`cal_tasks_rt_${careCircleId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `care_circle_id=eq.${careCircleId}` }, () => { fetchTasks(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [careCircleId, fetchTasks]);
+
   const toggleTask = useCallback(
     async (id: string, currentStatus: UITask["status"]) => {
       const completing  = currentStatus !== "completed";

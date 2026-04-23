@@ -23,6 +23,7 @@ import { TaskCard } from "@/components/TaskCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useTasks } from "@/hooks/useTasks";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { can } from "@/lib/permissions";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
@@ -88,6 +89,7 @@ function MyDay() {
   const { user }               = useAuth();
   const { careCircleId, role } = useCareCircle(user?.id);
   const { tasks, isLoading, completeTask, restoreTask, addTask, deleteTask, reorderTasks } = useTasks(careCircleId);
+  const isOnline = useOnlineStatus();
 
   const [sheetOpen,    setSheetOpen]    = useState(false);
   const [formTitle,    setFormTitle]    = useState("");
@@ -110,6 +112,7 @@ function MyDay() {
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    if (!isOnline) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const oldIndex = untimedTasks.findIndex((t) => t.id === active.id);
@@ -120,6 +123,7 @@ function MyDay() {
   };
 
   const handleComplete = async (id: string) => {
+    if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
     await completeTask(id);
@@ -131,6 +135,7 @@ function MyDay() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     const task = tasks.find((t) => t.id === id);
     await deleteTask(id);
     if (task) toast.success(`"${task.title}" deleted`);
@@ -144,6 +149,7 @@ function MyDay() {
   };
 
   const handleAdd = async () => {
+    if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     if (!formTitle.trim()) return;
     setSubmitting(true);
     const { error } = await addTask(formTitle.trim(), formDate, formPriority, user?.id ?? "");
@@ -176,7 +182,8 @@ function MyDay() {
           <button
             type="button"
             onClick={openSheet}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground ring-1 ring-border transition-colors hover:bg-accent"
+            disabled={!isOnline}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground ring-1 ring-border transition-colors hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" />
             Add Task

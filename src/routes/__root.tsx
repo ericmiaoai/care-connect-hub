@@ -1,17 +1,19 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { useEffect } from "react";
+import { WifiOff } from "lucide-react";
 import { BottomTabBar, SideNav } from "@/components/AppNav";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { applyTheme, getStoredTheme } from "@/lib/theme";
 
 import appCss from "../styles.css?url";
 
 // Routes that bypass the auth guard (no login required)
-const PUBLIC_ROUTES = ["/login", "/register"];
+const PUBLIC_ROUTES = ["/login", "/register", "/join"];
 // Routes that require auth but NOT a care circle yet
-const SHELL_FREE_ROUTES = ["/login", "/register", "/onboarding"];
+const SHELL_FREE_ROUTES = ["/login", "/register", "/onboarding", "/join"];
 
 function NotFoundComponent() {
   return (
@@ -113,6 +115,17 @@ function Disclaimer() {
   );
 }
 
+function OfflineBanner() {
+  const isOnline = useOnlineStatus();
+  if (isOnline) return null;
+  return (
+    <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400">
+      <WifiOff className="h-4 w-4 shrink-0" />
+      <span>You're offline — changes are paused until connectivity is restored.</span>
+    </div>
+  );
+}
+
 function RootComponent() {
   // Apply persisted theme as early as possible on client mount
   useEffect(() => {
@@ -175,6 +188,7 @@ function RootComponent() {
       <SideNav />
       <div className="flex min-h-screen flex-1 flex-col">
         <AppHeader />
+        <OfflineBanner />
         <main className="flex-1 pb-24 md:pb-12">
           <Outlet />
         </main>

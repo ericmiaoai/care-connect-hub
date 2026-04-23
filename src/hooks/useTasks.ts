@@ -49,6 +49,15 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
     fetchTasks();
   }, [fetchTasks]);
 
+  useEffect(() => {
+    if (!careCircleId) return;
+    const channel = supabase
+      .channel(`tasks_rt_${careCircleId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `care_circle_id=eq.${careCircleId}` }, () => { fetchTasks(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [careCircleId, fetchTasks]);
+
   const completeTask = useCallback(async (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

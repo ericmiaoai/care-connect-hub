@@ -30,6 +30,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useCalendarTasks } from "@/hooks/useCalendarTasks";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { can } from "@/lib/permissions";
 import type { UICalendarEvent, UITask, TaskKind } from "@/lib/adapters";
 import {
@@ -390,6 +391,7 @@ function CalendarView() {
   const [submitting, setSubmitting] = useState(false);
 
   const canManage = can(role, "manage_events");
+  const isOnline  = useOnlineStatus();
 
   // ── Drag-and-drop sensors (mouse + touch) ───────────────────────────────
   const sensors = useSensors(
@@ -563,6 +565,7 @@ function CalendarView() {
   // ── Save handlers (add + edit unified) ─────────────────────────────────────
 
   const handleSaveAppt = async () => {
+    if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     if (!apptTitle.trim() || !apptDate) return;
     setSubmitting(true);
     const start = new Date(`${apptDate}T${apptTime}:00`);
@@ -596,6 +599,7 @@ function CalendarView() {
   };
 
   const handleSaveTask = async () => {
+    if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     if (!taskTitle.trim() || !taskDate) return;
     setSubmitting(true);
 
@@ -617,16 +621,19 @@ function CalendarView() {
   };
 
   const handleDeleteEvent = async (id: string) => {
+    if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     await deleteEvent(id);
     toast.success("Appointment deleted");
   };
 
   const handleDeleteTask = async (id: string) => {
+    if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     await deleteCalendarTask(id);
     toast.success("Task deleted");
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    if (!isOnline) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const oldIndex = untimedDayTasks.findIndex((t) => t.id === active.id);
@@ -726,7 +733,7 @@ function CalendarView() {
           <section>
             <SectionHeader
               label="Appointments"
-              onAdd={canManage ? () => openApptSheet() : undefined}
+              onAdd={canManage && isOnline ? () => openApptSheet() : undefined}
             />
             {dayEvents.length === 0 ? (
               <p className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
@@ -751,7 +758,7 @@ function CalendarView() {
           <section>
             <SectionHeader
               label="Tasks"
-              onAdd={canManage ? () => openTaskSheet() : undefined}
+              onAdd={canManage && isOnline ? () => openTaskSheet() : undefined}
             />
             {allDayTasks.length === 0 ? (
               <p className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
