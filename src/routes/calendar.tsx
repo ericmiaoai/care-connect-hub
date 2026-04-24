@@ -803,7 +803,7 @@ function CalendarView() {
                   <div className="flex items-center gap-2">
                     <div className="h-px flex-1 bg-border" />
                     <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
-                      Unscheduled
+                      No Time Set
                     </span>
                     <div className="h-px flex-1 bg-border" />
                   </div>
