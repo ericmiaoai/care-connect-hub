@@ -304,7 +304,7 @@ function TaskDayCard({ task: t, onToggle, onEdit, onDelete, dragHandleProps }: T
 function SectionHeader({ label, onAdd }: { label: string; onAdd?: () => void }) {
   return (
     <div className="mb-3 flex items-center justify-between">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <p className="text-sm font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
         {label}
       </p>
       {onAdd && (
@@ -491,10 +491,8 @@ function CalendarView() {
   const tasksByDate = useMemo(() => {
     const m: Record<string, UITask[]> = {};
     for (const t of tasks) {
-      if (t.rawDueDate) {
-        const key = t.rawDueDate.slice(0, 10);
-        (m[key] ||= []).push(t);
-      }
+      const key = t.localDateKey;
+      if (key) (m[key] ||= []).push(t);
     }
     return m;
   }, [tasks]);
@@ -556,7 +554,7 @@ function CalendarView() {
   const openEditTaskSheet = (task: UITask) => {
     setEditingTaskId(task.id);
     setTaskTitle(task.title);
-    setTaskDate(task.rawDueDate ? task.rawDueDate.slice(0, 10) : fmtDate(referenceDate));
+    setTaskDate(task.localDateKey ?? fmtDate(referenceDate));
     setTaskTime(task.hasTime && task.rawDueDate ? isoToFormTime(task.rawDueDate) : "");
     setTaskPriority(task.priority);
     setTaskSheetOpen(true);
@@ -782,7 +780,7 @@ function CalendarView() {
                 {timedDayTasks.length > 0 && untimedDayTasks.length > 0 && (
                   <div className="flex items-center gap-2">
                     <div className="h-px flex-1 bg-border" />
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
                       Unscheduled
                     </span>
                     <div className="h-px flex-1 bg-border" />

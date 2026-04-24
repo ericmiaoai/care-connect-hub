@@ -8,7 +8,7 @@ interface UseTasksReturn {
   error:        string | null;
   completeTask: (id: string) => Promise<void>;
   restoreTask:  (id: string) => Promise<void>;
-  addTask:      (title: string, dueDate: string, priority: UITask["priority"], createdBy: string) => Promise<{ error: string | null }>;
+  addTask:      (title: string, dueDate: string | null, priority: UITask["priority"], createdBy: string) => Promise<{ error: string | null }>;
   deleteTask:   (id: string) => Promise<void>;
   reorderTasks: (orderedIds: string[]) => Promise<void>;
 }
@@ -77,7 +77,7 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
 
   const addTask = useCallback(async (
     title: string,
-    dueDate: string,
+    dueDate: string | null,
     priority: UITask["priority"],
     createdBy: string,
   ): Promise<{ error: string | null }> => {

@@ -3,6 +3,7 @@ import { Calendar, MessageSquare, ScanLine, Sun, Settings, LogOut } from "lucide
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
+// All tabs — used by the mobile bottom bar
 const NAV = [
   { to: "/",        label: "My Day",   icon: Sun         },
   { to: "/calendar",label: "Calendar", icon: Calendar    },
@@ -10,6 +11,9 @@ const NAV = [
   { to: "/scan",    label: "Scan AVS", icon: ScanLine    },
   { to: "/settings",label: "Settings", icon: Settings    },
 ] as const;
+
+// Primary nav links shown in the desktop sidebar (Settings is placed separately at the bottom)
+const MAIN_NAV = NAV.filter((n) => n.to !== "/settings");
 
 export function BottomTabBar() {
   return (
@@ -56,7 +60,7 @@ export function SideNav() {
       {/* Navigation links */}
       <nav aria-label="Primary">
         <ul className="flex flex-col gap-0.5">
-          {NAV.map(({ to, label, icon: Icon }) => (
+          {MAIN_NAV.map(({ to, label, icon: Icon }) => (
             <li key={to}>
               <Link
                 to={to}
@@ -78,8 +82,22 @@ export function SideNav() {
       {/* Spacer */}
       <div className="flex-1" />
 
+      {/* Settings — sits just above the separator line */}
+      <Link
+        to="/settings"
+        activeOptions={{ exact: true }}
+        className={cn(
+          "touch-target flex items-center gap-3 rounded-lg px-3 text-sm text-muted-foreground transition-colors",
+          "hover:bg-accent hover:text-foreground",
+          "data-[status=active]:bg-accent data-[status=active]:text-foreground",
+        )}
+      >
+        <Settings className="h-4 w-4" />
+        <span>Settings</span>
+      </Link>
+
       {/* User profile + Sign out */}
-      <div className="border-t border-border pt-3">
+      <div className="border-t border-border pt-3 mt-2">
         <div className="mb-1 flex items-center gap-2.5 rounded-lg px-2 py-2">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-foreground">
             {initials}

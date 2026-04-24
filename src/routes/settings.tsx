@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import {
-  Check, ChevronRight, Palette, Users, LogOut, Share2, Trash2,
+  Check, ChevronRight, Palette, Users, LogOut, Share2, Trash2, KeyRound, Eye, EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useMembers } from "@/hooks/useMembers";
+import { supabase } from "@/lib/supabaseClient";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
@@ -133,7 +134,7 @@ function SettingsRow({
           <span className="mt-0.5 text-xs text-muted-foreground">{subtitle}</span>
         )}
       </div>
-      {!destructive && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" />}
+      {!destructive && <ChevronRight className="h-4 w-4 shrink-0" style={{ color: "oklch(0.62 0.13 74)" }} />}
     </button>
   );
 }
@@ -147,7 +148,7 @@ function SettingsPage() {
   const { careCircleId, careCircleName, role } = useCareCircle(user?.id);
   const {
     members, pendingInvites, isLoading: membersLoading,
-    generateInvite, revokeInvite, removeMember,
+    generateInvite, revokeInvite, removeMember, updateMemberRole,
   } = useMembers(careCircleId);
 
   const isAdmin = role === "admin";
@@ -156,6 +157,22 @@ function SettingsPage() {
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [membersOpen,    setMembersOpen]    = useState(false);
   const [inviteOpen,     setInviteOpen]     = useState(false);
+  const [passwordOpen,   setPasswordOpen]   = useState(false);
+
+  // Password change state
+  const [currentPwd,     setCurrentPwd]     = useState("");
+  const [newPwd,         setNewPwd]         = useState("");
+  const [confirmPwd,     setConfirmPwd]     = useState("");
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd,     setShowNewPwd]     = useState(false);
+  const [passwordBusy,   setPasswordBusy]   = useState(false);
+
+  const pwdChecks = {
+    length:    newPwd.length >= 8,
+    uppercase: /[A-Z]/.test(newPwd),
+    number:    /[0-9]/.test(newPwd),
+  };
+  const pwdValid = Object.values(pwdChecks).every(Boolean) && newPwd === confirmPwd && currentPwd.length > 0;
 
   // Invite form state
   const [inviteRole,    setInviteRole]    = useState("collaborator");
@@ -220,19 +237,43 @@ function SettingsPage() {
     setInviteRole("collaborator");
   };
 
+  const handleChangePassword = async () => {
+    if (!pwdValid || !user?.email) return;
+    setPasswordBusy(true);
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: user.email, password: currentPwd,
+    });
+    if (authError) {
+      toast.error("Current password is incorrect");
+      setPasswordBusy(false);
+      return;
+    }
+    const { error: updateError } = await supabase.auth.updateUser({ password: newPwd });
+    setPasswordBusy(false);
+    if (updateError) {
+      toast.error("Failed to update password", { description: updateError.message });
+    } else {
+      toast.success("Password updated");
+      setPasswordOpen(false);
+      setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
+    }
+  };
+
+  const handleUpdateRole = async (memberId: string, newRole: string) => {
+    const { error } = await updateMemberRole(memberId, newRole);
+    if (error) toast.error("Failed to update role", { description: error });
+  };
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6">
 
       {/* Page header */}
       <header className="mb-6">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Preferences
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
       </header>
 
-      {/* Profile card */}
-      <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-4">
+      {/* Profile card — frosted glass */}
+      <div className="mb-10 flex items-center gap-3 rounded-xl border border-white/10 bg-card/85 px-4 py-4 backdrop-blur-xl">
         <div className={cn(
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white",
           avatarColor(fullName),
@@ -245,24 +286,24 @@ function SettingsPage() {
         </div>
       </div>
 
-      {/* Account section */}
-      <div className="mb-4 overflow-hidden rounded-xl border border-border bg-card">
-        <p className="border-b border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Account
-        </p>
+      {/* Care Circle section — floating label */}
+      <p className="mb-1.5 px-1 text-sm font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
+        Care Circle
+      </p>
+      <div className="mb-6 overflow-hidden rounded-xl border border-border bg-card">
         <SettingsRow
-          icon={<LogOut className="h-4 w-4" />}
-          label="Sign Out"
-          onClick={signOut}
-          destructive
+          icon={<Users className="h-4 w-4" />}
+          label={careCircleName ?? "Members"}
+          subtitle={membersLoading ? "Loading…" : `${members.length} member${members.length === 1 ? "" : "s"}`}
+          onClick={() => setMembersOpen(true)}
         />
       </div>
 
-      {/* Preferences section */}
-      <div className="mb-4 overflow-hidden rounded-xl border border-border bg-card">
-        <p className="border-b border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Preferences
-        </p>
+      {/* Preferences section — floating label */}
+      <p className="mb-1.5 px-1 text-sm font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
+        Preferences
+      </p>
+      <div className="mb-6 overflow-hidden rounded-xl border border-border bg-card">
         <SettingsRow
           icon={<Palette className="h-4 w-4" />}
           label="Appearance"
@@ -271,16 +312,21 @@ function SettingsPage() {
         />
       </div>
 
-      {/* Care Circle section */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <p className="border-b border-border px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Care Circle
-        </p>
+      {/* Account section — floating label */}
+      <p className="mb-1.5 px-1 text-sm font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
+        Account
+      </p>
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-card/85 backdrop-blur-xl">
         <SettingsRow
-          icon={<Users className="h-4 w-4" />}
-          label={careCircleName ?? "Members"}
-          subtitle={membersLoading ? "Loading…" : `${members.length} member${members.length === 1 ? "" : "s"}`}
-          onClick={() => setMembersOpen(true)}
+          icon={<KeyRound className="h-4 w-4" />}
+          label="Change Password"
+          onClick={() => setPasswordOpen(true)}
+        />
+        <SettingsRow
+          icon={<LogOut className="h-4 w-4" />}
+          label="Sign Out"
+          onClick={signOut}
+          destructive
         />
       </div>
 
@@ -352,7 +398,19 @@ function SettingsPage() {
                           <p className="truncate text-sm font-medium text-foreground">
                             {name}{isSelf && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
                           </p>
-                          <p className="text-xs text-muted-foreground">{ROLE_LABEL[m.role] ?? m.role}</p>
+                          {isAdmin && !isSelf ? (
+                            <select
+                              value={m.role}
+                              onChange={(e) => handleUpdateRole(m.id, e.target.value)}
+                              className="mt-0.5 rounded-md border border-border bg-transparent px-1.5 py-0.5 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                            >
+                              <option value="admin">Admin</option>
+                              <option value="collaborator">Caregiver</option>
+                              <option value="viewer">Viewer</option>
+                            </select>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">{ROLE_LABEL[m.role] ?? m.role}</p>
+                          )}
                         </div>
                         {isAdmin && !isSelf && (
                           <button
@@ -511,6 +569,102 @@ function SettingsPage() {
               </Button>
             </div>
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Change Password sheet ── */}
+      <Sheet open={passwordOpen} onOpenChange={(o) => {
+        if (!o) { setCurrentPwd(""); setNewPwd(""); setConfirmPwd(""); setShowCurrentPwd(false); setShowNewPwd(false); }
+        setPasswordOpen(o);
+      }}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Change Password</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 flex flex-col gap-4">
+            {/* Current password */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Current Password</label>
+              <div className="relative">
+                <input
+                  type={showCurrentPwd ? "text" : "password"}
+                  value={currentPwd}
+                  onChange={(e) => setCurrentPwd(e.target.value)}
+                  placeholder="Enter current password"
+                  className={`${INVITE_INPUT} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPwd((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                >
+                  {showCurrentPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* New password */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">New Password</label>
+              <div className="relative">
+                <input
+                  type={showNewPwd ? "text" : "password"}
+                  value={newPwd}
+                  onChange={(e) => setNewPwd(e.target.value)}
+                  placeholder="Enter new password"
+                  className={`${INVITE_INPUT} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPwd((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                >
+                  {showNewPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {/* Live complexity feedback */}
+              {newPwd.length > 0 && (
+                <ul className="mt-1 flex flex-col gap-1">
+                  {([
+                    [pwdChecks.length,    "At least 8 characters"],
+                    [pwdChecks.uppercase, "At least one uppercase letter"],
+                    [pwdChecks.number,    "At least one number"],
+                  ] as [boolean, string][]).map(([ok, label]) => (
+                    <li key={label} className={cn("flex items-center gap-1.5 text-xs", ok ? "text-green-500" : "text-muted-foreground")}>
+                      <Check className={cn("h-3 w-3", !ok && "opacity-0")} />
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Confirm password */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Confirm New Password</label>
+              <input
+                type="password"
+                value={confirmPwd}
+                onChange={(e) => setConfirmPwd(e.target.value)}
+                placeholder="Re-enter new password"
+                className={INVITE_INPUT}
+              />
+              {confirmPwd.length > 0 && newPwd !== confirmPwd && (
+                <p className="text-xs text-destructive">Passwords do not match</p>
+              )}
+            </div>
+
+            <Button
+              className="w-full"
+              onClick={handleChangePassword}
+              disabled={!pwdValid || passwordBusy}
+            >
+              {passwordBusy ? "Updating…" : "Update Password"}
+            </Button>
+            <Button variant="outline" className="w-full" onClick={() => setPasswordOpen(false)}>
+              Cancel
+            </Button>
+          </div>
         </SheetContent>
       </Sheet>
 

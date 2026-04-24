@@ -184,17 +184,20 @@ function RootComponent() {
 
   // Full authenticated app shell
   return (
-    <div data-app-shell className="flex min-h-screen bg-background text-foreground">
+    <div data-app-shell className="flex min-h-screen bg-background text-foreground md:h-screen md:overflow-hidden">
       <SideNav />
-      <div className="flex min-h-screen flex-1 flex-col">
+      {/* Right column: on desktop, constrained to screen height so only this pane scrolls */}
+      <div className="flex flex-1 flex-col md:min-h-0">
         <AppHeader />
         <OfflineBanner />
-        <main className="flex-1 pb-24 md:pb-12">
-          <Outlet />
-        </main>
-        <footer className="border-t border-border md:border-t">
-          <Disclaimer />
-        </footer>
+        <div className="flex-1 overflow-y-auto">
+          <main className="pb-24 md:pb-12">
+            <Outlet />
+          </main>
+          <footer className="border-t border-border">
+            <Disclaimer />
+          </footer>
+        </div>
       </div>
       <BottomTabBar />
       <Toaster

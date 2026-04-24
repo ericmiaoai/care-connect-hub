@@ -14,17 +14,18 @@ import type { Task as DBTask, CalendarEvent as DBEvent, BroadcastUpdate as DBUpd
 export type TaskKind = "medication" | "appointment" | "transport" | "vitals";
 
 export interface UITask {
-  id:           string;
-  time:         string;         // "08:00" extracted from due_date, or "—" when no time set
-  hasTime:      boolean;        // false when due_date was stored without a time component
-  title:        string;
-  detail:       string | null;
-  kind:         TaskKind;
-  status:       DBTask["status"];
-  priority:     DBTask["priority"];
-  assigneeId:   string | null;  // UUID of assigned profile
-  rawDueDate:   string | null;  // original ISO string for sorting
-  sortOrder:    number | null;  // display order for timeless tasks; null for timed tasks
+  id:            string;
+  time:          string;         // "08:00" extracted from due_date, or "—" when no time set
+  hasTime:       boolean;        // false when due_date was stored without a time component
+  title:         string;
+  detail:        string | null;
+  kind:          TaskKind;
+  status:        DBTask["status"];
+  priority:      DBTask["priority"];
+  assigneeId:    string | null;  // UUID of assigned profile
+  rawDueDate:    string | null;  // original ISO string for sorting
+  localDateKey:  string | null;  // YYYY-MM-DD in the user's local timezone — use this for grouping/display
+  sortOrder:     number | null;  // display order for timeless tasks; null for timed tasks
 }
 
 /** Infer task kind from the title using keyword matching */
@@ -58,18 +59,24 @@ function toLocalDateKey(d: Date): string {
 export function adaptTask(row: DBTask): UITask {
   const d       = row.due_date ? new Date(row.due_date) : null;
   const hasTime = d ? !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0) : false;
+  // Date-only tasks are stored as UTC midnight — the UTC date IS the intended date.
+  // Timed tasks must use local getters because the UTC date may differ from the local date.
+  const localDateKey = d
+    ? (hasTime ? toLocalDateKey(d) : (row.due_date!.slice(0, 10)))
+    : null;
   return {
-    id:          row.id,
-    time:        hasTime ? extractTime(row.due_date) : "—",
+    id:           row.id,
+    time:         hasTime ? extractTime(row.due_date) : "—",
     hasTime,
-    title:       row.title,
-    detail:      row.notes ?? null,
-    kind:        inferKind(row.title),
-    status:      row.status,
-    priority:    row.priority,
-    assigneeId:  row.assigned_to ?? null,
-    rawDueDate:  row.due_date ?? null,
-    sortOrder:   row.sort_order ?? null,
+    title:        row.title,
+    detail:       row.notes ?? null,
+    kind:         inferKind(row.title),
+    status:       row.status,
+    priority:     row.priority,
+    assigneeId:   row.assigned_to ?? null,
+    rawDueDate:   row.due_date ?? null,
+    localDateKey,
+    sortOrder:    row.sort_order ?? null,
   };
 }
 

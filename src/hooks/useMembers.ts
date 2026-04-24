@@ -20,14 +20,15 @@ export interface PendingInvite {
 }
 
 interface UseMembersReturn {
-  members:        Member[];
-  pendingInvites: PendingInvite[];
-  isLoading:      boolean;
-  error:          string | null;
-  generateInvite: (role: string, pin: string) => Promise<{ token: string | null; error: string | null }>;
-  revokeInvite:   (token: string) => Promise<{ error: string | null }>;
-  removeMember:   (memberId: string) => Promise<{ error: string | null }>;
-  refetch:        () => void;
+  members:          Member[];
+  pendingInvites:   PendingInvite[];
+  isLoading:        boolean;
+  error:            string | null;
+  generateInvite:   (role: string, pin: string) => Promise<{ token: string | null; error: string | null }>;
+  revokeInvite:     (token: string) => Promise<{ error: string | null }>;
+  removeMember:     (memberId: string) => Promise<{ error: string | null }>;
+  updateMemberRole: (memberId: string, newRole: string) => Promise<{ error: string | null }>;
+  refetch:          () => void;
 }
 
 export function useMembers(careCircleId: string | null | undefined): UseMembersReturn {
@@ -128,8 +129,18 @@ export function useMembers(careCircleId: string | null | undefined): UseMembersR
     return { error: sbError?.message ?? null };
   }, [fetchAll]);
 
+  const updateMemberRole = useCallback(async (memberId: string, newRole: string): Promise<{ error: string | null }> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: sbError } = await (supabase as any)
+      .from("care_circle_members")
+      .update({ role: newRole })
+      .eq("id", memberId);
+    if (!sbError) await fetchAll();
+    return { error: sbError?.message ?? null };
+  }, [fetchAll]);
+
   return {
     members, pendingInvites, isLoading, error,
-    generateInvite, revokeInvite, removeMember, refetch: fetchAll,
+    generateInvite, revokeInvite, removeMember, updateMemberRole, refetch: fetchAll,
   };
 }
