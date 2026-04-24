@@ -7,8 +7,8 @@ interface UseCalendarTasksReturn {
   isLoading:           boolean;
   error:               string | null;
   toggleTask:          (id: string, currentStatus: UITask["status"]) => Promise<void>;
-  addCalendarTask:     (title: string, dueDate: string, priority: UITask["priority"], createdBy: string) => Promise<{ error: string | null }>;
-  updateCalendarTask:  (id: string, title: string, dueDate: string, priority: UITask["priority"]) => Promise<{ error: string | null }>;
+  addCalendarTask:     (title: string, dueDate: string | null, priority: UITask["priority"], createdBy: string) => Promise<{ error: string | null }>;
+  updateCalendarTask:  (id: string, title: string, dueDate: string | null, priority: UITask["priority"]) => Promise<{ error: string | null }>;
   deleteCalendarTask:  (id: string) => Promise<void>;
   reorderTasks:        (orderedIds: string[]) => Promise<void>;
 }
@@ -32,25 +32,34 @@ export function useCalendarTasks(
     setIsLoading(true);
     setError(null);
 
-    // Tasks store due_date as "YYYY-MM-DD" (no time component). Slice the ISO
-    // range strings to date-only so the comparison is always apples-to-apples
-    // and is not thrown off by timezone offsets in the ISO timestamps.
     const startDate = rangeStartISO.slice(0, 10);
     const endDate   = rangeEndISO.slice(0, 10);
 
-    const { data, error: sbError } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("care_circle_id", careCircleId)
-      .gte("due_date", startDate)
-      .lte("due_date", endDate)
-      .order("due_date", { ascending: true });
+    // Two parallel queries: dated tasks in the visible range + unscheduled tasks
+    // (due_date IS NULL). A single range filter can never match NULL rows, so the
+    // second query is required for unscheduled tasks to appear in Calendar at all.
+    const [
+      { data: rangedData,      error: rangedError      },
+      { data: unscheduledData, error: unscheduledError },
+    ] = await Promise.all([
+      supabase.from("tasks").select("*")
+        .eq("care_circle_id", careCircleId)
+        .gte("due_date", startDate)
+        .lte("due_date", endDate)
+        .order("due_date", { ascending: true }),
+      supabase.from("tasks").select("*")
+        .eq("care_circle_id", careCircleId)
+        .is("due_date", null)
+        .in("status", ["pending", "in_progress"])
+        .order("sort_order", { ascending: true, nullsFirst: false }),
+    ]);
 
-    if (sbError) {
-      setError(sbError.message);
+    const err = rangedError ?? unscheduledError;
+    if (err) {
+      setError(err.message);
       setTasks([]);
     } else {
-      setTasks((data ?? []).map(adaptTask));
+      setTasks([...(rangedData ?? []), ...(unscheduledData ?? [])].map(adaptTask));
     }
 
     setIsLoading(false);
@@ -93,7 +102,7 @@ export function useCalendarTasks(
 
   const addCalendarTask = useCallback(async (
     title: string,
-    dueDate: string,
+    dueDate: string | null,
     priority: UITask["priority"],
     createdBy: string,
   ): Promise<{ error: string | null }> => {
@@ -121,7 +130,7 @@ export function useCalendarTasks(
   const updateCalendarTask = useCallback(async (
     id: string,
     title: string,
-    dueDate: string,
+    dueDate: string | null,
     priority: UITask["priority"],
   ): Promise<{ error: string | null }> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

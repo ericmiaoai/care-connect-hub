@@ -520,6 +520,15 @@ function CalendarView() {
     .filter((t) => !t.hasTime)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
+  // Unscheduled tasks have no due_date — they appear in every day view and
+  // can't be represented in the date grid, so they get their own section.
+  const unscheduledTasks = useMemo(
+    () => tasks
+      .filter((t) => t.localDateKey === null)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+    [tasks],
+  );
+
   // ── Sheet open helpers ──────────────────────────────────────────────────────
 
   const openApptSheet = (forDate?: string) => {
@@ -554,7 +563,9 @@ function CalendarView() {
   const openEditTaskSheet = (task: UITask) => {
     setEditingTaskId(task.id);
     setTaskTitle(task.title);
-    setTaskDate(task.localDateKey ?? fmtDate(referenceDate));
+    // Unscheduled tasks have no date — leave blank so they stay unscheduled
+    // unless the user explicitly sets one.
+    setTaskDate(task.localDateKey ?? "");
     setTaskTime(task.hasTime && task.rawDueDate ? isoToFormTime(task.rawDueDate) : "");
     setTaskPriority(task.priority);
     setTaskSheetOpen(true);
@@ -598,12 +609,13 @@ function CalendarView() {
 
   const handleSaveTask = async () => {
     if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
-    if (!taskTitle.trim() || !taskDate) return;
+    if (!taskTitle.trim()) return;
     setSubmitting(true);
 
-    const dueDateValue = taskTime
-      ? new Date(`${taskDate}T${taskTime}:00`).toISOString()
-      : taskDate;
+    // Blank date = unscheduled (null due_date).  Time is only meaningful with a date.
+    const dueDateValue: string | null = taskDate
+      ? (taskTime ? new Date(`${taskDate}T${taskTime}:00`).toISOString() : taskDate)
+      : null;
 
     if (editingTaskId) {
       const { error } = await updateCalendarTask(editingTaskId, taskTitle.trim(), dueDateValue, taskPriority);
@@ -616,6 +628,16 @@ function CalendarView() {
       if (error) toast.error("Failed to add task", { description: error });
       else { setTaskSheetOpen(false); toast.success("Task added"); }
     }
+  };
+
+  const handleUnscheduledDragEnd = async (event: DragEndEvent) => {
+    if (!isOnline) return;
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oi = unscheduledTasks.findIndex((t) => t.id === active.id);
+    const ni = unscheduledTasks.findIndex((t) => t.id === over.id);
+    if (oi === -1 || ni === -1) return;
+    await reorderTasks(arrayMove(unscheduledTasks, oi, ni).map((t) => t.id));
   };
 
   const handleDeleteEvent = async (id: string) => {
@@ -814,6 +836,35 @@ function CalendarView() {
               </div>
             )}
           </section>
+
+          {/* ── Unscheduled tasks — no due date, shown in every day view ── */}
+          {unscheduledTasks.length > 0 && (
+            <section>
+              <SectionHeader label="Unscheduled Tasks" />
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleUnscheduledDragEnd}
+              >
+                <SortableContext
+                  items={unscheduledTasks.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="flex flex-col gap-3">
+                    {unscheduledTasks.map((t) => (
+                      <SortableTaskItem
+                        key={t.id}
+                        task={t}
+                        onToggle={() => toggleTask(t.id, t.status)}
+                        onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
+                        onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </section>
+          )}
 
         </div>
       )}
@@ -1188,7 +1239,9 @@ function CalendarView() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-foreground">Date</label>
+                <label className="text-sm font-medium text-foreground">
+                  Date <span className="text-muted-foreground font-normal">(optional)</span>
+                </label>
                 <input
                   type="date"
                   value={taskDate}
@@ -1228,7 +1281,7 @@ function CalendarView() {
             </Button>
             <Button
               onClick={handleSaveTask}
-              disabled={!taskTitle.trim() || !taskDate || submitting}
+              disabled={!taskTitle.trim() || submitting}
             >
               {submitting ? "Saving…" : editingTaskId ? "Save Changes" : "Add Task"}
             </Button>
