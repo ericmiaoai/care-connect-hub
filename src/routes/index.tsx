@@ -2,9 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
-  Plus, CalendarDays, MapPin, CheckCircle2,
+  CalendarDays, MapPin, CheckCircle2,
   GripVertical, ChevronDown, ChevronRight, BellOff,
 } from "lucide-react";
+import { AddButton } from "@/components/AddButton";
+import { ActionTypeSheet } from "@/components/ActionTypeSheet";
+import { AddTaskSheet } from "@/components/AddTaskSheet";
+import { ProgressRing } from "@/components/ProgressRing";
 import { useState, useMemo, useEffect } from "react";
 import {
   DndContext,
@@ -58,8 +62,9 @@ const INPUT = "rounded-lg border border-border bg-card px-3 py-2 text-sm text-fo
 // localStorage helpers (keyed per user so each account keeps its own prefs)
 // ---------------------------------------------------------------------------
 
-const orderKey  = (uid: string) => `cs_myday_order_${uid}`;
+const orderKey       = (uid: string) => `cs_myday_order_${uid}`;
 const OVERDUE_PREF_KEY = "cs_myday_overdue_pref";
+const COLLAPSE_KEY     = "cs_myday_collapsed";
 
 function loadOrder(uid: string): SectionId[] {
   try {
@@ -78,15 +83,30 @@ function saveOrder(uid: string, order: SectionId[]) {
   try { localStorage.setItem(orderKey(uid), JSON.stringify(order)); } catch { /* */ }
 }
 
-interface OverduePref { collapsed: boolean; snoozedUntil: string | null; }
+// Unified collapse map — covers every section so new sections get it for free
+type CollapseMap = Partial<Record<SectionId, boolean>>;
+
+function loadCollapseMap(): CollapseMap {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY);
+    return raw ? (JSON.parse(raw) as CollapseMap) : {};
+  } catch { return {}; }
+}
+
+function saveCollapseMap(m: CollapseMap) {
+  try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(m)); } catch { /* */ }
+}
+
+// Overdue-specific pref — only snooze lives here; collapse moved to CollapseMap
+interface OverduePref { snoozedUntil: string | null; }
 
 function loadOverduePref(): OverduePref {
   try {
     const raw = localStorage.getItem(OVERDUE_PREF_KEY);
-    return raw ? (JSON.parse(raw) as OverduePref) : { collapsed: false, snoozedUntil: null };
-  } catch {
-    return { collapsed: false, snoozedUntil: null };
-  }
+    if (!raw) return { snoozedUntil: null };
+    const parsed = JSON.parse(raw);
+    return { snoozedUntil: parsed.snoozedUntil ?? null };
+  } catch { return { snoozedUntil: null }; }
 }
 
 function saveOverduePref(p: OverduePref) {
@@ -136,19 +156,21 @@ function daysOverdue(yyyymmdd: string): number {
 // ---------------------------------------------------------------------------
 
 interface SectionCardProps {
-  title:            string;
-  badge?:           number;
-  variant?:         "default" | "overdue" | "dim";
-  collapsed?:       boolean;
+  title:             string;
+  badge?:            number;
+  variant?:          "default" | "overdue" | "dim";
+  collapsed?:        boolean;
   onToggleCollapse?: () => void;
-  onSnooze?:        () => void;
-  dragHandleProps?: React.ComponentPropsWithoutRef<"button">;
-  children:         React.ReactNode;
+  onSnooze?:         () => void;
+  noun?:             string;   // label used in collapsed footer, e.g. "task" or "appointment"
+  dragHandleProps?:  React.ComponentPropsWithoutRef<"button">;
+  children:          React.ReactNode;
 }
 
 function SectionCard({
   title, badge, variant = "default",
   collapsed, onToggleCollapse, onSnooze,
+  noun = "task",
   dragHandleProps, children,
 }: SectionCardProps) {
   const isOverdue = variant === "overdue";
@@ -227,7 +249,7 @@ function SectionCard({
       {collapsed && (
         <div className="flex items-center justify-between px-4 py-3">
           <span className="text-sm text-muted-foreground">
-            {badge} task{badge === 1 ? "" : "s"} hidden
+            {badge} {noun}{badge === 1 ? "" : "s"} hidden
           </span>
           {onSnooze && (
             <button
@@ -379,7 +401,7 @@ function MyDay() {
   const { careCircleId, role } = useCareCircle(user?.id);
   const {
     tasks, isLoading: tasksLoading,
-    completeTask, restoreTask, addTask, deleteTask, reorderTasks,
+    completeTask, restoreTask, addTask, updateTask, deleteTask, reorderTasks,
   } = useTasks(careCircleId);
   const isOnline = useOnlineStatus();
 
@@ -391,26 +413,75 @@ function MyDay() {
     return { start, end };
   }, []);
 
-  const { events: appointments, isLoading: apptLoading } =
+  const { events: appointments, isLoading: apptLoading, addEvent } =
     useCalendarEvents(careCircleId, todayRange.start, todayRange.end);
 
   const isLoading = tasksLoading || apptLoading;
 
-  // Section order — loaded from localStorage once user is known
+  // Section order + collapse state — loaded from localStorage once user is known
   const [sectionOrder, setSectionOrder] = useState<SectionId[]>([...ALL_SECTIONS]);
-  const [overduePref,  setOverduePref]  = useState<OverduePref>({ collapsed: false, snoozedUntil: null });
+  const [overduePref,  setOverduePref]  = useState<OverduePref>({ snoozedUntil: null });
+  const [collapseMap,  setCollapseMap]  = useState<CollapseMap>({});
 
   useEffect(() => {
     if (user?.id) setSectionOrder(loadOrder(user.id));
     setOverduePref(loadOverduePref());
+    setCollapseMap(loadCollapseMap());
   }, [user?.id]);
 
-  // Add-task sheet state
-  const [sheetOpen,    setSheetOpen]    = useState(false);
-  const [formTitle,    setFormTitle]    = useState("");
-  const [formDate,     setFormDate]     = useState("");
-  const [formPriority, setFormPriority] = useState<UITask["priority"]>("medium");
-  const [submitting,   setSubmitting]   = useState(false);
+  // Progress ring — tracks today tasks completed this session
+  const [completedToday, setCompletedToday] = useState(0);
+
+  // Action type sheet (+ button)
+  const [actionSheetOpen,  setActionSheetOpen]  = useState(false);
+  const [addTaskSheetOpen, setAddTaskSheetOpen] = useState(false);
+
+  // Add-appointment sheet state
+  const [submitting, setSubmitting] = useState(false);
+
+  // Add-appointment sheet state
+  const [apptSheetOpen,  setApptSheetOpen]  = useState(false);
+  const [apptTitle,      setApptTitle]      = useState("");
+  const [apptDate,       setApptDate]       = useState("");
+  const [apptTime,       setApptTime]       = useState("09:00");
+  const [apptLocation,   setApptLocation]   = useState("");
+  const [apptNotes,      setApptNotes]      = useState("");
+
+  // Edit task sheet state (overdue tasks)
+  const [editSheetOpen,   setEditSheetOpen]   = useState(false);
+  const [editingTask,     setEditingTask]     = useState<UITask | null>(null);
+  const [editTitle,       setEditTitle]       = useState("");
+  const [editDate,        setEditDate]        = useState("");
+  const [editTime,        setEditTime]        = useState("");
+  const [editPriority,    setEditPriority]    = useState<UITask["priority"]>("medium");
+  const [editSubmitting,  setEditSubmitting]  = useState(false);
+
+  const openEditSheet = (task: UITask) => {
+    setEditingTask(task);
+    setEditTitle(task.title);
+    setEditDate(task.localDateKey ?? "");
+    if (task.hasTime && task.rawDueDate) {
+      const d = new Date(task.rawDueDate);
+      setEditTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+    } else {
+      setEditTime("");
+    }
+    setEditPriority(task.priority);
+    setEditSheetOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
+    if (!editTitle.trim() || !editingTask) return;
+    setEditSubmitting(true);
+    const dueDate: string | null = editDate
+      ? (editTime ? new Date(`${editDate}T${editTime}:00`).toISOString() : editDate)
+      : null;
+    const { error } = await updateTask(editingTask.id, editTitle.trim(), dueDate, editPriority);
+    setEditSubmitting(false);
+    if (error) toast.error("Failed to update task", { description: error });
+    else { setEditSheetOpen(false); toast.success("Task updated"); }
+  };
 
   const canManage = can(role, "manage_tasks");
 
@@ -467,6 +538,10 @@ function MyDay() {
   const totalTasks  = overdueTasks.length + todayTimedTasks.length + todayUntimedTasks.length + unscheduledTasks.length;
   const hasAnything = appointments.length > 0 || totalTasks > 0;
 
+  // Progress ring — today's tasks only (overdue and unscheduled excluded)
+  const todayTotal = todayTimedTasks.length + todayUntimedTasks.length + completedToday;
+  const celebrate  = todayTotal > 0 && completedToday === todayTotal;
+
   // Section drag-to-reorder
   const handleSectionDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -492,17 +567,18 @@ function MyDay() {
     await reorderTasks(arrayMove(unscheduledTasks, oi, ni).map((t) => t.id));
   };
 
-  // Overdue collapse / snooze
-  const toggleOverdueCollapse = () => {
-    setOverduePref((prev) => {
-      const next = { ...prev, collapsed: !prev.collapsed };
-      saveOverduePref(next);
+  // Universal section collapse — works for every current and future section
+  const toggleCollapse = (id: SectionId) => {
+    setCollapseMap((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      saveCollapseMap(next);
       return next;
     });
   };
 
+  // Overdue snooze — hides the section entirely until tomorrow midnight
   const handleSnoozeOverdue = () => {
-    const next = { collapsed: false, snoozedUntil: tomorrowMidnight() };
+    const next = { snoozedUntil: tomorrowMidnight() };
     setOverduePref(next);
     saveOverduePref(next);
     toast.success("Overdue tasks snoozed until tomorrow morning");
@@ -513,11 +589,19 @@ function MyDay() {
     if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
+    const isToday = task.localDateKey === todayKey;
     await completeTask(id);
+    if (isToday) setCompletedToday((n) => n + 1);
     toast.success("Task completed", {
       description: `${task.time !== "—" ? task.time + " · " : ""}${task.title}`,
       duration: 5000,
-      action: { label: "Undo", onClick: () => restoreTask(id) },
+      action: {
+        label: "Undo",
+        onClick: () => {
+          restoreTask(id);
+          if (isToday) setCompletedToday((n) => Math.max(0, n - 1));
+        },
+      },
     });
   };
 
@@ -528,20 +612,27 @@ function MyDay() {
     if (task) toast.success(`"${task.title}" deleted`);
   };
 
-  const openSheet = () => {
-    setFormTitle(""); setFormDate(""); setFormPriority("medium");
-    setSheetOpen(true);
+  const openApptSheet = () => {
+    setApptTitle(""); setApptDate(todayISO()); setApptTime("09:00");
+    setApptLocation(""); setApptNotes("");
+    setApptSheetOpen(true);
   };
 
-  const handleAdd = async () => {
+  const handleAddAppt = async () => {
     if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
-    if (!formTitle.trim()) return;
+    if (!apptTitle.trim() || !apptDate) return;
     setSubmitting(true);
-    const { error } = await addTask(formTitle.trim(), formDate || null, formPriority, user?.id ?? "");
+    const start = new Date(`${apptDate}T${apptTime}:00`);
+    const end   = new Date(start.getTime() + 60 * 60 * 1000);
+    const { error } = await addEvent(
+      apptTitle.trim(), start.toISOString(), end.toISOString(),
+      user?.id ?? "", apptLocation || undefined, apptNotes || undefined,
+    );
     setSubmitting(false);
-    if (error) { toast.error("Failed to add task", { description: error }); }
-    else       { setSheetOpen(false); toast.success("Task added"); }
+    if (error) toast.error("Failed to add appointment", { description: error });
+    else       { setApptSheetOpen(false); toast.success("Appointment added"); }
   };
+
 
   // ---------------------------------------------------------------------------
   // Section renderers
@@ -559,6 +650,9 @@ function MyDay() {
             title={SECTION_TITLE.appointments}
             badge={appointments.length}
             variant="dim"
+            noun="appointment"
+            collapsed={collapseMap["appointments"] ?? false}
+            onToggleCollapse={() => toggleCollapse("appointments")}
             dragHandleProps={dragHandleProps}
           >
             <AnimatePresence initial={false}>
@@ -584,8 +678,8 @@ function MyDay() {
             title={SECTION_TITLE.overdue}
             badge={overdueTasks.length}
             variant="overdue"
-            collapsed={overduePref.collapsed}
-            onToggleCollapse={toggleOverdueCollapse}
+            collapsed={collapseMap["overdue"] ?? false}
+            onToggleCollapse={() => toggleCollapse("overdue")}
             onSnooze={handleSnoozeOverdue}
             dragHandleProps={dragHandleProps}
           >
@@ -615,6 +709,7 @@ function MyDay() {
                     <TaskCard
                       task={task}
                       onComplete={handleComplete}
+                      onEdit={canManage ? (id) => openEditSheet(tasks.find((t) => t.id === id)!) : undefined}
                       onDelete={canManage ? handleDelete : undefined}
                     />
                   </motion.div>
@@ -629,6 +724,8 @@ function MyDay() {
           <SectionCard
             title={SECTION_TITLE.today}
             badge={todayTimedTasks.length + todayUntimedTasks.length}
+            collapsed={collapseMap["today"] ?? false}
+            onToggleCollapse={() => toggleCollapse("today")}
             dragHandleProps={dragHandleProps}
           >
             {/* Timed tasks — chronological */}
@@ -690,6 +787,8 @@ function MyDay() {
             title={SECTION_TITLE.unscheduled}
             badge={unscheduledTasks.length}
             variant="dim"
+            collapsed={collapseMap["unscheduled"] ?? false}
+            onToggleCollapse={() => toggleCollapse("unscheduled")}
             dragHandleProps={dragHandleProps}
           >
             <DndContext
@@ -748,17 +847,20 @@ function MyDay() {
           </p>
         </div>
         {canManage && (
-          <button
-            type="button"
-            onClick={openSheet}
+          <AddButton
+            onClick={() => setActionSheetOpen(true)}
             disabled={!isOnline}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground ring-1 ring-border transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" />
-            Add Task
-          </button>
+            label="Add task or appointment"
+          />
         )}
       </header>
+
+      {/* Progress ring — only when today has tasks */}
+      {!isLoading && todayTotal > 0 && (
+        <div className="mb-6 flex justify-center">
+          <ProgressRing completed={completedToday} total={todayTotal} celebrate={celebrate} />
+        </div>
+      )}
 
       {/* Loading skeleton */}
       {isLoading && (
@@ -795,21 +897,101 @@ function MyDay() {
         </div>
       )}
 
-      {/* Add Task Sheet */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      {/* Action type sheet */}
+      <ActionTypeSheet
+        open={actionSheetOpen}
+        onOpenChange={setActionSheetOpen}
+        onTask={() => setAddTaskSheetOpen(true)}
+        onAppointment={openApptSheet}
+      />
+
+      {/* Add Appointment Sheet */}
+      <Sheet open={apptSheetOpen} onOpenChange={setApptSheetOpen}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>Add Task</SheetTitle>
+            <SheetTitle>Add Appointment</SheetTitle>
           </SheetHeader>
           <div className="mt-6 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Title</label>
               <input
                 type="text"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-                placeholder="e.g. Morning medication"
+                value={apptTitle}
+                onChange={(e) => setApptTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddAppt()}
+                placeholder="e.g. Dr. Smith follow-up"
+                className={INPUT}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Date</label>
+              <input
+                type="date"
+                value={apptDate}
+                onChange={(e) => setApptDate(e.target.value)}
+                className={INPUT}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Time</label>
+              <input
+                type="time"
+                value={apptTime}
+                onChange={(e) => setApptTime(e.target.value)}
+                className={INPUT}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Location
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={apptLocation}
+                onChange={(e) => setApptLocation(e.target.value)}
+                placeholder="e.g. Hoag Medical Center"
+                className={INPUT}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Notes
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <textarea
+                value={apptNotes}
+                onChange={(e) => setApptNotes(e.target.value)}
+                placeholder="e.g. Bring insurance card"
+                rows={3}
+                className={`${INPUT} resize-none`}
+              />
+            </div>
+          </div>
+          <SheetFooter className="mt-6">
+            <Button variant="outline" onClick={() => setApptSheetOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddAppt} disabled={!apptTitle.trim() || !apptDate || submitting}>
+              {submitting ? "Adding…" : "Add Appointment"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Edit Task Sheet — overdue tasks */}
+      <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Edit Task</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">Title</label>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleEditSave()}
                 className={INPUT}
                 autoFocus
               />
@@ -823,16 +1005,31 @@ function MyDay() {
               </label>
               <input
                 type="date"
-                value={formDate}
-                onChange={(e) => setFormDate(e.target.value)}
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                className={INPUT}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Time
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                  (optional)
+                </span>
+              </label>
+              <input
+                type="time"
+                value={editTime}
+                onChange={(e) => setEditTime(e.target.value)}
+                disabled={!editDate}
                 className={INPUT}
               />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Priority</label>
               <select
-                value={formPriority}
-                onChange={(e) => setFormPriority(e.target.value as UITask["priority"])}
+                value={editPriority}
+                onChange={(e) => setEditPriority(e.target.value as UITask["priority"])}
                 className={INPUT}
               >
                 <option value="low">Low</option>
@@ -843,13 +1040,24 @@ function MyDay() {
             </div>
           </div>
           <SheetFooter className="mt-6">
-            <Button variant="outline" onClick={() => setSheetOpen(false)}>Cancel</Button>
-            <Button onClick={handleAdd} disabled={!formTitle.trim() || submitting}>
-              {submitting ? "Adding…" : "Add Task"}
+            <Button variant="outline" onClick={() => setEditSheetOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditSave} disabled={!editTitle.trim() || editSubmitting}>
+              {editSubmitting ? "Saving…" : "Save Changes"}
             </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {/* Add Task Sheet — shared component, same form as Calendar */}
+      <AddTaskSheet
+        open={addTaskSheetOpen}
+        onOpenChange={setAddTaskSheetOpen}
+        defaultDate=""
+        isOnline={isOnline}
+        onSave={async (title, dueDate, priority) =>
+          addTask(title, dueDate, priority, user?.id ?? "")
+        }
+      />
 
     </div>
   );

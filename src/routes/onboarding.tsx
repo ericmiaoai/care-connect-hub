@@ -64,7 +64,8 @@ function OnboardingPage() {
   const onCreateSubmit = async (data: CreateCircleForm) => {
     setIsLoading(true);
 
-    const { data: newCircleId, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: newCircleId, error } = await (supabase as any)
       .rpc("create_care_circle", { circle_name: data.name.trim() });
 
     if (error || !newCircleId) {

@@ -65,8 +65,11 @@ const SWATCH_STYLE: Record<Theme, React.CSSProperties> = {
   blue:  { background: "linear-gradient(175deg, #3d6dd0 0%, #1e3a9e 45%, #0d1462 100%)" },
 };
 
-function ThemeSwatch({ id, label }: { id: Theme; label: string }) {
-  const { theme, setTheme } = useTheme();
+function ThemeSwatch({
+  id, label, theme, setTheme,
+}: {
+  id: Theme; label: string; theme: Theme; setTheme: (t: Theme) => void;
+}) {
   const isActive = theme === id;
   const isLight  = id === "light";
 
@@ -146,6 +149,7 @@ const INVITE_INPUT = "w-full rounded-lg border border-border bg-card px-3 py-2 t
 function SettingsPage() {
   const { user, profile, signOut }        = useAuth();
   const { careCircleId, careCircleName, role } = useCareCircle(user?.id);
+  const { theme, setTheme }              = useTheme();
   const {
     members, pendingInvites, isLoading: membersLoading,
     generateInvite, revokeInvite, removeMember, updateMemberRole,
@@ -347,7 +351,7 @@ function SettingsPage() {
             </p>
             <div className="grid grid-cols-4 gap-2">
               {THEMES.map(({ id, label }) => (
-                <ThemeSwatch key={id} id={id} label={label} />
+                <ThemeSwatch key={id} id={id} label={label} theme={theme} setTheme={setTheme} />
               ))}
             </div>
           </div>

@@ -23,6 +23,9 @@ import {
   Pill, Stethoscope, Car, Activity,
   Plus, Trash2, Pencil, CalendarSearch, GripVertical,
 } from "lucide-react";
+import { AddButton } from "@/components/AddButton";
+import { ActionTypeSheet } from "@/components/ActionTypeSheet";
+import { AddTaskSheet } from "@/components/AddTaskSheet";
 import { toast } from "sonner";
 import { EventChip } from "@/components/EventChip";
 import { TaskChip } from "@/components/TaskChip";
@@ -299,28 +302,6 @@ function TaskDayCard({ task: t, onToggle, onEdit, onDelete, dragHandleProps }: T
   );
 }
 
-// ── Section header with optional add button ────────────────────────────────────
-
-function SectionHeader({ label, onAdd }: { label: string; onAdd?: () => void }) {
-  return (
-    <div className="mb-3 flex items-center justify-between">
-      <p className="text-sm font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
-        {label}
-      </p>
-      {onAdd && (
-        <button
-          type="button"
-          onClick={onAdd}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground ring-1 ring-border transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <Plus className="h-3 w-3" />
-          Add
-        </button>
-      )}
-    </div>
-  );
-}
-
 // ── Sortable wrapper for timeless tasks ───────────────────────────────────────
 
 function SortableTaskItem({
@@ -388,7 +369,10 @@ function CalendarView() {
   const [taskTime,       setTaskTime]       = useState("");
   const [taskPriority,   setTaskPriority]   = useState<UITask["priority"]>("medium");
 
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting,      setSubmitting]      = useState(false);
+  const [actionSheetOpen,   setActionSheetOpen]   = useState(false);
+  const [addTaskSheetOpen,  setAddTaskSheetOpen]  = useState(false);
+  const [addTaskDefaultDate, setAddTaskDefaultDate] = useState("");
 
   const canManage = can(role, "manage_events");
   const isOnline  = useOnlineStatus();
@@ -552,12 +536,8 @@ function CalendarView() {
   };
 
   const openTaskSheet = (forDate?: string) => {
-    setEditingTaskId(null);
-    setTaskTitle("");
-    setTaskDate(forDate ?? fmtDate(referenceDate));
-    setTaskTime("");
-    setTaskPriority("medium");
-    setTaskSheetOpen(true);
+    setAddTaskDefaultDate(forDate ?? fmtDate(referenceDate));
+    setAddTaskSheetOpen(true);
   };
 
   const openEditTaskSheet = (task: UITask) => {
@@ -667,7 +647,7 @@ function CalendarView() {
     <div className="mx-auto w-full max-w-5xl px-4 py-6">
 
       {/* ── Header ── */}
-      <header className="mb-5 flex items-center justify-between gap-4">
+      <header className="mb-8 flex items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Calendar
@@ -748,111 +728,69 @@ function CalendarView() {
           DAY VIEW
       ══════════════════════════════════════════════════════════════ */}
       {!isLoading && view === "day" && (
-        <div className="flex flex-col gap-8">
+        <>
+          {/* Single + button — sits below the Day/Week/Month toggle */}
+          {canManage && isOnline && (
+            <div className="mb-8 flex justify-end">
+              <AddButton
+                onClick={() => setActionSheetOpen(true)}
+                label="Add task or appointment"
+              />
+            </div>
+          )}
 
-          <section>
-            <SectionHeader
-              label="Appointments"
-              onAdd={canManage && isOnline ? () => openApptSheet() : undefined}
-            />
-            {dayEvents.length === 0 ? (
-              <p className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
-                No appointments scheduled.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {dayEvents.map((ev) => (
-                  <AppointmentCard
-                    key={ev.id}
-                    event={ev}
-                    onComplete={() => user && markComplete(ev.id, user.id, displayName)}
-                    onUnmark={() => unmarkComplete(ev.id)}
-                    onEdit={canManage ? () => openEditApptSheet(ev) : undefined}
-                    onDelete={canManage ? () => handleDeleteEvent(ev.id) : undefined}
-                  />
-                ))}
+          <div className="flex flex-col gap-6">
+
+            {/* ── Appointments card ── */}
+            <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/50">
+              <div className="px-4 pb-3 pt-4">
+                <p className="text-sm font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
+                  Appointments
+                </p>
               </div>
-            )}
-          </section>
-
-          <section>
-            <SectionHeader
-              label="Tasks"
-              onAdd={canManage && isOnline ? () => openTaskSheet() : undefined}
-            />
-            {allDayTasks.length === 0 ? (
-              <p className="rounded-xl border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
-                No tasks scheduled.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-3">
-
-                {/* Timed tasks — fixed chronological order */}
-                {timedDayTasks.map((t) => (
-                  <TaskDayCard
-                    key={t.id}
-                    task={t}
-                    onToggle={() => toggleTask(t.id, t.status)}
-                    onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
-                    onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
-                  />
-                ))}
-
-                {/* Divider between timed and untimed */}
-                {timedDayTasks.length > 0 && untimedDayTasks.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <div className="h-px flex-1 bg-border" />
-                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
-                      No Time Set
-                    </span>
-                    <div className="h-px flex-1 bg-border" />
-                  </div>
+              <div className="mx-4 h-px bg-border/40" />
+              <div className="flex flex-col gap-3 p-4">
+                {dayEvents.length === 0 ? (
+                  <p className="py-3 text-center text-sm text-muted-foreground">
+                    No appointments scheduled.
+                  </p>
+                ) : (
+                  dayEvents.map((ev) => (
+                    <AppointmentCard
+                      key={ev.id}
+                      event={ev}
+                      onComplete={() => user && markComplete(ev.id, user.id, displayName)}
+                      onUnmark={() => unmarkComplete(ev.id)}
+                      onEdit={canManage ? () => openEditApptSheet(ev) : undefined}
+                      onDelete={canManage ? () => handleDeleteEvent(ev.id) : undefined}
+                    />
+                  ))
                 )}
-
-                {/* Untimed tasks — drag-to-reorder */}
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={untimedDayTasks.map((t) => t.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="flex flex-col gap-3">
-                      {untimedDayTasks.map((t) => (
-                        <SortableTaskItem
-                          key={t.id}
-                          task={t}
-                          onToggle={() => toggleTask(t.id, t.status)}
-                          onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
-                          onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-
               </div>
-            )}
-          </section>
+            </div>
 
-          {/* ── Unscheduled tasks — no due date, shown in every day view ── */}
-          {unscheduledTasks.length > 0 && (
-            <section>
-              <SectionHeader label="Unscheduled Tasks" />
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleUnscheduledDragEnd}
-              >
-                <SortableContext
-                  items={unscheduledTasks.map((t) => t.id)}
-                  strategy={verticalListSortingStrategy}
-                >
+            {/* ── Tasks card — Scheduled + Unscheduled sub-sections ── */}
+            <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/50">
+              <div className="px-4 pb-3 pt-4">
+                <p className="text-sm font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
+                  Tasks
+                </p>
+              </div>
+              <div className="mx-4 h-px bg-border/40" />
+
+              {/* Scheduled sub-section */}
+              <div className="px-4 pb-5 pt-4">
+                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Scheduled
+                </p>
+                {allDayTasks.length === 0 ? (
+                  <p className="py-2 text-center text-sm text-muted-foreground">
+                    No tasks for this day.
+                  </p>
+                ) : (
                   <div className="flex flex-col gap-3">
-                    {unscheduledTasks.map((t) => (
-                      <SortableTaskItem
+                    {timedDayTasks.map((t) => (
+                      <TaskDayCard
                         key={t.id}
                         task={t}
                         onToggle={() => toggleTask(t.id, t.status)}
@@ -860,13 +798,81 @@ function CalendarView() {
                         onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
                       />
                     ))}
+                    {timedDayTasks.length > 0 && untimedDayTasks.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <div className="h-px flex-1 bg-border" />
+                        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
+                          No Time Set
+                        </span>
+                        <div className="h-px flex-1 bg-border" />
+                      </div>
+                    )}
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={untimedDayTasks.map((t) => t.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="flex flex-col gap-3">
+                          {untimedDayTasks.map((t) => (
+                            <SortableTaskItem
+                              key={t.id}
+                              task={t}
+                              onToggle={() => toggleTask(t.id, t.status)}
+                              onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
+                              onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
                   </div>
-                </SortableContext>
-              </DndContext>
-            </section>
-          )}
+                )}
+              </div>
 
-        </div>
+              <div className="mx-4 h-px bg-border/40" />
+
+              {/* Unscheduled sub-section — always shown */}
+              <div className="px-4 pb-5 pt-3">
+                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Unscheduled
+                </p>
+                {unscheduledTasks.length === 0 ? (
+                  <p className="py-2 text-center text-sm text-muted-foreground">
+                    No unscheduled tasks.
+                  </p>
+                ) : (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleUnscheduledDragEnd}
+                  >
+                    <SortableContext
+                      items={unscheduledTasks.map((t) => t.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="flex flex-col gap-3">
+                        {unscheduledTasks.map((t) => (
+                          <SortableTaskItem
+                            key={t.id}
+                            task={t}
+                            onToggle={() => toggleTask(t.id, t.status)}
+                            onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
+                            onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </>
       )}
 
       {/* ══════════════════════════════════════════════════════════════
@@ -946,6 +952,25 @@ function CalendarView() {
           </div>
         </>
       )}
+
+      {/* ── Action type sheet (day view + button) ── */}
+      <ActionTypeSheet
+        open={actionSheetOpen}
+        onOpenChange={setActionSheetOpen}
+        onTask={() => openTaskSheet()}
+        onAppointment={() => openApptSheet()}
+      />
+
+      {/* ── Add task sheet — shared component, same as My Day ── */}
+      <AddTaskSheet
+        open={addTaskSheetOpen}
+        onOpenChange={setAddTaskSheetOpen}
+        defaultDate={addTaskDefaultDate}
+        isOnline={isOnline}
+        onSave={async (title, dueDate, priority) =>
+          addCalendarTask(title, dueDate, priority, user?.id ?? "")
+        }
+      />
 
       {/* ══════════════════════════════════════════════════════════════
           DAY DETAIL SHEET (week / month tap)

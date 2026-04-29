@@ -1,4 +1,4 @@
-import { Pill, Stethoscope, Car, Activity, Trash2, GripVertical } from "lucide-react";
+import { Pill, Stethoscope, Car, Activity, Trash2, GripVertical, Pencil } from "lucide-react";
 import type { UITask, TaskKind } from "@/lib/adapters";
 import { cn } from "@/lib/utils";
 
@@ -19,11 +19,12 @@ const PRIORITY_BORDER: Record<UITask["priority"], string> = {
 interface TaskCardProps {
   task:             UITask;
   onComplete:       (id: string) => void;
+  onEdit?:          (id: string) => void;
   onDelete?:        (id: string) => void;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
 }
 
-export function TaskCard({ task, onComplete, onDelete, dragHandleProps }: TaskCardProps) {
+export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps }: TaskCardProps) {
   const Icon        = ICON[task.kind];
   const borderClass = PRIORITY_BORDER[task.priority];
 
@@ -61,6 +62,16 @@ export function TaskCard({ task, onComplete, onDelete, dragHandleProps }: TaskCa
             className="cursor-grab touch-target flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
           >
             <GripVertical className="h-4 w-4" />
+          </button>
+        )}
+        {onEdit && (
+          <button
+            type="button"
+            aria-label={`Edit ${task.title}`}
+            onClick={() => onEdit(task.id)}
+            className="touch-target flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <Pencil className="h-4 w-4" />
           </button>
         )}
         {onDelete && (

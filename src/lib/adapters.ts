@@ -112,7 +112,7 @@ export function adaptCalendarEvent(row: DBCalendarEventWithCompleter): UICalenda
     title:           row.title,
     description:     row.description ?? null,
     location:        row.location ?? null,
-    kind:            inferKind(row.title),
+    kind:            "appointment",
     isCompleted:     row.completed_by !== null,
     completedByName: row.completer
       ? `${row.completer.first_name} ${row.completer.last_name}`
