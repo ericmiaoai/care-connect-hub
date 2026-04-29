@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Calendar, MessageSquare, ScanLine, Sun, Settings, LogOut } from "lucide-react";
+import { Calendar, Megaphone, ScanLine, Sun, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 const NAV = [
   { to: "/",        label: "My Day",   icon: Sun         },
   { to: "/calendar",label: "Calendar", icon: Calendar    },
-  { to: "/updates", label: "Updates",  icon: MessageSquare },
+  { to: "/updates", label: "Updates",  icon: Megaphone },
   { to: "/scan",    label: "Scan AVS", icon: ScanLine    },
   { to: "/settings",label: "Settings", icon: Settings    },
 ] as const;

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { AddButton } from "@/components/AddButton";
 import { useState } from "react";
 import { toast } from "sonner";
 import { UpdateCard } from "@/components/UpdateCard";
@@ -81,14 +81,7 @@ function UpdatesBoard() {
           </p>
         </div>
         {canPost && (
-          <button
-            type="button"
-            onClick={openSheet}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground ring-1 ring-border transition-colors hover:bg-accent"
-          >
-            <Plus className="h-4 w-4" />
-            Post Update
-          </button>
+          <AddButton onClick={openSheet} label="Post update" />
         )}
       </header>
 

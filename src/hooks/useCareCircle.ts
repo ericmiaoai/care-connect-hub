@@ -64,10 +64,12 @@ export function useCareCircle(userId: string | null | undefined): CareCircleCont
       setCareCircleName(null);
       setRole(null);
     } else {
-      const circle = data.care_circles as { id: string; name: string } | null;
+      // Supabase can't infer nested join types without Relationships in Database — cast explicitly
+      const row = data as unknown as { role: CareCircleRole; care_circles: { id: string; name: string } | null };
+      const circle = row.care_circles;
       setCareCircleId(circle?.id ?? null);
       setCareCircleName(circle?.name ?? null);
-      setRole(data.role as CareCircleRole);
+      setRole(row.role);
     }
 
     setIsLoading(false);

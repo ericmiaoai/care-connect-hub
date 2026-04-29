@@ -283,7 +283,12 @@ export interface Database {
     };
 
     Views:   Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      create_care_circle: {
+        Args:    { circle_name: string };
+        Returns: string;
+      };
+    };
     Enums: {
       care_circle_role:    CareCircleRole;
       task_status:         TaskStatus;

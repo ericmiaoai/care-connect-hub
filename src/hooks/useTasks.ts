@@ -9,6 +9,7 @@ interface UseTasksReturn {
   completeTask: (id: string) => Promise<void>;
   restoreTask:  (id: string) => Promise<void>;
   addTask:      (title: string, dueDate: string | null, priority: UITask["priority"], createdBy: string) => Promise<{ error: string | null }>;
+  updateTask:   (id: string, title: string, dueDate: string | null, priority: UITask["priority"]) => Promise<{ error: string | null }>;
   deleteTask:   (id: string) => Promise<void>;
   reorderTasks: (orderedIds: string[]) => Promise<void>;
 }
@@ -95,6 +96,20 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
     return { error: sbError?.message ?? null };
   }, [careCircleId, fetchTasks]);
 
+  const updateTask = useCallback(async (
+    id: string,
+    title: string,
+    dueDate: string | null,
+    priority: UITask["priority"],
+  ): Promise<{ error: string | null }> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: sbError } = await (supabase.from("tasks") as any)
+      .update({ title, due_date: dueDate, priority })
+      .eq("id", id);
+    if (!sbError) await fetchTasks();
+    return { error: sbError?.message ?? null };
+  }, [fetchTasks]);
+
   const deleteTask = useCallback(async (id: string): Promise<void> => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -117,5 +132,5 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
     );
   }, []);
 
-  return { tasks, isLoading, error, completeTask, restoreTask, addTask, deleteTask, reorderTasks };
+  return { tasks, isLoading, error, completeTask, restoreTask, addTask, updateTask, deleteTask, reorderTasks };
 }

@@ -68,7 +68,7 @@ function ScanAVS() {
       .eq("care_circle_id", careCircleId)
       .limit(1)
       .single()
-      .then(({ data }) => setPatientId(data?.id ?? null));
+      .then(({ data }) => setPatientId((data as unknown as { id: string } | null)?.id ?? null));
   }, [careCircleId]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
