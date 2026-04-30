@@ -3,14 +3,16 @@ import { supabase } from "@/lib/supabaseClient";
 import { adaptTask, type UITask } from "@/lib/adapters";
 
 interface UseCalendarTasksReturn {
-  tasks:               UITask[];
-  isLoading:           boolean;
-  error:               string | null;
-  toggleTask:          (id: string, currentStatus: UITask["status"]) => Promise<void>;
-  addCalendarTask:     (title: string, dueDate: string | null, priority: UITask["priority"], createdBy: string) => Promise<{ error: string | null }>;
-  updateCalendarTask:  (id: string, title: string, dueDate: string | null, priority: UITask["priority"]) => Promise<{ error: string | null }>;
-  deleteCalendarTask:  (id: string) => Promise<void>;
-  reorderTasks:        (orderedIds: string[]) => Promise<void>;
+  tasks:                       UITask[];
+  completedUnscheduledTasks:   UITask[];
+  isLoading:                   boolean;
+  error:                       string | null;
+  toggleTask:                  (id: string, currentStatus: UITask["status"]) => Promise<void>;
+  restoreUnscheduledTask:      (id: string) => Promise<void>;
+  addCalendarTask:             (title: string, dueDate: string | null, priority: UITask["priority"], createdBy: string) => Promise<{ error: string | null }>;
+  updateCalendarTask:          (id: string, title: string, dueDate: string | null, priority: UITask["priority"]) => Promise<{ error: string | null }>;
+  deleteCalendarTask:          (id: string) => Promise<void>;
+  reorderTasks:                (orderedIds: string[]) => Promise<void>;
 }
 
 export function useCalendarTasks(
@@ -18,29 +20,33 @@ export function useCalendarTasks(
   rangeStartISO: string,
   rangeEndISO:   string,
 ): UseCalendarTasksReturn {
-  const [tasks,     setTasks]     = useState<UITask[]>([]);
+  const [tasks,                     setTasks]                     = useState<UITask[]>([]);
+  const [completedUnscheduledTasks, setCompletedUnscheduledTasks] = useState<UITask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error,     setError]     = useState<string | null>(null);
 
-  const fetchTasks = useCallback(async () => {
+  const fetchTasks = useCallback(async (silent = false) => {
     if (!careCircleId) {
       setTasks([]);
+      setCompletedUnscheduledTasks([]);
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     setError(null);
 
     const startDate = rangeStartISO.slice(0, 10);
     const endDate   = rangeEndISO.slice(0, 10);
 
-    // Two parallel queries: dated tasks in the visible range + unscheduled tasks
-    // (due_date IS NULL). A single range filter can never match NULL rows, so the
-    // second query is required for unscheduled tasks to appear in Calendar at all.
+    // Three parallel queries:
+    // 1. Dated tasks in the visible range
+    // 2. Active unscheduled tasks (due_date IS NULL, not completed)
+    // 3. Completed unscheduled tasks (for the "Show Completed" toggle)
     const [
-      { data: rangedData,      error: rangedError      },
-      { data: unscheduledData, error: unscheduledError },
+      { data: rangedData,              error: rangedError              },
+      { data: unscheduledData,         error: unscheduledError         },
+      { data: completedUnscheduledData                                 },
     ] = await Promise.all([
       supabase.from("tasks").select("*")
         .eq("care_circle_id", careCircleId)
@@ -52,6 +58,12 @@ export function useCalendarTasks(
         .is("due_date", null)
         .in("status", ["pending", "in_progress"])
         .order("sort_order", { ascending: true, nullsFirst: false }),
+      supabase.from("tasks").select("*")
+        .eq("care_circle_id", careCircleId)
+        .eq("status", "completed")
+        .is("due_date", null)
+        .order("completed_at", { ascending: false })
+        .limit(50),
     ]);
 
     const err = rangedError ?? unscheduledError;
@@ -61,6 +73,8 @@ export function useCalendarTasks(
     } else {
       setTasks([...(rangedData ?? []), ...(unscheduledData ?? [])].map(adaptTask));
     }
+
+    setCompletedUnscheduledTasks((completedUnscheduledData ?? []).map(adaptTask));
 
     setIsLoading(false);
   }, [careCircleId, rangeStartISO, rangeEndISO]);
@@ -73,10 +87,18 @@ export function useCalendarTasks(
     if (!careCircleId) return;
     const channel = supabase
       .channel(`cal_tasks_rt_${careCircleId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `care_circle_id=eq.${careCircleId}` }, () => { fetchTasks(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `care_circle_id=eq.${careCircleId}` }, () => { fetchTasks(true); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [careCircleId, fetchTasks]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") fetchTasks(true);
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [fetchTasks]);
 
   const toggleTask = useCallback(
     async (id: string, currentStatus: UITask["status"]) => {
@@ -95,10 +117,22 @@ export function useCalendarTasks(
         .update({ status: newStatus, completed_at: completedAt })
         .eq("id", id);
 
-      if (sbError) { setError(sbError.message); await fetchTasks(); }
+      if (sbError) { setError(sbError.message); await fetchTasks(true); }
     },
     [fetchTasks],
   );
+
+  const restoreUnscheduledTask = useCallback(async (id: string): Promise<void> => {
+    // Optimistically remove from the completed list so it vanishes immediately
+    setCompletedUnscheduledTasks((prev) => prev.filter((t) => t.id !== id));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: sbError } = await (supabase.from("tasks") as any)
+      .update({ status: "pending", completed_at: null })
+      .eq("id", id);
+    if (sbError) { setError(sbError.message); }
+    // Silently refetch so the task re-appears in the active Unscheduled list
+    await fetchTasks(true);
+  }, [fetchTasks]);
 
   const addCalendarTask = useCallback(async (
     title: string,
@@ -137,7 +171,7 @@ export function useCalendarTasks(
     const { error: sbError } = await (supabase.from("tasks") as any)
       .update({ title, due_date: dueDate, priority })
       .eq("id", id);
-    if (!sbError) await fetchTasks();
+    if (!sbError) await fetchTasks(true);
     return { error: sbError?.message ?? null };
   }, [fetchTasks]);
 
@@ -145,7 +179,7 @@ export function useCalendarTasks(
     setTasks((prev) => prev.filter((t) => t.id !== id));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: sbError } = await (supabase.from("tasks") as any).delete().eq("id", id);
-    if (sbError) { setError(sbError.message); await fetchTasks(); }
+    if (sbError) { setError(sbError.message); await fetchTasks(true); }
   }, [fetchTasks]);
 
   const reorderTasks = useCallback(async (orderedIds: string[]): Promise<void> => {
@@ -165,5 +199,5 @@ export function useCalendarTasks(
     );
   }, []);
 
-  return { tasks, isLoading, error, toggleTask, addCalendarTask, updateCalendarTask, deleteCalendarTask, reorderTasks };
+  return { tasks, completedUnscheduledTasks, isLoading, error, toggleTask, restoreUnscheduledTask, addCalendarTask, updateCalendarTask, deleteCalendarTask, reorderTasks };
 }

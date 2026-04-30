@@ -1,4 +1,5 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts, useNavigate, useRouterState } from "@tanstack/react-router";
+import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "sonner";
 import { useEffect } from "react";
 import { WifiOff } from "lucide-react";
@@ -6,6 +7,7 @@ import { BottomTabBar, SideNav } from "@/components/AppNav";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useNewMemberAlert } from "@/hooks/useNewMemberAlert";
 import { applyTheme, getStoredTheme } from "@/lib/theme";
 
 import appCss from "../styles.css?url";
@@ -133,7 +135,8 @@ function RootComponent() {
   }, []);
 
   const { user, isLoading: authLoading } = useAuth();
-  const { careCircleId, isLoading: circleLoading } = useCareCircle(user?.id);
+  const { careCircleId, role, isLoading: circleLoading } = useCareCircle(user?.id);
+  useNewMemberAlert(careCircleId, role);
   const navigate    = useNavigate();
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
@@ -191,12 +194,22 @@ function RootComponent() {
         <AppHeader />
         <OfflineBanner />
         <div className="flex-1 overflow-y-auto">
-          <main className="pb-24 md:pb-12">
-            <Outlet />
-          </main>
-          <footer className="border-t border-border">
-            <Disclaimer />
-          </footer>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={currentPath}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12, ease: "easeInOut" }}
+            >
+              <main className="pb-24 md:pb-12">
+                <Outlet />
+              </main>
+              <footer className="border-t border-border">
+                <Disclaimer />
+              </footer>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
       <BottomTabBar />

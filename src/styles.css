@@ -86,6 +86,10 @@
   --input: oklch(0.27 0.006 270);
   --ring: oklch(0.65 0.01 270);
 
+  /* Card elevation shadows — lower-right cast + upper-left light source + inset rim */
+  --card-shadow:    0 4px 14px rgba(0,0,0,0.55), -2px -2px 7px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.07);
+  --card-shadow-lg: 0 6px 20px rgba(0,0,0,0.60), -3px -3px 9px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.08);
+
   /* User color tokens — Cozi-style assignment palette */
   --user-mom: oklch(0.66 0.18 255);               /* blue-500 */
   --user-dad: oklch(0.78 0.16 75);                /* amber-500 */
@@ -134,6 +138,9 @@
   --border-strong: oklch(0.35 0.009 255);
   --input:         oklch(0.29 0.008 255);
   --ring:          oklch(0.60 0.01  255);
+
+  --card-shadow:    0 4px 12px rgba(0,0,0,0.42), -2px -2px 7px rgba(255,255,255,0.09), inset 0 1px 0 rgba(255,255,255,0.09);
+  --card-shadow-lg: 0 6px 18px rgba(0,0,0,0.48), -3px -3px 9px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.10);
 }
 [data-theme="gray"] body {
   background-image: radial-gradient(
@@ -199,6 +206,9 @@
   --border-strong:       oklch(0.76 0.006 270);
   --input:               oklch(0.86 0.004 270);
   --ring:                oklch(0.50 0.010 270);
+
+  --card-shadow:    0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1.0);
+  --card-shadow-lg: 0 2px 6px rgba(0,0,0,0.07), 0 8px 20px rgba(0,0,0,0.09), inset 0 1px 0 rgba(255,255,255,1.0);
 }
 
 /* ── Blue theme ───────────────────────────────────────────────────────────────
@@ -225,6 +235,9 @@
   --border-strong: oklch(0.37 0.11 256);
   --input:         oklch(0.30 0.10 256);
   --ring:          oklch(0.57 0.09 256);
+
+  --card-shadow:    0 4px 14px rgba(0,0,0,0.55), -2px -2px 7px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.07);
+  --card-shadow-lg: 0 6px 20px rgba(0,0,0,0.60), -3px -3px 9px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 [data-theme="blue"] body {
   background-image: linear-gradient(

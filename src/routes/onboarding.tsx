@@ -42,13 +42,19 @@ export const Route = createFileRoute("/onboarding")({
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-type Step = "choose" | "create" | "patient";
+type Step = "choose" | "create" | "patient" | "join";
 
 function OnboardingPage() {
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const [step,        setStep]       = useState<Step>("choose");
   const [isLoading,   setIsLoading]  = useState(false);
   const [careCircleId, setCareCircleId] = useState<string | null>(null);
+
+  // Join step state
+  const [joinCode,    setJoinCode]   = useState("");
+  const [joinPin,     setJoinPin]    = useState("");
+  const [joinError,   setJoinError]  = useState<string | null>(null);
+  const [joinBusy,    setJoinBusy]   = useState(false);
 
   const circleForm = useForm<CreateCircleForm>({
     resolver: zodResolver(CreateCircleSchema),
@@ -110,6 +116,33 @@ function OnboardingPage() {
     window.location.href = "/";
   };
 
+  // Extract token from a pasted invite URL or use the raw input as the token
+  const extractCode = (input: string): string => {
+    try {
+      const url = new URL(input.trim());
+      return url.searchParams.get("code") ?? input.trim();
+    } catch {
+      return input.trim();
+    }
+  };
+
+  const handleJoin = async () => {
+    const token = extractCode(joinCode);
+    if (!token || joinPin.length !== 4) return;
+    setJoinBusy(true);
+    setJoinError(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: rpcError } = await (supabase as any)
+      .rpc("consume_invite_link", { p_token: token, p_pin: joinPin });
+    setJoinBusy(false);
+    if (rpcError) {
+      setJoinError(rpcError.message ?? "Invalid code or PIN. Please check and try again.");
+    } else {
+      toast.success("Welcome to CareSync!");
+      window.location.assign("/");
+    }
+  };
+
   const firstName = profile?.first_name ?? "there";
 
   // ── Step 1: Choose ────────────────────────────────────────────────────────
@@ -153,22 +186,33 @@ function OnboardingPage() {
               <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
             </button>
 
-            {/* Join — MVP stub */}
             <button
               id="onboarding-join-btn"
-              disabled
-              className="group flex cursor-not-allowed items-center justify-between rounded-xl border border-border bg-card/50 px-4 py-4 opacity-50"
+              onClick={() => setStep("join")}
+              className="group flex items-center justify-between rounded-xl border border-border bg-card px-4 py-4 transition-colors hover:border-border-strong hover:bg-accent"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <Users className="h-4 w-4 text-primary" />
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-medium">Join an existing circle</p>
-                  <p className="text-xs text-muted-foreground">Invite links — coming soon</p>
+                  <p className="text-xs text-muted-foreground">
+                    Enter the invite link and PIN from your admin
+                  </p>
                 </div>
               </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+            </button>
+          </div>
+
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={signOut}
+              className="text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+            >
+              Sign out
             </button>
           </div>
         </div>
@@ -236,6 +280,94 @@ function OnboardingPage() {
               {isLoading ? "Creating…" : "Continue"}
             </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={signOut}
+              className="text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Join step ─────────────────────────────────────────────────────────────
+  if (step === "join") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="w-full max-w-sm">
+          <button
+            onClick={() => { setStep("choose"); setJoinError(null); setJoinCode(""); setJoinPin(""); }}
+            className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            ← Back
+          </button>
+
+          <div className="mb-8">
+            <h1 className="text-xl font-semibold tracking-tight">Join a care circle</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Paste the invite link your admin sent you, then enter the PIN they shared separately.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="join-code" className="text-sm font-medium">
+                Invite link or code
+              </label>
+              <input
+                id="join-code"
+                type="text"
+                value={joinCode}
+                onChange={(e) => { setJoinCode(e.target.value); setJoinError(null); }}
+                placeholder="Paste your invite link here"
+                autoFocus
+                className="rounded-lg border border-border bg-card px-3 py-2.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="join-pin" className="text-sm font-medium">4-digit PIN</label>
+              <input
+                id="join-pin"
+                type="tel"
+                inputMode="numeric"
+                maxLength={4}
+                value={joinPin}
+                onChange={(e) => { setJoinPin(e.target.value.replace(/\D/g, "").slice(0, 4)); setJoinError(null); }}
+                onKeyDown={(e) => e.key === "Enter" && joinPin.length === 4 && handleJoin()}
+                placeholder="0000"
+                className="rounded-lg border border-border bg-card px-3 py-2.5 text-center font-mono text-xl tracking-[0.5em] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            {joinError && (
+              <p className="text-xs text-destructive">{joinError}</p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleJoin}
+              disabled={!joinCode.trim() || joinPin.length !== 4 || joinBusy}
+              className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {joinBusy ? "Joining…" : "Join care circle"}
+            </button>
+          </div>
+
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={signOut}
+              className="text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -339,6 +471,16 @@ function OnboardingPage() {
         <p className="mt-4 text-center text-xs text-muted-foreground">
           No medical information is stored during setup.
         </p>
+
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={signOut}
+            className="text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </div>
   );

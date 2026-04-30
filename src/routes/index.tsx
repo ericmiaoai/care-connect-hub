@@ -126,7 +126,7 @@ function tomorrowMidnight(): string {
 
 function formatToday(): string {
   return new Date().toLocaleDateString(undefined, {
-    weekday: "long", month: "long", day: "numeric",
+    weekday: "short", month: "long", day: "numeric",
   });
 }
 
@@ -181,7 +181,7 @@ function SectionCard({
     : GOLD;
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/90 backdrop-blur-xl shadow-md overflow-hidden">
+    <div className="rounded-2xl border border-border/60 bg-card/90 backdrop-blur-xl overflow-hidden" style={{ boxShadow: "var(--card-shadow-lg)" }}>
 
       {/* ── Card header ── */}
       <div className="flex items-center gap-2 px-4 py-3.5">
@@ -303,10 +303,11 @@ function AppointmentCard({ event }: { event: UICalendarEvent }) {
   return (
     <div
       className={cn(
-        "flex items-stretch gap-3 rounded-xl border border-border border-l-4 bg-background/50 shadow-sm",
+        "flex items-stretch gap-3 rounded-xl border border-border border-l-4 bg-background/50",
         "border-l-[oklch(0.65_0.15_210)]",
         event.isCompleted && "opacity-55",
       )}
+      style={{ boxShadow: "var(--card-shadow)" }}
     >
       <div className="flex w-16 flex-col items-center justify-center border-r border-border py-3 text-center">
         <span className="text-sm font-semibold tabular-nums">{event.time}</span>
@@ -349,10 +350,11 @@ function AppointmentCard({ event }: { event: UICalendarEvent }) {
 // ---------------------------------------------------------------------------
 
 function SortableTaskCard({
-  task, onComplete, onDelete,
+  task, onComplete, onEdit, onDelete,
 }: {
   task:       Parameters<typeof TaskCard>[0]["task"];
   onComplete: (id: string) => void;
+  onEdit?:    (id: string) => void;
   onDelete?:  (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -371,6 +373,7 @@ function SortableTaskCard({
       <TaskCard
         task={task}
         onComplete={onComplete}
+        onEdit={onEdit}
         onDelete={onDelete}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
@@ -396,8 +399,16 @@ export const Route = createFileRoute("/")({
 // Page component
 // ---------------------------------------------------------------------------
 
+function contextualGreeting(firstName: string): string {
+  const h = new Date().getHours();
+  if (h >= 5  && h < 12) return `Good morning, ${firstName}`;
+  if (h >= 12 && h < 17) return `Good afternoon, ${firstName}`;
+  if (h >= 17 && h < 21) return `Good evening, ${firstName}`;
+  return `Good night, ${firstName}`;
+}
+
 function MyDay() {
-  const { user }               = useAuth();
+  const { user, profile }      = useAuth();
   const { careCircleId, role } = useCareCircle(user?.id);
   const {
     tasks, isLoading: tasksLoading,
@@ -742,6 +753,7 @@ function MyDay() {
                   <TaskCard
                     task={task}
                     onComplete={handleComplete}
+                    onEdit={canManage ? (id) => openEditSheet(tasks.find((t) => t.id === id)!) : undefined}
                     onDelete={canManage ? handleDelete : undefined}
                   />
                 </motion.div>
@@ -752,8 +764,8 @@ function MyDay() {
             {todayTimedTasks.length > 0 && todayUntimedTasks.length > 0 && (
               <div className="flex items-center gap-2 py-1">
                 <div className="h-px flex-1 bg-border/60" />
-                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  No time set
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
+                  No Time Set
                 </span>
                 <div className="h-px flex-1 bg-border/60" />
               </div>
@@ -773,6 +785,7 @@ function MyDay() {
                   <TaskCard
                     task={task}
                     onComplete={handleComplete}
+                    onEdit={canManage ? (id) => openEditSheet(tasks.find((t) => t.id === id)!) : undefined}
                     onDelete={canManage ? handleDelete : undefined}
                   />
                 </motion.div>
@@ -806,6 +819,7 @@ function MyDay() {
                       key={task.id}
                       task={task}
                       onComplete={handleComplete}
+                      onEdit={canManage ? (id) => openEditSheet(tasks.find((t) => t.id === id)!) : undefined}
                       onDelete={canManage ? handleDelete : undefined}
                     />
                   ))}
@@ -830,7 +844,9 @@ function MyDay() {
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {formatToday()}
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">My Day</h1>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+            {profile ? contextualGreeting(profile.first_name) : "My Day"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {isLoading
               ? "Loading your day…"

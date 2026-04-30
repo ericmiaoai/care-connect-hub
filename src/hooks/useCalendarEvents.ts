@@ -26,14 +26,14 @@ export function useCalendarEvents(
   const [isLoading, setIsLoading] = useState(true);
   const [error,     setError]     = useState<string | null>(null);
 
-  const fetchEvents = useCallback(async () => {
+  const fetchEvents = useCallback(async (silent = false) => {
     if (!careCircleId) {
       setEvents([]);
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     setError(null);
 
     const { data, error: sbError } = await supabase
@@ -62,10 +62,18 @@ export function useCalendarEvents(
     if (!careCircleId) return;
     const channel = supabase
       .channel(`cal_events_rt_${careCircleId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events", filter: `care_circle_id=eq.${careCircleId}` }, () => { fetchEvents(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events", filter: `care_circle_id=eq.${careCircleId}` }, () => { fetchEvents(true); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [careCircleId, fetchEvents]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") fetchEvents(true);
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [fetchEvents]);
 
   const markComplete = useCallback(
     async (eventId: string, userId: string, displayName: string) => {
@@ -81,7 +89,7 @@ export function useCalendarEvents(
       const { error: sbError } = await (supabase.from("calendar_events") as any)
         .update({ completed_by: userId, completed_at: completedAt })
         .eq("id", eventId);
-      if (sbError) { setError(sbError.message); await fetchEvents(); }
+      if (sbError) { setError(sbError.message); await fetchEvents(true); }
     },
     [fetchEvents],
   );
@@ -98,7 +106,7 @@ export function useCalendarEvents(
     const { error: sbError } = await (supabase.from("calendar_events") as any)
       .update({ completed_by: null, completed_at: null })
       .eq("id", eventId);
-    if (sbError) { setError(sbError.message); await fetchEvents(); }
+    if (sbError) { setError(sbError.message); await fetchEvents(true); }
   }, [fetchEvents]);
 
   const addEvent = useCallback(async (
@@ -120,7 +128,7 @@ export function useCalendarEvents(
       location: location || null,
       description: description || null,
     });
-    if (!sbError) await fetchEvents();
+    if (!sbError) await fetchEvents(true);
     return { error: sbError?.message ?? null };
   }, [careCircleId, fetchEvents]);
 
@@ -136,7 +144,7 @@ export function useCalendarEvents(
     const { error: sbError } = await (supabase.from("calendar_events") as any)
       .update({ title, start_time: startISO, end_time: endISO, location: location || null, description: description || null })
       .eq("id", id);
-    if (!sbError) await fetchEvents();
+    if (!sbError) await fetchEvents(true);
     return { error: sbError?.message ?? null };
   }, [fetchEvents]);
 
@@ -144,7 +152,7 @@ export function useCalendarEvents(
     setEvents((prev) => prev.filter((e) => e.id !== id));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: sbError } = await (supabase.from("calendar_events") as any).delete().eq("id", id);
-    if (sbError) { setError(sbError.message); await fetchEvents(); }
+    if (sbError) { setError(sbError.message); await fetchEvents(true); }
   }, [fetchEvents]);
 
   return { events, isLoading, error, markComplete, unmarkComplete, addEvent, updateEvent, deleteEvent };

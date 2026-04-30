@@ -36,9 +36,10 @@ interface SignInOptions {
 }
 
 interface AuthActions {
-  signUp:   (opts: SignUpOptions)  => Promise<{ error: AuthError | null }>;
-  signIn:   (opts: SignInOptions)  => Promise<{ error: AuthError | null }>;
-  signOut:  ()                     => Promise<void>;
+  signUp:         (opts: SignUpOptions)  => Promise<{ error: AuthError | null }>;
+  signIn:         (opts: SignInOptions)  => Promise<{ error: AuthError | null }>;
+  signOut:        ()                     => Promise<void>;
+  updateProfile:  (firstName: string, lastName: string) => Promise<{ error: string | null }>;
 }
 
 export type UseAuthReturn = AuthState & AuthActions;
@@ -114,5 +115,19 @@ export function useAuth(): UseAuthReturn {
     await supabase.auth.signOut();
   }, []);
 
-  return { user, session, profile, isLoading, signUp, signIn, signOut };
+  const updateProfile = useCallback(async (
+    firstName: string,
+    lastName: string,
+  ): Promise<{ error: string | null }> => {
+    if (!user) return { error: "Not signed in" };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: sbError } = await (supabase.from("profiles") as any)
+      .update({ first_name: firstName.trim(), last_name: lastName.trim() })
+      .eq("id", user.id);
+    if (sbError) return { error: sbError.message };
+    await fetchProfile(user.id);
+    return { error: null };
+  }, [user, fetchProfile]);
+
+  return { user, session, profile, isLoading, signUp, signIn, signOut, updateProfile };
 }

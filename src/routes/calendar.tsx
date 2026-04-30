@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useRef, useState } from "react";
 import {
   DndContext,
@@ -137,10 +138,13 @@ interface AppointmentCardProps {
 function AppointmentCard({ event: ev, onComplete, onUnmark, onEdit, onDelete }: AppointmentCardProps) {
   const Icon = KIND_ICON[ev.kind];
   return (
-    <div className={cn(
-      "rounded-xl border border-border bg-card overflow-hidden transition-opacity",
-      ev.isCompleted && "opacity-60",
-    )}>
+    <div
+      className={cn(
+        "rounded-xl border border-border bg-card overflow-hidden transition-opacity",
+        ev.isCompleted && "opacity-60",
+      )}
+      style={{ boxShadow: "var(--card-shadow)" }}
+    >
       <div className="flex items-start gap-3 p-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent">
           <Icon className={cn("h-5 w-5", KIND_COLOR[ev.kind])} />
@@ -230,11 +234,14 @@ function TaskDayCard({ task: t, onToggle, onEdit, onDelete, dragHandleProps }: T
   const Icon        = KIND_ICON[t.kind];
   const isCompleted = t.status === "completed";
   return (
-    <div className={cn(
-      "rounded-xl border border-border border-l-4 bg-card overflow-hidden transition-opacity",
-      PRIORITY_BORDER[t.priority],
-      isCompleted && "opacity-60",
-    )}>
+    <div
+      className={cn(
+        "rounded-xl border border-border border-l-4 bg-card overflow-hidden transition-opacity",
+        PRIORITY_BORDER[t.priority],
+        isCompleted && "opacity-60",
+      )}
+      style={{ boxShadow: "var(--card-shadow)" }}
+    >
       <div className="flex items-start gap-3 p-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent">
           <Icon className={cn("h-5 w-5", KIND_COLOR[t.kind])} />
@@ -336,6 +343,26 @@ function SortableTaskItem({
   );
 }
 
+// ── Completed task row (Apple Reminders style) ─────────────────────────────────
+
+function CompletedTaskRow({ task, onRestore }: { task: UITask; onRestore: (id: string) => void }) {
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <button
+        type="button"
+        aria-label={`Restore ${task.title}`}
+        onClick={() => onRestore(task.id)}
+        className="shrink-0 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+      >
+        <CheckCircle2 className="h-5 w-5" />
+      </button>
+      <span className="flex-1 truncate text-sm text-muted-foreground/50 line-through">
+        {task.title}
+      </span>
+    </div>
+  );
+}
+
 // ── Main view ──────────────────────────────────────────────────────────────────
 
 function CalendarView() {
@@ -433,7 +460,7 @@ function CalendarView() {
       return isToday
         ? `Today, ${referenceDate.toLocaleDateString(undefined, { month: "long", day: "numeric" })}`
         : referenceDate.toLocaleDateString(undefined, {
-            weekday: "long", month: "long", day: "numeric", year: "numeric",
+            weekday: "short", month: "long", day: "numeric", year: "numeric",
           });
     }
     if (view === "week") {
@@ -457,8 +484,11 @@ function CalendarView() {
   const { events, isLoading: eventsLoading, markComplete, unmarkComplete, addEvent, updateEvent, deleteEvent } =
     useCalendarEvents(careCircleId, rangeStartISO, rangeEndISO);
 
-  const { tasks, isLoading: tasksLoading, toggleTask, addCalendarTask, updateCalendarTask, deleteCalendarTask, reorderTasks } =
+  const { tasks, completedUnscheduledTasks, isLoading: tasksLoading, toggleTask, restoreUnscheduledTask, addCalendarTask, updateCalendarTask, deleteCalendarTask, reorderTasks } =
     useCalendarTasks(careCircleId, rangeStartISO, rangeEndISO);
+
+  const [showCompleted,          setShowCompleted]          = useState(false);
+  const [showScheduledCompleted, setShowScheduledCompleted] = useState(false);
 
   const isLoading = eventsLoading || tasksLoading;
 
@@ -496,11 +526,13 @@ function CalendarView() {
   const dayKey    = fmtDate(referenceDate);
   const dayEvents = view === "day" ? (eventsByDate[dayKey] ?? []) : [];
 
-  const allDayTasks    = view === "day" ? (tasksByDate[dayKey] ?? []) : [];
-  const timedDayTasks  = allDayTasks
+  const allDayTasks       = view === "day" ? (tasksByDate[dayKey] ?? []) : [];
+  const activeDayTasks    = allDayTasks.filter((t) => t.status !== "completed");
+  const completedDayTasks = allDayTasks.filter((t) => t.status === "completed");
+  const timedDayTasks     = activeDayTasks
     .filter((t) => t.hasTime)
     .sort((a, b) => (a.rawDueDate ?? "").localeCompare(b.rawDueDate ?? ""));
-  const untimedDayTasks = allDayTasks
+  const untimedDayTasks   = activeDayTasks
     .filter((t) => !t.hasTime)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
@@ -618,6 +650,11 @@ function CalendarView() {
     const ni = unscheduledTasks.findIndex((t) => t.id === over.id);
     if (oi === -1 || ni === -1) return;
     await reorderTasks(arrayMove(unscheduledTasks, oi, ni).map((t) => t.id));
+  };
+
+  const handleRestoreTask = async (id: string) => {
+    await restoreUnscheduledTask(id);
+    toast.success("Task restored");
   };
 
   const handleDeleteEvent = async (id: string) => {
@@ -739,10 +776,10 @@ function CalendarView() {
             </div>
           )}
 
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-10">
 
             {/* ── Appointments card ── */}
-            <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/50">
+            <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/50" style={{ boxShadow: "var(--card-shadow-lg)" }}>
               <div className="px-4 pb-3 pt-4">
                 <p className="text-sm font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
                   Appointments
@@ -770,7 +807,7 @@ function CalendarView() {
             </div>
 
             {/* ── Tasks card — Scheduled + Unscheduled sub-sections ── */}
-            <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/50">
+            <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/50" style={{ boxShadow: "var(--card-shadow-lg)" }}>
               <div className="px-4 pb-3 pt-4">
                 <p className="text-sm font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
                   Tasks
@@ -788,75 +825,12 @@ function CalendarView() {
                     No tasks for this day.
                   </p>
                 ) : (
-                  <div className="flex flex-col gap-3">
-                    {timedDayTasks.map((t) => (
-                      <TaskDayCard
-                        key={t.id}
-                        task={t}
-                        onToggle={() => toggleTask(t.id, t.status)}
-                        onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
-                        onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
-                      />
-                    ))}
-                    {timedDayTasks.length > 0 && untimedDayTasks.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <div className="h-px flex-1 bg-border" />
-                        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
-                          No Time Set
-                        </span>
-                        <div className="h-px flex-1 bg-border" />
-                      </div>
-                    )}
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <SortableContext
-                        items={untimedDayTasks.map((t) => t.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div className="flex flex-col gap-3">
-                          {untimedDayTasks.map((t) => (
-                            <SortableTaskItem
-                              key={t.id}
-                              task={t}
-                              onToggle={() => toggleTask(t.id, t.status)}
-                              onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
-                              onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
-                            />
-                          ))}
-                        </div>
-                      </SortableContext>
-                    </DndContext>
-                  </div>
-                )}
-              </div>
-
-              <div className="mx-4 h-px bg-border/40" />
-
-              {/* Unscheduled sub-section — always shown */}
-              <div className="px-4 pb-5 pt-3">
-                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Unscheduled
-                </p>
-                {unscheduledTasks.length === 0 ? (
-                  <p className="py-2 text-center text-sm text-muted-foreground">
-                    No unscheduled tasks.
-                  </p>
-                ) : (
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleUnscheduledDragEnd}
-                  >
-                    <SortableContext
-                      items={unscheduledTasks.map((t) => t.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
+                  <>
+                    {/* Active tasks */}
+                    {(timedDayTasks.length > 0 || untimedDayTasks.length > 0) && (
                       <div className="flex flex-col gap-3">
-                        {unscheduledTasks.map((t) => (
-                          <SortableTaskItem
+                        {timedDayTasks.map((t) => (
+                          <TaskDayCard
                             key={t.id}
                             task={t}
                             onToggle={() => toggleTask(t.id, t.status)}
@@ -864,9 +838,160 @@ function CalendarView() {
                             onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
                           />
                         ))}
+                        {timedDayTasks.length > 0 && untimedDayTasks.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <div className="h-px flex-1 bg-border" />
+                            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
+                              No Time Set
+                            </span>
+                            <div className="h-px flex-1 bg-border" />
+                          </div>
+                        )}
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={handleDragEnd}
+                        >
+                          <SortableContext
+                            items={untimedDayTasks.map((t) => t.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className="flex flex-col gap-3">
+                              {untimedDayTasks.map((t) => (
+                                <SortableTaskItem
+                                  key={t.id}
+                                  task={t}
+                                  onToggle={() => toggleTask(t.id, t.status)}
+                                  onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
+                                  onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
+                                />
+                              ))}
+                            </div>
+                          </SortableContext>
+                        </DndContext>
                       </div>
-                    </SortableContext>
-                  </DndContext>
+                    )}
+
+                    {/* Show Completed toggle — Apple Reminders style */}
+                    {completedDayTasks.length > 0 && (
+                      <div className={cn(timedDayTasks.length > 0 || untimedDayTasks.length > 0 ? "mt-3" : "")}>
+                        <button
+                          type="button"
+                          onClick={() => setShowScheduledCompleted((v) => !v)}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+                        >
+                          <ChevronRight
+                            className={cn("h-3.5 w-3.5 transition-transform duration-200", showScheduledCompleted && "rotate-90")}
+                          />
+                          {showScheduledCompleted ? "Hide Completed" : `${completedDayTasks.length} Completed`}
+                        </button>
+
+                        <AnimatePresence initial={false}>
+                          {showScheduledCompleted && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.2, ease: "easeInOut" }}
+                              className="overflow-hidden"
+                            >
+                              <div className="mt-2 flex flex-col divide-y divide-border/30">
+                                {completedDayTasks.map((task) => (
+                                  <CompletedTaskRow
+                                    key={task.id}
+                                    task={task}
+                                    onRestore={(id) => {
+                                      toggleTask(id, "completed");
+                                      toast.success("Task restored");
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="mx-4 my-4 h-px bg-border/40" />
+
+              {/* Unscheduled sub-section — always shown */}
+              <div className="px-4 pb-5 pt-2">
+                <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Unscheduled
+                </p>
+                {unscheduledTasks.length === 0 && completedUnscheduledTasks.length === 0 ? (
+                  <p className="py-2 text-center text-sm text-muted-foreground">
+                    No unscheduled tasks.
+                  </p>
+                ) : (
+                  <>
+                    {unscheduledTasks.length > 0 && (
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleUnscheduledDragEnd}
+                      >
+                        <SortableContext
+                          items={unscheduledTasks.map((t) => t.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="flex flex-col gap-3">
+                            {unscheduledTasks.map((t) => (
+                              <SortableTaskItem
+                                key={t.id}
+                                task={t}
+                                onToggle={() => toggleTask(t.id, t.status)}
+                                onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
+                                onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                    )}
+
+                    {/* Show Completed toggle — Apple Reminders style */}
+                    {completedUnscheduledTasks.length > 0 && (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowCompleted((v) => !v)}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+                        >
+                          <ChevronRight
+                            className={cn("h-3.5 w-3.5 transition-transform duration-200", showCompleted && "rotate-90")}
+                          />
+                          {showCompleted ? "Hide Completed" : `${completedUnscheduledTasks.length} Completed`}
+                        </button>
+
+                        <AnimatePresence initial={false}>
+                          {showCompleted && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.2, ease: "easeInOut" }}
+                              className="overflow-hidden"
+                            >
+                              <div className="mt-2 flex flex-col divide-y divide-border/30">
+                                {completedUnscheduledTasks.map((task) => (
+                                  <CompletedTaskRow
+                                    key={task.id}
+                                    task={task}
+                                    onRestore={handleRestoreTask}
+                                  />
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -981,7 +1106,7 @@ function CalendarView() {
             <SheetTitle>
               {selected &&
                 new Date(selected + "T00:00:00").toLocaleDateString(undefined, {
-                  weekday: "long", month: "long", day: "numeric",
+                  weekday: "short", month: "long", day: "numeric",
                 })}
             </SheetTitle>
             <SheetDescription>

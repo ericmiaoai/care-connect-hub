@@ -3,10 +3,10 @@ import { useTheme } from "@/hooks/useTheme";
 import type { Theme } from "@/lib/theme";
 
 const SHADOW: Record<Theme, string> = {
-  black: "5px 5px 14px rgba(0,0,0,0.85), -3px -3px 8px rgba(255,255,255,0.04)",
-  gray:  "4px 4px 12px rgba(0,0,0,0.6),  -3px -3px 8px rgba(255,255,255,0.07)",
-  light: "5px 5px 14px #c4c4c6, -5px -5px 14px #ffffff",
-  blue:  "5px 5px 14px rgba(0,0,0,0.88), -2px -2px 8px rgba(61,109,208,0.20)",
+  black: "6px 6px 16px rgba(0,0,0,0.90), -4px -4px 10px rgba(255,255,255,0.13), inset 0 1px 0 rgba(255,255,255,0.11)",
+  gray:  "5px 5px 14px rgba(0,0,0,0.65), -4px -4px 10px rgba(255,255,255,0.16), inset 0 1px 0 rgba(255,255,255,0.13)",
+  light: "6px 6px 16px #b4b4b6, -6px -6px 16px #ffffff, inset 0 1px 0 rgba(255,255,255,0.95)",
+  blue:  "6px 6px 16px rgba(0,0,0,0.90), -4px -4px 10px rgba(255,255,255,0.13), inset 0 1px 0 rgba(255,255,255,0.09)",
 };
 
 interface AddButtonProps {

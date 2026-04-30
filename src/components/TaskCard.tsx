@@ -31,9 +31,10 @@ export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps }
   return (
     <div
       className={cn(
-        "flex items-stretch gap-3 rounded-xl border border-border border-l-4 bg-card shadow-sm",
+        "flex items-stretch gap-3 rounded-xl border border-border border-l-4 bg-card",
         borderClass,
       )}
+      style={{ boxShadow: "var(--card-shadow)" }}
     >
       {/* Time column */}
       <div className="flex w-16 flex-col items-center justify-center border-r border-border py-3 text-center">

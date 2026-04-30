@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import {
-  Check, ChevronRight, Palette, Users, LogOut, Share2, Trash2, KeyRound, Eye, EyeOff,
+  Check, ChevronRight, Palette, Users, LogOut, Share2, Trash2, KeyRound, Eye, EyeOff, UserCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -147,7 +147,7 @@ function SettingsRow({
 const INVITE_INPUT = "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 
 function SettingsPage() {
-  const { user, profile, signOut }        = useAuth();
+  const { user, profile, signOut, updateProfile } = useAuth();
   const { careCircleId, careCircleName, role } = useCareCircle(user?.id);
   const { theme, setTheme }              = useTheme();
   const {
@@ -162,6 +162,12 @@ function SettingsPage() {
   const [membersOpen,    setMembersOpen]    = useState(false);
   const [inviteOpen,     setInviteOpen]     = useState(false);
   const [passwordOpen,   setPasswordOpen]   = useState(false);
+  const [profileOpen,    setProfileOpen]    = useState(false);
+
+  // Edit profile form state
+  const [editFirstName,  setEditFirstName]  = useState("");
+  const [editLastName,   setEditLastName]   = useState("");
+  const [profileBusy,    setProfileBusy]    = useState(false);
 
   // Password change state
   const [currentPwd,     setCurrentPwd]     = useState("");
@@ -263,6 +269,21 @@ function SettingsPage() {
     }
   };
 
+  const openProfileSheet = () => {
+    setEditFirstName(profile?.first_name ?? "");
+    setEditLastName(profile?.last_name ?? "");
+    setProfileOpen(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!editFirstName.trim() || !editLastName.trim()) return;
+    setProfileBusy(true);
+    const { error } = await updateProfile(editFirstName, editLastName);
+    setProfileBusy(false);
+    if (error) toast.error("Failed to update profile", { description: error });
+    else { setProfileOpen(false); toast.success("Profile updated"); }
+  };
+
   const handleUpdateRole = async (memberId: string, newRole: string) => {
     const { error } = await updateMemberRole(memberId, newRole);
     if (error) toast.error("Failed to update role", { description: error });
@@ -276,7 +297,7 @@ function SettingsPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
       </header>
 
-      {/* Profile card — frosted glass */}
+      {/* Profile card — frosted glass, tappable to edit */}
       <div className="mb-10 flex items-center gap-3 rounded-xl border border-white/10 bg-card/85 px-4 py-4 backdrop-blur-xl">
         <div className={cn(
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white",
@@ -322,6 +343,12 @@ function SettingsPage() {
       </p>
       <div className="overflow-hidden rounded-xl border border-white/10 bg-card/85 backdrop-blur-xl">
         <SettingsRow
+          icon={<UserCircle className="h-4 w-4" />}
+          label="Edit Profile"
+          subtitle="Update your name and display initials"
+          onClick={openProfileSheet}
+        />
+        <SettingsRow
           icon={<KeyRound className="h-4 w-4" />}
           label="Change Password"
           onClick={() => setPasswordOpen(true)}
@@ -337,6 +364,55 @@ function SettingsPage() {
       <p className="mt-8 text-center text-[11px] leading-relaxed text-muted-foreground/60">
         Theme preference is saved to this device.
       </p>
+
+      {/* ── Edit Profile sheet ── */}
+      <Sheet open={profileOpen} onOpenChange={(o) => { if (!o) setProfileOpen(false); }}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Edit Profile</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">First name</label>
+                <input
+                  type="text"
+                  value={editFirstName}
+                  onChange={(e) => setEditFirstName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveProfile()}
+                  placeholder="First"
+                  autoFocus
+                  className={INVITE_INPUT}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">Last name</label>
+                <input
+                  type="text"
+                  value={editLastName}
+                  onChange={(e) => setEditLastName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveProfile()}
+                  placeholder="Last"
+                  className={INVITE_INPUT}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Your initials and display name are derived from these fields and shown to all members of your care circle.
+            </p>
+            <Button
+              className="w-full"
+              onClick={handleSaveProfile}
+              disabled={!editFirstName.trim() || !editLastName.trim() || profileBusy}
+            >
+              {profileBusy ? "Saving…" : "Save Changes"}
+            </Button>
+            <Button variant="outline" className="w-full" onClick={() => setProfileOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* ── Appearance sheet ── */}
       <Sheet open={appearanceOpen} onOpenChange={setAppearanceOpen}>

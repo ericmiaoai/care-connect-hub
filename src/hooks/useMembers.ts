@@ -96,6 +96,18 @@ export function useMembers(careCircleId: string | null | undefined): UseMembersR
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  useEffect(() => {
+    if (!careCircleId) return;
+    const channel = supabase
+      .channel(`members_rt_${careCircleId}`)
+      .on("postgres_changes", {
+        event: "*", schema: "public", table: "care_circle_members",
+        filter: `care_circle_id=eq.${careCircleId}`,
+      }, () => { fetchAll(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [careCircleId, fetchAll]);
+
   const generateInvite = useCallback(async (
     role: string,
     pin: string,
