@@ -35,6 +35,7 @@ export interface Database {
           first_name:  string;
           last_name:   string;
           avatar_url:  string | null;
+          preferences: Record<string, unknown>;  // JSONB user prefs (section order, collapse, snooze)
           created_at:  string;          // timestamptz as ISO string
           updated_at:  string;
         };
@@ -43,6 +44,7 @@ export interface Database {
           first_name:  string;
           last_name:   string;
           avatar_url?: string | null;
+          preferences?: Record<string, unknown>;
           created_at?: string;
           updated_at?: string;
         };
@@ -50,6 +52,7 @@ export interface Database {
           first_name?: string;
           last_name?:  string;
           avatar_url?: string | null;
+          preferences?: Record<string, unknown>;
           updated_at?: string;
         };
       };

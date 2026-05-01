@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
-  CalendarDays, MapPin, CheckCircle2,
-  GripVertical, ChevronDown, ChevronRight, BellOff,
+  CalendarDays, MapPin, CheckCircle2, CheckSquare2, Square,
+  GripVertical, ChevronDown, ChevronRight, BellOff, Pencil, Trash2,
 } from "lucide-react";
 import { AddButton } from "@/components/AddButton";
 import { ActionTypeSheet } from "@/components/ActionTypeSheet";
@@ -32,6 +32,7 @@ import { useCareCircle } from "@/hooks/useCareCircle";
 import { useTasks } from "@/hooks/useTasks";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { usePreferences } from "@/hooks/usePreferences";
 import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import {
@@ -58,60 +59,9 @@ const SECTION_TITLE: Record<SectionId, string> = {
 const GOLD  = "oklch(0.62 0.13 74)";
 const INPUT = "rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 
-// ---------------------------------------------------------------------------
-// localStorage helpers (keyed per user so each account keeps its own prefs)
-// ---------------------------------------------------------------------------
-
-const orderKey       = (uid: string) => `cs_myday_order_${uid}`;
-const OVERDUE_PREF_KEY = "cs_myday_overdue_pref";
-const COLLAPSE_KEY     = "cs_myday_collapsed";
-
-function loadOrder(uid: string): SectionId[] {
-  try {
-    const raw = localStorage.getItem(orderKey(uid));
-    if (!raw) return [...ALL_SECTIONS];
-    const parsed = JSON.parse(raw) as SectionId[];
-    const valid   = parsed.filter((s) => (ALL_SECTIONS as string[]).includes(s));
-    const missing = ALL_SECTIONS.filter((s) => !valid.includes(s));
-    return [...valid, ...missing];
-  } catch {
-    return [...ALL_SECTIONS];
-  }
-}
-
-function saveOrder(uid: string, order: SectionId[]) {
-  try { localStorage.setItem(orderKey(uid), JSON.stringify(order)); } catch { /* */ }
-}
-
-// Unified collapse map — covers every section so new sections get it for free
+// Preference-backed state types (persisted to Supabase profiles.preferences)
 type CollapseMap = Partial<Record<SectionId, boolean>>;
-
-function loadCollapseMap(): CollapseMap {
-  try {
-    const raw = localStorage.getItem(COLLAPSE_KEY);
-    return raw ? (JSON.parse(raw) as CollapseMap) : {};
-  } catch { return {}; }
-}
-
-function saveCollapseMap(m: CollapseMap) {
-  try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(m)); } catch { /* */ }
-}
-
-// Overdue-specific pref — only snooze lives here; collapse moved to CollapseMap
 interface OverduePref { snoozedUntil: string | null; }
-
-function loadOverduePref(): OverduePref {
-  try {
-    const raw = localStorage.getItem(OVERDUE_PREF_KEY);
-    if (!raw) return { snoozedUntil: null };
-    const parsed = JSON.parse(raw);
-    return { snoozedUntil: parsed.snoozedUntil ?? null };
-  } catch { return { snoozedUntil: null }; }
-}
-
-function saveOverduePref(p: OverduePref) {
-  try { localStorage.setItem(OVERDUE_PREF_KEY, JSON.stringify(p)); } catch { /* */ }
-}
 
 function tomorrowMidnight(): string {
   const d = new Date();
@@ -299,7 +249,14 @@ function SortableSection({
 // Appointment card (read-only, calendar events)
 // ---------------------------------------------------------------------------
 
-function AppointmentCard({ event }: { event: UICalendarEvent }) {
+interface AppointmentCardProps {
+  event:       UICalendarEvent;
+  onEdit?:     () => void;
+  onDelete?:   () => void;
+  onComplete?: () => void;
+}
+
+function AppointmentCard({ event, onEdit, onDelete, onComplete }: AppointmentCardProps) {
   return (
     <div
       className={cn(
@@ -313,7 +270,7 @@ function AppointmentCard({ event }: { event: UICalendarEvent }) {
         <span className="text-sm font-semibold tabular-nums">{event.time}</span>
       </div>
 
-      <div className="flex flex-1 items-center gap-3 py-3 pr-3">
+      <div className="flex flex-1 items-center gap-3 py-3 pr-2">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent">
           <CalendarDays className="h-4 w-4 text-muted-foreground" />
         </div>
@@ -341,6 +298,47 @@ function AppointmentCard({ event }: { event: UICalendarEvent }) {
           )}
         </div>
       </div>
+
+      {(onEdit || onDelete || onComplete) && (
+        <div className="flex items-center gap-0.5 pr-2">
+          {onEdit && (
+            <button
+              type="button"
+              aria-label="Edit appointment"
+              onClick={onEdit}
+              className="touch-target flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              aria-label="Delete appointment"
+              onClick={onDelete}
+              className="touch-target flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+          {onComplete && (
+            <button
+              type="button"
+              aria-label={event.isCompleted ? "Mark as not done" : "Mark as done"}
+              onClick={onComplete}
+              className={cn(
+                "touch-target flex items-center justify-center rounded-md p-1.5 transition-colors hover:bg-accent",
+                event.isCompleted ? "text-emerald-400 hover:text-muted-foreground" : "text-muted-foreground hover:text-emerald-400",
+              )}
+            >
+              {event.isCompleted
+                ? <CheckSquare2 className="h-4 w-4" />
+                : <Square className="h-4 w-4" />
+              }
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -424,21 +422,30 @@ function MyDay() {
     return { start, end };
   }, []);
 
-  const { events: appointments, isLoading: apptLoading, addEvent } =
-    useCalendarEvents(careCircleId, todayRange.start, todayRange.end);
+  const {
+    events: appointments, isLoading: apptLoading,
+    addEvent, updateEvent, deleteEvent, markComplete, unmarkComplete,
+  } = useCalendarEvents(careCircleId, todayRange.start, todayRange.end);
 
   const isLoading = tasksLoading || apptLoading;
 
-  // Section order + collapse state — loaded from localStorage once user is known
+  const { prefs, isLoaded, updatePrefs } = usePreferences(user?.id);
+
+  // Section order + collapse state — synced from Supabase preferences
   const [sectionOrder, setSectionOrder] = useState<SectionId[]>([...ALL_SECTIONS]);
   const [overduePref,  setOverduePref]  = useState<OverduePref>({ snoozedUntil: null });
   const [collapseMap,  setCollapseMap]  = useState<CollapseMap>({});
 
   useEffect(() => {
-    if (user?.id) setSectionOrder(loadOrder(user.id));
-    setOverduePref(loadOverduePref());
-    setCollapseMap(loadCollapseMap());
-  }, [user?.id]);
+    if (!isLoaded) return;
+    if (prefs.sectionOrder) {
+      const valid   = prefs.sectionOrder.filter((s): s is SectionId => (ALL_SECTIONS as string[]).includes(s));
+      const missing = ALL_SECTIONS.filter((s) => !valid.includes(s));
+      setSectionOrder([...valid, ...missing]);
+    }
+    if (prefs.collapsed)                  setCollapseMap(prefs.collapsed as CollapseMap);
+    if (prefs.snoozedUntil !== undefined) setOverduePref({ snoozedUntil: prefs.snoozedUntil ?? null });
+  }, [isLoaded, prefs]);
 
   // Progress ring — tracks today tasks completed this session
   const [completedToday, setCompletedToday] = useState(0);
@@ -450,8 +457,11 @@ function MyDay() {
   // Add-appointment sheet state
   const [submitting, setSubmitting] = useState(false);
 
-  // Add-appointment sheet state
+  const displayName = profile ? `${profile.first_name} ${profile.last_name}` : "";
+
+  // Add/edit appointment sheet state
   const [apptSheetOpen,  setApptSheetOpen]  = useState(false);
+  const [editingApptId,  setEditingApptId]  = useState<string | null>(null);
   const [apptTitle,      setApptTitle]      = useState("");
   const [apptDate,       setApptDate]       = useState("");
   const [apptTime,       setApptTime]       = useState("09:00");
@@ -537,8 +547,11 @@ function MyDay() {
     ? new Date() < new Date(overduePref.snoozedUntil)
     : false;
 
+  // Only show incomplete appointments in My Day — completed ones disappear (consistent with task behaviour)
+  const activeAppointments = appointments.filter((e) => !e.isCompleted);
+
   const sectionHasContent: Record<SectionId, boolean> = {
-    appointments: appointments.length > 0,
+    appointments: activeAppointments.length > 0,
     overdue:      overdueTasks.length > 0 && !isOverdueSnoozed,
     today:        todayTimedTasks.length > 0 || todayUntimedTasks.length > 0,
     unscheduled:  unscheduledTasks.length > 0,
@@ -547,7 +560,7 @@ function MyDay() {
   const visibleSections = sectionOrder.filter((id) => sectionHasContent[id]);
 
   const totalTasks  = overdueTasks.length + todayTimedTasks.length + todayUntimedTasks.length + unscheduledTasks.length;
-  const hasAnything = appointments.length > 0 || totalTasks > 0;
+  const hasAnything = activeAppointments.length > 0 || totalTasks > 0;
 
   // Progress ring — today's tasks only (overdue and unscheduled excluded)
   const todayTotal = todayTimedTasks.length + todayUntimedTasks.length + completedToday;
@@ -557,14 +570,12 @@ function MyDay() {
   const handleSectionDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    setSectionOrder((prev) => {
-      const oi = prev.indexOf(active.id as SectionId);
-      const ni = prev.indexOf(over.id  as SectionId);
-      if (oi === -1 || ni === -1) return prev;
-      const next = arrayMove(prev, oi, ni);
-      if (user?.id) saveOrder(user.id, next);
-      return next;
-    });
+    const oi = sectionOrder.indexOf(active.id as SectionId);
+    const ni = sectionOrder.indexOf(over.id  as SectionId);
+    if (oi === -1 || ni === -1) return;
+    const next = arrayMove(sectionOrder, oi, ni);
+    setSectionOrder(next);
+    updatePrefs({ sectionOrder: next });
   };
 
   // Task drag-to-reorder (unscheduled section only)
@@ -580,18 +591,16 @@ function MyDay() {
 
   // Universal section collapse — works for every current and future section
   const toggleCollapse = (id: SectionId) => {
-    setCollapseMap((prev) => {
-      const next = { ...prev, [id]: !prev[id] };
-      saveCollapseMap(next);
-      return next;
-    });
+    const next = { ...collapseMap, [id]: !collapseMap[id] };
+    setCollapseMap(next);
+    updatePrefs({ collapsed: next as Record<string, boolean> });
   };
 
   // Overdue snooze — hides the section entirely until tomorrow midnight
   const handleSnoozeOverdue = () => {
-    const next = { snoozedUntil: tomorrowMidnight() };
-    setOverduePref(next);
-    saveOverduePref(next);
+    const snoozedUntil = tomorrowMidnight();
+    setOverduePref({ snoozedUntil });
+    updatePrefs({ snoozedUntil });
     toast.success("Overdue tasks snoozed until tomorrow morning");
   };
 
@@ -624,24 +633,47 @@ function MyDay() {
   };
 
   const openApptSheet = () => {
+    setEditingApptId(null);
     setApptTitle(""); setApptDate(todayISO()); setApptTime("09:00");
     setApptLocation(""); setApptNotes("");
     setApptSheetOpen(true);
   };
 
-  const handleAddAppt = async () => {
+  const openEditApptSheet = (ev: UICalendarEvent) => {
+    setEditingApptId(ev.id);
+    const start = new Date(ev.startISO);
+    setApptTitle(ev.title);
+    setApptDate(ev.date);
+    setApptTime(`${String(start.getHours()).padStart(2, "0")}:${String(start.getMinutes()).padStart(2, "0")}`);
+    setApptLocation(ev.location ?? "");
+    setApptNotes(ev.description ?? "");
+    setApptSheetOpen(true);
+  };
+
+  const handleSaveAppt = async () => {
     if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     if (!apptTitle.trim() || !apptDate) return;
     setSubmitting(true);
     const start = new Date(`${apptDate}T${apptTime}:00`);
     const end   = new Date(start.getTime() + 60 * 60 * 1000);
-    const { error } = await addEvent(
-      apptTitle.trim(), start.toISOString(), end.toISOString(),
-      user?.id ?? "", apptLocation || undefined, apptNotes || undefined,
-    );
+    const { error } = editingApptId
+      ? await updateEvent(editingApptId, apptTitle.trim(), start.toISOString(), end.toISOString(), apptLocation || undefined, apptNotes || undefined)
+      : await addEvent(apptTitle.trim(), start.toISOString(), end.toISOString(), user?.id ?? "", apptLocation || undefined, apptNotes || undefined);
     setSubmitting(false);
-    if (error) toast.error("Failed to add appointment", { description: error });
-    else       { setApptSheetOpen(false); toast.success("Appointment added"); }
+    if (error) toast.error(editingApptId ? "Failed to update appointment" : "Failed to add appointment", { description: error });
+    else { setApptSheetOpen(false); setEditingApptId(null); toast.success(editingApptId ? "Appointment updated" : "Appointment added"); }
+  };
+
+  const handleDeleteAppt = async (id: string) => {
+    if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
+    await deleteEvent(id);
+    toast.success("Appointment deleted");
+  };
+
+  const handleToggleApptComplete = async (ev: UICalendarEvent) => {
+    if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
+    if (ev.isCompleted) await unmarkComplete(ev.id);
+    else                await markComplete(ev.id, user?.id ?? "", displayName);
   };
 
 
@@ -659,7 +691,7 @@ function MyDay() {
         return (
           <SectionCard
             title={SECTION_TITLE.appointments}
-            badge={appointments.length}
+            badge={activeAppointments.length}
             variant="dim"
             noun="appointment"
             collapsed={collapseMap["appointments"] ?? false}
@@ -667,7 +699,7 @@ function MyDay() {
             dragHandleProps={dragHandleProps}
           >
             <AnimatePresence initial={false}>
-              {appointments.map((event) => (
+              {activeAppointments.map((event) => (
                 <motion.div
                   key={event.id}
                   layout
@@ -676,7 +708,12 @@ function MyDay() {
                   exit={{ opacity: 0, x: 40, height: 0 }}
                   transition={{ duration: 0.22, ease: "easeOut" }}
                 >
-                  <AppointmentCard event={event} />
+                  <AppointmentCard
+                    event={event}
+                    onEdit={canManage ? () => openEditApptSheet(event) : undefined}
+                    onDelete={canManage ? () => handleDeleteAppt(event.id) : undefined}
+                    onComplete={() => handleToggleApptComplete(event)}
+                  />
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -921,11 +958,11 @@ function MyDay() {
         onAppointment={openApptSheet}
       />
 
-      {/* Add Appointment Sheet */}
-      <Sheet open={apptSheetOpen} onOpenChange={setApptSheetOpen}>
+      {/* Add / Edit Appointment Sheet */}
+      <Sheet open={apptSheetOpen} onOpenChange={(o) => { if (!o) { setApptSheetOpen(false); setEditingApptId(null); } }}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>Add Appointment</SheetTitle>
+            <SheetTitle>{editingApptId ? "Edit Appointment" : "Add Appointment"}</SheetTitle>
           </SheetHeader>
           <div className="mt-6 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -934,7 +971,7 @@ function MyDay() {
                 type="text"
                 value={apptTitle}
                 onChange={(e) => setApptTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddAppt()}
+                onKeyDown={(e) => e.key === "Enter" && handleSaveAppt()}
                 placeholder="e.g. Dr. Smith follow-up"
                 className={INPUT}
                 autoFocus
@@ -986,9 +1023,9 @@ function MyDay() {
             </div>
           </div>
           <SheetFooter className="mt-6">
-            <Button variant="outline" onClick={() => setApptSheetOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddAppt} disabled={!apptTitle.trim() || !apptDate || submitting}>
-              {submitting ? "Adding…" : "Add Appointment"}
+            <Button variant="outline" onClick={() => { setApptSheetOpen(false); setEditingApptId(null); }}>Cancel</Button>
+            <Button onClick={handleSaveAppt} disabled={!apptTitle.trim() || !apptDate || submitting}>
+              {submitting ? "Saving…" : editingApptId ? "Save Changes" : "Add Appointment"}
             </Button>
           </SheetFooter>
         </SheetContent>

@@ -40,11 +40,11 @@ function inferKind(title: string): TaskKind {
   return "vitals"; // default: vitals / general care
 }
 
-/** Extract "HH:MM" from an ISO timestamp string */
+/** Extract "h:mm am/pm" from an ISO timestamp string */
 function extractTime(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
 /** Format a Date as "YYYY-MM-DD" using LOCAL date components (not UTC) */
@@ -86,7 +86,7 @@ export function adaptTask(row: DBTask): UITask {
 export interface UICalendarEvent {
   id:              string;
   date:            string;         // "YYYY-MM-DD"
-  time:            string;         // "HH:MM"
+  time:            string;         // "h:mm am/pm"
   startISO:        string;         // full ISO start timestamp (for edit pre-fill)
   title:           string;
   description:     string | null;
@@ -107,7 +107,7 @@ export function adaptCalendarEvent(row: DBCalendarEventWithCompleter): UICalenda
   return {
     id:              row.id,
     date:            toLocalDateKey(d),
-    time:            d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
+    time:            d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }),
     startISO:        row.start_time,
     title:           row.title,
     description:     row.description ?? null,
