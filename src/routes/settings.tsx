@@ -63,6 +63,7 @@ const SWATCH_STYLE: Record<Theme, React.CSSProperties> = {
   gray:  { background: "radial-gradient(ellipse at 22% 20%, #3a3d47 0%, #22242c 50%, #111318 100%)" },
   light: { background: "#f5f5f6" },
   blue:  { background: "linear-gradient(175deg, #3d6dd0 0%, #1e3a9e 45%, #0d1462 100%)" },
+  prototypeLovable: { background: "radial-gradient(ellipse at 25% 15%, #2a2438 0%, #16131f 55%, #050407 100%)" },
 };
 
 function ThemeSwatch({
@@ -425,7 +426,7 @@ function SettingsPage() {
             <p className="mb-4 text-xs text-muted-foreground">
               Choose a background style for CareSync.
             </p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {THEMES.map(({ id, label }) => (
                 <ThemeSwatch key={id} id={id} label={label} theme={theme} setTheme={setTheme} />
               ))}
