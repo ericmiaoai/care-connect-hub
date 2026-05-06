@@ -1156,7 +1156,7 @@ function CalendarView() {
                 <div className="flex flex-col gap-3">
                   {selectedEvents.map((ev) => (
                     <div key={ev.id} className="flex gap-3">
-                      <span className="mt-1 w-12 shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
+                      <span className="mt-1 w-16 shrink-0 whitespace-nowrap text-xs font-medium tabular-nums text-muted-foreground">
                         {ev.time}
                       </span>
                       <div className="flex flex-1 flex-col gap-1">
@@ -1232,7 +1232,7 @@ function CalendarView() {
                 <div className="flex flex-col gap-3">
                   {selectedTasks.map((t) => (
                     <div key={t.id} className="flex gap-3">
-                      <span className="mt-1 w-12 shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
+                      <span className="mt-1 w-16 shrink-0 whitespace-nowrap text-xs font-medium tabular-nums text-muted-foreground">
                         {t.time}
                       </span>
                       <div className="flex flex-1 items-center gap-2">

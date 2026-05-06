@@ -38,12 +38,28 @@ interface EditableAppt {
 
 const INPUT_SM = "w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring";
 
-function fileToBase64(file: File): Promise<string> {
+function compressImage(file: File): Promise<{ base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp" }> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = () => resolve((reader.result as string).split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX = 1600;
+      let { width, height } = img;
+      if (width > MAX || height > MAX) {
+        if (width >= height) { height = Math.round((height * MAX) / width); width = MAX; }
+        else                 { width  = Math.round((width  * MAX) / height); height = MAX; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width  = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("Canvas not supported")); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve({ base64: canvas.toDataURL("image/jpeg", 0.85).split(",")[1], mimeType: "image/jpeg" });
+    };
+    img.onerror = reject;
+    img.src = url;
   });
 }
 
@@ -55,6 +71,7 @@ function ScanAVS() {
   const [scanError,      setScanError]      = useState<string | null>(null);
   const [contract,       setContract]       = useState<AVSContract | null>(null);
   const [patientId,      setPatientId]      = useState<string | null>(null);
+  const [patientName,    setPatientName]    = useState<string | null>(null);
   const [summary,        setSummary]        = useState<ApprovalSummary | null>(null);
   const [editableAppts,  setEditableAppts]  = useState<EditableAppt[]>([]);
   const [editingIndex,   setEditingIndex]   = useState<number | null>(null);
@@ -64,11 +81,15 @@ function ScanAVS() {
     if (!careCircleId) return;
     supabase
       .from("patients")
-      .select("id")
+      .select("id, first_name, last_name")
       .eq("care_circle_id", careCircleId)
       .limit(1)
       .single()
-      .then(({ data }) => setPatientId((data as unknown as { id: string } | null)?.id ?? null));
+      .then(({ data }) => {
+        const row = data as unknown as { id: string; first_name: string; last_name: string } | null;
+        setPatientId(row?.id ?? null);
+        if (row) setPatientName(`${row.first_name} ${row.last_name}`);
+      });
   }, [careCircleId]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -76,11 +97,17 @@ function ScanAVS() {
   const handleFileSelect = async (file: File) => {
     setPhase("scanning");
     setScanError(null);
-
     try {
-      const base64   = await fileToBase64(file);
-      const mimeType = (file.type || "image/jpeg") as "image/jpeg" | "image/png" | "image/webp";
-      const result   = await processAVSImage(base64, mimeType);
+      const isPDF = file.type === "application/pdf";
+      const { base64, mimeType } = isPDF
+        ? await new Promise<{ base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp" }>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload  = () => resolve({ base64: (reader.result as string).split(",")[1], mimeType: "image/jpeg" });
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          })
+        : await compressImage(file);
+      const result = await processAVSImage(base64, mimeType);
       setContract(result);
       setEditableAppts(
         result.upcoming_appointments.map((a) => ({
@@ -125,8 +152,7 @@ function ScanAVS() {
     if (careCircleId && user?.id && editableAppts.length > 0) {
       const eventsToInsert = editableAppts
         .map((appt) => {
-          const dateStr = appt.date_time.replace(/\s+at\s+/gi, " ").trim();
-          const start   = new Date(dateStr);
+          const start = new Date(appt.date_time);
           if (isNaN(start.getTime())) return null;
           const end = new Date(start.getTime() + 60 * 60 * 1000);
           return {
@@ -254,7 +280,7 @@ function ScanAVS() {
       {phase === "review" && contract && (
         <>
           {/* HITL warning */}
-          <div className="mt-6 mb-5 flex items-start gap-2 rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
+          <div className="mt-6 mb-3 flex items-start gap-2 rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-3">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--warning)]" />
             <p className="text-xs leading-relaxed text-foreground/90">
               Verify appointments against the physical AVS before approving. CareSync does
@@ -262,8 +288,30 @@ function ScanAVS() {
             </p>
           </div>
 
+          {/* Patient name mismatch warning */}
+          {(() => {
+            const extracted = contract.avs_metadata.patient_name?.trim();
+            const stored    = patientName?.trim();
+            if (!extracted || !stored) return null;
+            const namesMatch = extracted.toLowerCase() === stored.toLowerCase();
+            if (namesMatch) return null;
+            return (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-orange-500/40 bg-orange-500/10 p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-orange-400" />
+                <div>
+                  <p className="text-xs font-semibold text-orange-400">Patient name mismatch — please verify</p>
+                  <p className="mt-0.5 text-xs text-orange-400/80">
+                    Document shows <span className="font-medium">"{extracted}"</span> but
+                    CareSync has <span className="font-medium">"{stored}"</span> on file.
+                    Confirm this AVS belongs to the correct patient before approving.
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Metadata */}
-          <div className="mb-5 rounded-xl border border-border bg-card p-3">
+          <div className="mb-5 rounded-xl border border-border bg-card p-3" style={{ boxShadow: "var(--card-shadow)" }}>
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
               Document metadata
             </p>
@@ -273,6 +321,11 @@ function ScanAVS() {
             <p className="text-xs text-muted-foreground">
               Visit date: {contract.avs_metadata.visit_date || "Not detected"}
             </p>
+            {contract.avs_metadata.patient_name && (
+              <p className="text-xs text-muted-foreground">
+                Patient: {contract.avs_metadata.patient_name}
+              </p>
+            )}
           </div>
 
           {/* Upcoming appointments — SAVED on approve */}
@@ -289,7 +342,7 @@ function ScanAVS() {
                 {editableAppts.map((appt, i) =>
                   editingIndex === i ? (
                     /* ── Edit mode ── */
-                    <div key={i} className="rounded-xl border border-ring bg-card px-4 py-3 flex flex-col gap-2">
+                    <div key={i} className="rounded-xl border border-ring bg-card px-4 py-3 flex flex-col gap-2" style={{ boxShadow: "var(--card-shadow)" }}>
                       <input
                         autoFocus
                         className={INPUT_SM}
@@ -334,7 +387,7 @@ function ScanAVS() {
                     </div>
                   ) : (
                     /* ── Read mode ── */
-                    <div key={i} className="group rounded-xl border border-border bg-card px-4 py-3 flex items-start gap-3">
+                    <div key={i} className="group rounded-xl border border-border bg-card px-4 py-3 flex items-start gap-3" style={{ boxShadow: "var(--card-shadow)" }}>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-foreground">
                           {appt.specialty_or_provider}
@@ -372,7 +425,7 @@ function ScanAVS() {
                   Not saved to CareSync
                 </span>
               </div>
-              <ul className="rounded-xl border border-border bg-card divide-y divide-border">
+              <ul className="rounded-xl border border-border bg-card divide-y divide-border" style={{ boxShadow: "var(--card-shadow)" }}>
                 {contract.medications.map((med, i) => (
                   <li key={i} className="px-4 py-3">
                     <p className="text-sm font-medium text-foreground">
@@ -403,7 +456,7 @@ function ScanAVS() {
                   Not saved to CareSync
                 </span>
               </div>
-              <ul className="rounded-xl border border-border bg-card divide-y divide-border">
+              <ul className="rounded-xl border border-border bg-card divide-y divide-border" style={{ boxShadow: "var(--card-shadow)" }}>
                 {contract.care_instructions.map((instruction, i) => (
                   <li key={i} className="px-4 py-2.5 text-sm text-foreground/90">
                     {instruction}
@@ -414,7 +467,7 @@ function ScanAVS() {
           )}
 
           {/* Action bar */}
-          <div className="sticky bottom-20 mt-6 flex flex-col gap-2 rounded-2xl border border-border bg-card/95 p-3 backdrop-blur md:bottom-4 md:flex-row">
+          <div className="sticky bottom-20 mt-6 flex flex-col gap-2 rounded-2xl border border-border bg-card/95 p-3 backdrop-blur md:bottom-4 md:flex-row" style={{ boxShadow: "var(--card-shadow-lg)" }}>
             <button
               type="button"
               onClick={handleReject}

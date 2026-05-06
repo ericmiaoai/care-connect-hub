@@ -59,10 +59,12 @@ function avatarColor(name: string): string {
 // ── Theme swatch ──────────────────────────────────────────────────────────────
 
 const SWATCH_STYLE: Record<Theme, React.CSSProperties> = {
-  black: { background: "#0a0a0b" },
-  gray:  { background: "radial-gradient(ellipse at 22% 20%, #3a3d47 0%, #22242c 50%, #111318 100%)" },
-  light: { background: "#f5f5f6" },
-  blue:  { background: "linear-gradient(175deg, #3d6dd0 0%, #1e3a9e 45%, #0d1462 100%)" },
+  black:            { background: "#0a0a0b" },
+  gray:             { background: "radial-gradient(ellipse at 22% 20%, #3a3d47 0%, #22242c 50%, #111318 100%)" },
+  light:            { background: "#f5f5f6" },
+  blue:             { background: "linear-gradient(175deg, #3d6dd0 0%, #1e3a9e 45%, #0d1462 100%)" },
+  stone:            { background: "radial-gradient(ellipse at 90% 5%, #5a4e3a 0%, #2e2820 40%, #141210 100%)" },
+  prototypeLovable: { background: "radial-gradient(ellipse at 20% 0%, #3d1f6e 0%, #1a0d3a 50%, #0a0514 100%)" },
 };
 
 function ThemeSwatch({

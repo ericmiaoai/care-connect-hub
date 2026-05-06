@@ -22,6 +22,7 @@ import { supabase } from "@/lib/supabaseClient";
 // ---------------------------------------------------------------------------
 export const AVSContractSchema = z.object({
   avs_metadata: z.object({
+    patient_name:  z.string(),
     visit_date:    z.string(),
     provider_name: z.string()
   }),
@@ -55,6 +56,7 @@ const PROVIDER = (import.meta.env.VITE_VLM_PROVIDER ?? "mock") as VLMProvider;
 // ---------------------------------------------------------------------------
 const MOCK_PAYLOAD: AVSContract = {
   avs_metadata: {
+    patient_name:  "John Doe",
     visit_date:    "2026-04-20",
     provider_name: "Dr. Jane Smith, MD — Valley General Hospital"
   },

@@ -26,7 +26,7 @@ import { z } from "zod";
 // 1. ENVIRONMENT VALIDATION
 // Fail fast at cold-start if secrets are missing. Never expose these to client.
 // ---------------------------------------------------------------------------
-const GEMINI_API_KEY     = process.env.GEMINI_API_KEY!;
+const GEMINI_API_KEY     = process.env.CARESYNC_GEMINI_KEY!;
 const SUPABASE_URL       = process.env.SUPABASE_URL!;
 const SUPABASE_ANON_KEY  = process.env.SUPABASE_ANON_KEY!;
 
@@ -44,6 +44,7 @@ if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
 // ---------------------------------------------------------------------------
 const AVSContractSchema = z.object({
   avs_metadata: z.object({
+    patient_name:  z.string().describe("Full name of the patient as printed on the document"),
     visit_date:    z.string().describe("ISO 8601 date (YYYY-MM-DD)"),
     provider_name: z.string()
   }),
@@ -80,6 +81,7 @@ or commentary. Respond with raw JSON only.
 Required JSON structure:
 {
   "avs_metadata": {
+    "patient_name": "<full name of the patient as printed on the document, or empty string if not found>",
     "visit_date": "<ISO 8601 date YYYY-MM-DD, or empty string if not found>",
     "provider_name": "<doctor or facility name, or empty string if not found>"
   },
@@ -94,7 +96,7 @@ Required JSON structure:
   "upcoming_appointments": [
     {
       "specialty_or_provider": "<specialty or doctor name>",
-      "date_time": "<extracted date and time as a string>",
+      "date_time": "<date and time in ISO 8601 format YYYY-MM-DDTHH:MM, e.g. 2026-05-15T10:30>",
       "location": "<location if stated, or null>"
     }
   ],
@@ -108,8 +110,9 @@ Rules:
 - The "status" field MUST always be exactly the string "pending_human_review".
 - If a section has no data (e.g. no upcoming appointments), use an empty array [].
 - Never infer or hallucinate data that is not explicitly on the document.
-- Never include patient name, date of birth, address, insurance ID, or any 
-  other personally identifying information in your output.
+- Extract the patient's full name into avs_metadata.patient_name for identity
+  verification only. Do NOT include date of birth, address, insurance ID, or
+  any other personally identifying information beyond the patient name.
 `.trim();
 
 // ---------------------------------------------------------------------------
@@ -186,7 +189,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
   // ── GEMINI API CALL ────────────────────────────────────────────────────────
   try {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const result = await model.generateContent([
       STRICT_EXTRACTION_PROMPT,

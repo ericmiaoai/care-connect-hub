@@ -37,8 +37,8 @@ export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps }
       style={{ boxShadow: "var(--card-shadow)" }}
     >
       {/* Time column */}
-      <div className="flex w-16 flex-col items-center justify-center border-r border-border py-3 text-center">
-        <span className="text-sm font-semibold tabular-nums">{task.time}</span>
+      <div className="flex w-24 shrink-0 flex-col items-end justify-center border-r border-border py-3 px-3">
+        <span className="whitespace-nowrap text-sm font-semibold tabular-nums">{task.time}</span>
       </div>
 
       {/* Content */}

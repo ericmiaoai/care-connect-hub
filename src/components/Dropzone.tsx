@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Upload, Loader2 } from "lucide-react";
+import { Upload, Camera, Loader2 } from "lucide-react";
 
 interface DropzoneProps {
   loading:      boolean;
@@ -7,26 +7,41 @@ interface DropzoneProps {
 }
 
 export function Dropzone({ loading, onFileSelect }: DropzoneProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef   = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onFileSelect(file);
+    e.target.value = "";
+  };
 
   return (
-    <>
+    <div className="flex flex-col gap-3">
+      {/* Hidden file inputs */}
       <input
-        ref={inputRef}
+        ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,application/pdf"
         className="sr-only"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onFileSelect(file);
-          e.target.value = ""; // reset so the same file can be re-selected
-        }}
+        onChange={handleChange}
       />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        capture="environment"
+        className="sr-only"
+        onChange={handleChange}
+      />
+
+      {/* Upload from files */}
       <button
         type="button"
-        onClick={() => inputRef.current?.click()}
+        onClick={() => fileInputRef.current?.click()}
         disabled={loading}
-        className="touch-target group flex min-h-[180px] w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border-strong bg-card/40 p-6 text-center transition-colors hover:border-foreground/40 hover:bg-card disabled:cursor-wait"
+        className="touch-target group flex min-h-[150px] w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border-strong bg-card/40 p-6 text-center transition-colors hover:border-foreground/40 hover:bg-card disabled:cursor-wait"
+        style={{ boxShadow: "var(--card-shadow)" }}
       >
         {loading ? (
           <>
@@ -39,12 +54,25 @@ export function Dropzone({ loading, onFileSelect }: DropzoneProps) {
               <Upload className="h-5 w-5 text-foreground" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Upload After Visit Summary (AVS)</p>
+              <p className="text-sm font-medium text-foreground">Upload AVS Document</p>
               <p className="mt-1 text-xs text-muted-foreground">JPEG, PNG, or PDF — tap to select</p>
             </div>
           </>
         )}
       </button>
-    </>
+
+      {/* Take photo with device camera (mobile) */}
+      {!loading && (
+        <button
+          type="button"
+          onClick={() => cameraInputRef.current?.click()}
+          className="touch-target flex items-center justify-center gap-2 rounded-2xl border border-border bg-card px-4 py-4 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          style={{ boxShadow: "var(--card-shadow)" }}
+        >
+          <Camera className="h-4 w-4 text-muted-foreground" />
+          Take Photo with Camera
+        </button>
+      )}
+    </div>
   );
 }

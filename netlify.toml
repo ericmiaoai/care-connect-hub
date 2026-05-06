@@ -6,7 +6,7 @@
 [dev]
   command = "npm run dev"
   port = 8888
-  targetPort = 8080
+  targetPort = 3333
 
 [[redirects]]
   from = "/*"
