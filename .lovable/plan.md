@@ -1,66 +1,40 @@
+## Add "PrototypeLovable" theme — fully isolated 5th option
 
-## CareSync MVP — Frontend Shell & Core Views
+A new opt-in theme. Zero changes to existing themes (Black/Gray/Light/Blue), zero changes to app logic, zero changes to Scan AVS / Gemini integration, zero changes to My Day ↔ Calendar sync.
 
-Building the frontend-only UI shell with mock data, dark Apple-HIG styling, and Framer Motion interactions. No backend yet.
+### Files touched (only 3)
 
-### Design system
-- **Theme:** Strict dark mode via `src/styles.css`. Background `zinc-950`, cards `zinc-900`, borders `zinc-800`, text white/zinc-100, muted `zinc-400`.
-- **Typography:** Inter via Google Fonts, system-ui fallback.
-- **User color tokens:** Central `src/lib/users.ts` with mock users (Mom=blue-500, Dad=amber-500, Nurse Kim=emerald-500, Sister=violet-500). Used as left-border accents and avatar dots.
-- **Touch targets:** Min 44×44 utility class for all interactive controls.
-- **Icons:** Lucide React.
-- **Animations:** Framer Motion for task removal + Undo toast.
+**1. `src/lib/theme.ts`** — append, do not modify existing entries
+- Extend `Theme` union: `"black" | "gray" | "light" | "blue" | "prototypeLovable"`
+- Add `{ id: "prototypeLovable", label: "PrototypeLovable" }` to `THEMES` array
+- Add `"prototypeLovable"` to the `getStoredTheme` validation check
+- `applyTheme` already handles arbitrary ids via `setAttribute` — keeps `dark` class (treated as a dark theme)
 
-### Routing (TanStack Start)
-Separate route files (per Lovable conventions):
-- `src/routes/index.tsx` → My Day dashboard (default landing)
-- `src/routes/calendar.tsx` → Shared Care Calendar
-- `src/routes/updates.tsx` → Status Update Board
-- `src/routes/scan.tsx` → AI Staging UI
+**2. `src/styles.css`** — append a new block at the very bottom
+- All rules scoped under `[data-theme="prototypeLovable"]` — cannot leak to other themes
+- Defines its own color tokens (background, card, card-elevated, border, etc.)
+- Adds depth via stronger `--card-shadow` / `--card-shadow-lg` (3-tier elevation)
+- Selective glassmorphism: `backdrop-filter: blur()` only on `aside`, bottom nav (`nav.fixed`), and `[role="dialog"]`
+- Subtle radial gradient body background (adaptive feel)
+- CSS-only `@keyframes proto-rise` applied to `[data-theme="prototypeLovable"] [data-app-shell] > *` for staggered fade-in on mount — no JS, no Framer Motion changes
+- Typography: enables Inter stylistic sets via `font-feature-settings` on body when this theme is active. Does NOT change `--font-sans` globally.
 
-Each route gets its own `head()` metadata.
+**3. `src/routes/settings.tsx`** — no code change required
+- Settings already maps over `THEMES` from `src/lib/theme.ts`, so the new option appears automatically. (Will verify by reading the file before edit; if it hardcodes 4 themes, add the 5th button in the same `THEMES.map` pattern.)
 
-### Global layout (`__root.tsx`)
-- Bottom tab bar on mobile (My Day, Calendar, Updates, Scan AVS), morphs to left sidebar ≥md breakpoint.
-- Top app header with "CareSync" wordmark and current-user avatar dot.
-- Persistent muted footer disclaimer: *"CareSync is an administrative organizational tool, not a substitute for professional medical advice."*
-- Sonner `<Toaster />` mounted globally, positioned bottom-center, styled dark.
+### Files NOT touched
+- `src/routes/scan.tsx`, `src/services/VLMService.ts`, `netlify/functions/process-avs.ts` — Gemini/AVS untouched
+- `src/hooks/useTasks.ts`, `useCalendarTasks.ts`, `useCalendarEvents.ts` — data sync untouched
+- `src/routes/calendar.tsx`, `src/routes/index.tsx`, `src/routes/updates.tsx` — view logic untouched
+- `src/components/AddButton.tsx`, `TaskCard.tsx`, all UI components — untouched (the SHADOW map in AddButton keeps its 4 entries; PrototypeLovable theme will fall back to the `black` entry for that one button, OR I'll add a 5th entry — confirming during implementation, no behavior change to other themes either way)
+- All existing `[data-theme="..."]` CSS blocks — untouched
 
-### View A — My Day Dashboard
-- Vertical 24-hour timeline of mocked clinical tasks (medications, appointments, transport).
-- Each task = elevated card with: time block, title, dosage/notes, large round checkbox (≥44px), assigned-user color left border + avatar dot.
-- On check: Framer Motion `AnimatePresence` collapse/fade-out, then trigger Sonner toast "Task Completed" with **Undo** action button, 5-second duration. Undo restores the task to local state.
-- Header shows today's date and remaining-task count.
-
-### View B — Shared Care Calendar
-- Toggle: Week / Month grid (default Week for MVP clarity).
-- Sparse color-coded event chips: pill icon (emerald) for meds, car icon (blue) for transport, stethoscope (violet) for appointments.
-- Click a day → side panel/sheet listing that day's events. Minimal, no clutter.
-
-### View C — Status Update Board
-- Read-only vertical feed of admin posts styled like soft chat bubbles / micro-blog cards.
-- Each card: admin avatar dot + name, timestamp (relative, e.g., "2h ago"), body text.
-- Subtle entrance animation on mount.
-
-### View D — AI Staging (Human-In-The-Loop)
-- **Top:** Large dashed-border dropzone, "Upload After Visit Summary (AVS)", upload icon. Click triggers mock parse (simulated 1.5s loading state with spinner).
-- **Middle:** "Parsed Results" table rendered from mock JSON (Medication / Dosage / Frequency / Time). Each row is editable inline (mock — local state only) with subtle hover state.
-- Yellow warning banner: *"Verify each entry against the physical AVS before approving."*
-- **Bottom:** Sticky action bar with massive primary green "Approve & Add to Schedule" button + secondary outline "Reject / Edit" button.
-- Approve → success toast + clears staging table.
-
-### Mock data
-- `src/lib/mock-data.ts`: users, tasks (with assignedUserId, time, title, dosage), calendar events, status updates, parsed AVS rows.
-- All state is local React state (`useState`) per view. No persistence.
-
-### Files to create/modify
-- `src/styles.css` — dark theme tokens, Inter font, body bg.
-- `src/routes/__root.tsx` — shell, nav (bottom tabs / sidebar), disclaimer, Sonner.
-- `src/routes/index.tsx` — My Day.
-- `src/routes/calendar.tsx`, `updates.tsx`, `scan.tsx` — other views.
-- `src/lib/users.ts`, `src/lib/mock-data.ts`.
-- `src/components/` — `AppNav.tsx`, `TaskCard.tsx`, `UserDot.tsx`, `EventChip.tsx`, `UpdateCard.tsx`, `Dropzone.tsx`, `ParsedResultsTable.tsx`.
-- Add deps: `framer-motion`, `lucide-react` (if not present), `sonner`.
+### Safety guarantees
+- New theme is opt-in via Settings; default remains whatever the user currently has
+- If user never selects PrototypeLovable, not a single pixel changes anywhere in the app
+- Selecting it then switching back is bit-identical to the previous state
+- No new dependencies, no package.json changes
+- No SSR/runtime risk — pure CSS + a 1-line union extension
 
 ### Deliverable
-A navigable, fully styled dark-mode CareSync prototype where you can: tick a task and see the Framer Motion removal + Undo, browse calendar events, read updates, and run through the mock AVS approve flow.
+A 5th theme button labeled **"PrototypeLovable"** in Settings. Selecting it applies the new depth, glass, gradient, and stagger-in look across the app. Deselecting returns to identical prior behavior.
