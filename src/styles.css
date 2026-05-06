@@ -386,3 +386,61 @@
   [data-theme="prototypeLovable"] [data-app-shell] > *:nth-child(2) { animation-delay: 60ms; }
   [data-theme="prototypeLovable"] [data-app-shell] > *:nth-child(3) { animation-delay: 120ms; }
 }
+
+/* ── Stone theme ──────────────────────────────────────────────────────────────
+   Warm stone-colored dark background with directional lighting from top-right.
+   Cards use deep, soft shadows to create tactile depth (neumorphic-ish).
+   Fully scoped under [data-theme="stone"] — does not affect any other theme.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-theme="stone"] {
+  /* Warm stone palette — neutral with a faint warm cast */
+  --background:          oklch(0.20 0.006 70);
+  --foreground:          oklch(0.97 0.002 70);
+  --card:                oklch(0.24 0.006 70);
+  --card-foreground:     oklch(0.97 0.002 70);
+  --card-elevated:       oklch(0.28 0.007 70);
+  --popover:             oklch(0.24 0.006 70);
+  --popover-foreground:  oklch(0.97 0.002 70);
+  --primary:             oklch(0.97 0.002 70);
+  --primary-foreground:  oklch(0.20 0.006 70);
+  --secondary:           oklch(0.28 0.007 70);
+  --secondary-foreground:oklch(0.97 0.002 70);
+  --muted:               oklch(0.26 0.006 70);
+  --muted-foreground:    oklch(0.70 0.008 70);
+  --accent:              oklch(0.30 0.008 70);
+  --accent-foreground:   oklch(0.97 0.002 70);
+  --border:              oklch(0.32 0.008 70);
+  --border-strong:       oklch(0.42 0.010 70);
+  --input:               oklch(0.32 0.008 70);
+  --ring:                oklch(0.65 0.010 70);
+
+  /* Deep tactile shadow — light from top-right, dark cast to bottom-left */
+  --card-shadow:    8px 10px 24px rgba(0,0,0,0.55), -6px -6px 14px rgba(255,255,255,0.04),
+                    inset 0 1px 0 rgba(255,255,255,0.08),
+                    inset 0 0 0 1px rgba(255,255,255,0.03);
+  --card-shadow-lg: 14px 18px 36px rgba(0,0,0,0.65), -8px -8px 18px rgba(255,255,255,0.05),
+                    inset 0 1px 0 rgba(255,255,255,0.10),
+                    inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+/* Stone backdrop — warm light source from top-right corner */
+[data-theme="stone"] body {
+  background-color: oklch(0.16 0.005 70);
+  background-image:
+    radial-gradient(ellipse 130% 110% at 92% 5%,
+      oklch(0.48 0.014 75) 0%,
+      oklch(0.30 0.008 70) 35%,
+      oklch(0.16 0.004 70) 75%,
+      oklch(0.10 0.003 70) 100%);
+  background-attachment: scroll;
+  min-height: 100dvh;
+}
+[data-theme="stone"] [data-app-shell] {
+  background-color: transparent;
+}
+
+/* Cards: enhanced shadow + soft top-edge highlight */
+[data-theme="stone"] .bg-card,
+[data-theme="stone"] [class*="rounded-xl"][class*="border"] {
+  box-shadow: var(--card-shadow);
+}

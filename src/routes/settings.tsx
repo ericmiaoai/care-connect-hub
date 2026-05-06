@@ -64,6 +64,7 @@ const SWATCH_STYLE: Record<Theme, React.CSSProperties> = {
   light: { background: "#f5f5f6" },
   blue:  { background: "linear-gradient(175deg, #3d6dd0 0%, #1e3a9e 45%, #0d1462 100%)" },
   prototypeLovable: { background: "radial-gradient(ellipse at 25% 15%, #2a2438 0%, #16131f 55%, #050407 100%)" },
+  stone: { background: "radial-gradient(ellipse at 85% 8%, #5a5751 0%, #322f2c 45%, #16140f 100%)" },
 };
 
 function ThemeSwatch({

@@ -1,4 +1,4 @@
-export type Theme = "black" | "gray" | "light" | "blue" | "prototypeLovable";
+export type Theme = "black" | "gray" | "light" | "blue" | "prototypeLovable" | "stone";
 
 const STORAGE_KEY = "caresync-theme";
 
@@ -8,12 +8,13 @@ export const THEMES: { id: Theme; label: string }[] = [
   { id: "light", label: "Light" },
   { id: "blue",  label: "Blue"  },
   { id: "prototypeLovable", label: "PrototypeLovable" },
+  { id: "stone", label: "Stone" },
 ];
 
 export function getStoredTheme(): Theme {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    if (v === "black" || v === "gray" || v === "light" || v === "blue" || v === "prototypeLovable") return v;
+    if (v === "black" || v === "gray" || v === "light" || v === "blue" || v === "prototypeLovable" || v === "stone") return v;
   } catch { /* SSR / privacy mode */ }
   return "black";
 }

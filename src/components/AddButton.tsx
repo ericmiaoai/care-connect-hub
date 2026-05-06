@@ -8,6 +8,7 @@ const SHADOW: Record<Theme, string> = {
   light: "6px 6px 16px #b4b4b6, -6px -6px 16px #ffffff, inset 0 1px 0 rgba(255,255,255,0.95)",
   blue:  "6px 6px 16px rgba(0,0,0,0.90), -4px -4px 10px rgba(255,255,255,0.13), inset 0 1px 0 rgba(255,255,255,0.09)",
   prototypeLovable: "0 10px 30px -8px rgba(0,0,0,0.75), 0 2px 6px rgba(0,0,0,0.45), -2px -2px 8px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 0 0 1px rgba(255,255,255,0.06)",
+  stone: "8px 10px 24px rgba(0,0,0,0.70), -6px -6px 14px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.10), inset 0 0 0 1px rgba(255,255,255,0.04)",
 };
 
 interface AddButtonProps {
