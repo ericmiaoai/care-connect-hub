@@ -201,19 +201,22 @@ Users tap their avatar circle in Settings to upload a new photo. The app:
 ### Environment variables (four required)
 | Variable | Used by | Where set |
 |---|---|---|
-| `VITE_SUPABASE_URL` | React app (browser) | `.env` + Netlify |
-| `VITE_SUPABASE_ANON_KEY` | React app (browser) | `.env` + Netlify |
-| `SUPABASE_URL` | Netlify function (server) | `.env` + Netlify |
-| `SUPABASE_ANON_KEY` | Netlify function (server) | `.env` + Netlify |
+| `VITE_SUPABASE_URL` | React app (browser bundle) | `.env` (baked in at build time) |
+| `VITE_SUPABASE_ANON_KEY` | React app (browser bundle) | `.env` (baked in at build time) |
+| `SUPABASE_URL` | Netlify function (server) | `.env` + Netlify dashboard |
+| `SUPABASE_ANON_KEY` | Netlify function (server) | `.env` + Netlify dashboard |
 
 > The `VITE_` prefix makes a variable accessible in the browser bundle.
 > Variables without it are server-only and never exposed to users.
+> Because the frontend is deployed from a local build, `VITE_` values are
+> baked in from `.env` at build time — not from any cloud dashboard.
 
 ### Supabase project URL/key change
-If the Supabase project is migrated or recreated, all four variables above
-must be updated in both `.env` and the Netlify dashboard simultaneously.
-Also re-run the full `schema.sql` and re-create the `avatars` storage bucket
-(Section 4) in the new project.
+If the Supabase project is migrated or recreated, update `.env` locally,
+rebuild (`npm run build`), and redeploy (`npx wrangler deploy`). Also update
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` in the Netlify dashboard for the
+process-avs function. Re-run `schema.sql` and re-create the `avatars` bucket
+(Section 4) in the new Supabase project.
 
 ### Row Level Security (RLS)
 RLS policies must be verified any time the database schema changes. A
@@ -254,23 +257,57 @@ ALTER TABLE public.care_circle_members REPLICA IDENTITY FULL;
 
 ---
 
-## 6. Deployment Checklist (Netlify)
+## 6. Deployment Architecture
 
-Before every production deployment, verify:
+CareSync uses a split deployment model:
 
-- [ ] `npm run build` completes without errors locally
+| Layer | Platform | URL | What it does |
+|---|---|---|---|
+| Frontend + SSR | Cloudflare Workers | `caresync.*.workers.dev` | Serves the React app |
+| Scan AVS function | Netlify Functions | `caresync-ericmiao.netlify.app` | Calls Gemini API |
+| Database + Auth | Supabase | `*.supabase.co` | Stores all app data |
+
+**Why split?** The app is built on TanStack Start which outputs a Cloudflare
+Worker bundle (SSR). Netlify cannot run Worker bundles. The Scan AVS function
+stays on Netlify because it was already working there and requires no changes.
+
+### Deployment checklist — before every release
+
+**Frontend (Cloudflare Workers):**
 - [ ] `npx tsc --noEmit` returns no TypeScript errors
-- [ ] Scan AVS works end-to-end in `netlify dev` locally
-- [ ] Profile photo upload works and confirmation dialog appears
-- [ ] Role change in Settings persists after page reload (both users)
-- [ ] All required env vars are set in Netlify dashboard:
+- [ ] `.env` has correct values for all `VITE_` variables
+- [ ] `VITE_AVS_ENDPOINT` points to the Netlify function URL
+- [ ] `npm run build` completes without errors
+- [ ] `npx wrangler deploy` succeeds
+
+**Scan AVS function (Netlify):**
+- [ ] `netlify dev` works locally (tests the function end-to-end)
+- [ ] Netlify dashboard env vars are set:
   - `CARESYNC_GEMINI_KEY`
   - `GEMINI_MODEL`
   - `SUPABASE_URL`
   - `SUPABASE_ANON_KEY`
-  - `APP_URL` (set to the live Netlify domain to restrict CORS)
-  - `VITE_SUPABASE_URL`
-  - `VITE_SUPABASE_ANON_KEY`
+  - `APP_URL` (must equal the Cloudflare Workers URL — no trailing slash)
+
+### Deploying a code change
+```bash
+# 1. Make and test your changes locally
+netlify dev
+
+# 2. Build
+npm run build
+
+# 3. Deploy frontend to Cloudflare
+npx wrangler deploy
+
+# 4. If Netlify function changed, push to GitHub
+# (Netlify auto-deploys from the main branch)
+git push origin main
+```
+
+### If the Cloudflare URL ever changes
+Update `APP_URL` in the Netlify dashboard to the new URL and trigger a
+Netlify redeploy. The old URL will stop working for Scan AVS immediately.
 
 ---
 
@@ -320,7 +357,8 @@ If setting up against a brand-new Supabase project:
 | `@google/generative-ai` releases new major version | Update package, test Scan AVS |
 | Supabase rotates anon key | Update all four Supabase env vars |
 | New developer joins team | Follow Section 7 onboarding |
-| Netlify free tier limit approached | Review usage or upgrade plan |
+| Netlify free tier limit approached | Only process-avs runs on Netlify — usage is minimal |
+| Cloudflare Workers free tier limit approached | 100,000 requests/day free; upgrade plan if exceeded |
 | iOS major update | Test Scan AVS camera capture + profile photo upload on iPhone |
 | Android major update | Test Scan AVS camera capture + profile photo upload on Android |
 | New Supabase project created | Re-run all SQL files, re-create avatars bucket (Section 4) |
@@ -332,4 +370,4 @@ If setting up against a brand-new Supabase project:
 
 ---
 
-*Last updated: May 2026 — CareSync v1.1*
+*Last updated: May 2026 — CareSync v1.2*
