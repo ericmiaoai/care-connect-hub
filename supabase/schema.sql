@@ -316,9 +316,26 @@ $$;
 
 
 -- 5.1 PROFILES
--- Users can only read and edit their own profile.
-CREATE POLICY "profiles: read own"   ON public.profiles FOR SELECT USING (id = auth.uid());
-CREATE POLICY "profiles: update own" ON public.profiles FOR UPDATE USING (id = auth.uid());
+-- Users can read/edit their own profile.
+-- Users can also read profiles of anyone who shares their care circle
+-- (required for member lists, broadcast author names, and avatar display).
+CREATE POLICY "profiles: read own" ON public.profiles
+  FOR SELECT USING (id = auth.uid());
+
+CREATE POLICY "profiles: read circle peers" ON public.profiles
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.care_circle_members AS mine
+      JOIN public.care_circle_members AS theirs
+        ON theirs.care_circle_id = mine.care_circle_id
+      WHERE mine.user_id   = auth.uid()
+        AND theirs.user_id = profiles.id
+    )
+  );
+
+CREATE POLICY "profiles: update own" ON public.profiles
+  FOR UPDATE USING (id = auth.uid());
 
 
 -- 5.2 CARE CIRCLES
@@ -335,12 +352,15 @@ CREATE POLICY "care_circles: authenticated can create" ON public.care_circles
 
 -- 5.3 CARE CIRCLE MEMBERS
 -- All members can see who else is in their circle.
--- Only admins can add or remove members.
+-- Only admins can add, update roles, or remove members.
 CREATE POLICY "members: circle members can read" ON public.care_circle_members
   FOR SELECT USING (is_circle_member(care_circle_id));
 
 CREATE POLICY "members: admin can insert" ON public.care_circle_members
   FOR INSERT WITH CHECK (is_circle_member(care_circle_id, ARRAY['admin']::care_circle_role[]));
+
+CREATE POLICY "members: admin can update" ON public.care_circle_members
+  FOR UPDATE USING (is_circle_member(care_circle_id, ARRAY['admin']::care_circle_role[]));
 
 CREATE POLICY "members: admin can delete" ON public.care_circle_members
   FOR DELETE USING (is_circle_member(care_circle_id, ARRAY['admin']::care_circle_role[]));
@@ -457,8 +477,27 @@ CREATE INDEX idx_patients_care_circle       ON public.patients(care_circle_id);
 
 
 -- =============================================================================
+-- SECTION 7: REALTIME CONFIGURATION
+-- Enroll tables that need live cross-device sync into the Supabase realtime
+-- publication. Without this, postgres_changes subscriptions connect but
+-- never receive events.
+--
+-- REPLICA IDENTITY FULL is required for filtered subscriptions on non-PK
+-- columns (e.g. user_id=eq.{userId} on care_circle_members).
+-- =============================================================================
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.calendar_events;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.broadcast_updates;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.care_circle_members;
+
+ALTER TABLE public.care_circle_members REPLICA IDENTITY FULL;
+
+
+-- =============================================================================
 -- END OF SCHEMA
 -- Run this entire file in the Supabase SQL Editor (Database > SQL Editor).
 -- After running, verify in Database > Tables that all 8 tables are present
 -- and RLS is shown as ENABLED for each.
+-- Also verify: Database > Replication shows the 4 tables above as enrolled.
 -- =============================================================================

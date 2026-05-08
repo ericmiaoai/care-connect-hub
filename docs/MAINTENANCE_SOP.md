@@ -114,7 +114,7 @@ then test Scan AVS end-to-end before deploying.
 ## 4. Profile Photo Storage (Supabase Storage)
 
 ### One-time setup required before this feature works in production
-The profile photo upload feature requires a `avatars` bucket in Supabase Storage.
+The profile photo upload feature requires an `avatars` bucket in Supabase Storage.
 This must be created manually in the Supabase dashboard — it is NOT created
 automatically by the app.
 
@@ -171,6 +171,15 @@ USING (bucket_id = 'avatars');
 Each user has exactly one file named after their UUID. Uploading a new
 photo overwrites the previous one automatically (`upsert: true`).
 
+### Photo upload flow
+Users tap their avatar circle in Settings to upload a new photo. The app:
+1. Validates the file (rejects HEIC on desktop, rejects files over 15 MB)
+2. Compresses and centre-crops to 256×256 JPEG in the browser (no server cost)
+3. Shows a confirmation preview dialog — user must tap "Use Photo" to commit
+4. Uploads to Supabase Storage, updates the `profiles.avatar_url` column
+5. Fires a `caresync:profile-updated` browser event that refreshes avatars
+   everywhere in the app simultaneously (sidebar, header, member list, updates)
+
 ### HEIC support
 - iOS devices auto-convert HEIC to JPEG when selecting from the camera roll
   on a mobile browser — no extra handling needed for the primary use case
@@ -185,9 +194,11 @@ photo overwrites the previous one automatically (`upsert: true`).
 - 1GB supports ~20,000+ users before any storage cost
 - Each upload overwrites the previous file — no accumulation over time
 
+---
+
 ## 5. Supabase Maintenance
 
-### Environment variables (three required)
+### Environment variables (four required)
 | Variable | Used by | Where set |
 |---|---|---|
 | `VITE_SUPABASE_URL` | React app (browser) | `.env` + Netlify |
@@ -201,11 +212,45 @@ photo overwrites the previous one automatically (`upsert: true`).
 ### Supabase project URL/key change
 If the Supabase project is migrated or recreated, all four variables above
 must be updated in both `.env` and the Netlify dashboard simultaneously.
+Also re-run the full `schema.sql` and re-create the `avatars` storage bucket
+(Section 4) in the new project.
 
 ### Row Level Security (RLS)
 RLS policies must be verified any time the database schema changes. A
 misconfigured RLS policy could expose one user's care data to another.
 Verify policies in: Supabase Dashboard → Authentication → Policies.
+
+**Policies added post-launch (already in schema.sql as of v1.1):**
+- `profiles: read circle peers` — allows users to read profiles of care circle
+  co-members. Required for member names, avatars, and "completed by" labels to
+  display correctly for other users.
+- `members: admin can update` — allows admins to change member roles. Without
+  this, the role dropdown in Settings silently does nothing.
+
+### Realtime configuration
+Four tables must be enrolled in the `supabase_realtime` publication for
+live cross-device sync to work. This is handled in `schema.sql` Section 7,
+but if you ever need to re-apply it manually:
+
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.calendar_events;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.broadcast_updates;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.care_circle_members;
+ALTER TABLE public.care_circle_members REPLICA IDENTITY FULL;
+```
+
+> `REPLICA IDENTITY FULL` on `care_circle_members` is required so that
+> filtered subscriptions on `user_id` (non-primary-key column) receive
+> UPDATE events correctly. Without it, role change notifications don't
+> reach the affected user.
+
+> **Supabase dashboard replication UI:** The UI for managing replication
+> table enrollment is unreliable and changes between dashboard versions.
+> Always use the SQL Editor for this configuration.
+
+> **Supabase Storage policy UI:** Similarly, the Storage policy editor UI
+> is unreliable. Always use the SQL Editor (see Section 4).
 
 ---
 
@@ -216,14 +261,16 @@ Before every production deployment, verify:
 - [ ] `npm run build` completes without errors locally
 - [ ] `npx tsc --noEmit` returns no TypeScript errors
 - [ ] Scan AVS works end-to-end in `netlify dev` locally
-- [ ] All five required env vars are set in Netlify dashboard:
+- [ ] Profile photo upload works and confirmation dialog appears
+- [ ] Role change in Settings persists after page reload (both users)
+- [ ] All required env vars are set in Netlify dashboard:
   - `CARESYNC_GEMINI_KEY`
   - `GEMINI_MODEL`
   - `SUPABASE_URL`
   - `SUPABASE_ANON_KEY`
   - `APP_URL` (set to the live Netlify domain to restrict CORS)
-- [ ] `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are also set
-  (these are needed by the React app build)
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_ANON_KEY`
 
 ---
 
@@ -256,6 +303,13 @@ netlify dev
 # 6. Open http://localhost:8888
 ```
 
+### One-time Supabase setup (new project only)
+If setting up against a brand-new Supabase project:
+1. Run `supabase/schema.sql` in the SQL Editor
+2. Run `supabase/create_care_circle_fn.sql` in the SQL Editor
+3. Run `supabase/add_completion_fields.sql` in the SQL Editor
+4. Create the `avatars` storage bucket (Section 4 of this document)
+
 ---
 
 ## 8. Known Maintenance Triggers
@@ -265,13 +319,17 @@ netlify dev
 | Google deprecates current Gemini model | Update `GEMINI_MODEL` env var (Section 1) |
 | `@google/generative-ai` releases new major version | Update package, test Scan AVS |
 | Supabase rotates anon key | Update all four Supabase env vars |
-| New developer joins team | Follow Section 6 onboarding |
+| New developer joins team | Follow Section 7 onboarding |
 | Netlify free tier limit approached | Review usage or upgrade plan |
 | iOS major update | Test Scan AVS camera capture + profile photo upload on iPhone |
 | Android major update | Test Scan AVS camera capture + profile photo upload on Android |
-| New Supabase project created | Re-create `avatars` storage bucket and policies (Section 4) |
+| New Supabase project created | Re-run all SQL files, re-create avatars bucket (Section 4) |
 | HEIC support needed on desktop | Evaluate `heic2any` library — requires iPhone for testing |
+| Member role changes not persisting | Verify `members: admin can update` RLS policy exists (Section 5) |
+| Member names/avatars showing as blank | Verify `profiles: read circle peers` RLS policy exists (Section 5) |
+| Role change not reflecting without refresh | Verify `care_circle_members` is in realtime publication (Section 5) |
+| Realtime sync stops working | Re-run Section 7 realtime configuration SQL |
 
 ---
 
-*Last updated: May 2026 — CareSync v1.0*
+*Last updated: May 2026 — CareSync v1.1*
