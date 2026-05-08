@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CareSync — Capabilities Overview</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.65;
+      color: #1a1a2e;
+      background: #fff;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 40px;
+    }
+    @media print {
+      body { padding: 0; max-width: 100%; }
+      .no-print { display: none; }
+      section { page-break-inside: avoid; }
+      h2 { page-break-before: always; }
+      h2:first-of-type { page-break-before: avoid; }
+    }
+
+    /* ── Typography ───────────────────────────────────────────────── */
+    h1 { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; color: #0d1b4b; }
+    h2 { font-size: 20px; font-weight: 700; color: #0d1b4b; margin: 40px 0 14px;
+         padding-bottom: 6px; border-bottom: 2px solid #e0e7ff; }
+    h3 { font-size: 15px; font-weight: 600; color: #1e3a8a; margin: 20px 0 8px; }
+    p  { margin-bottom: 10px; color: #334155; }
+    ul, ol { margin: 8px 0 10px 20px; color: #334155; }
+    li { margin-bottom: 4px; }
+    strong { color: #0d1b4b; }
+    a  { color: #2563eb; text-decoration: none; }
+    code { font-family: "SF Mono", Menlo, monospace; font-size: 12px;
+           background: #f1f5f9; padding: 1px 5px; border-radius: 3px;
+           color: #0f172a; }
+
+    /* ── Cover ────────────────────────────────────────────────────── */
+    .cover {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 40px;
+      padding-bottom: 32px;
+      border-bottom: 3px solid #2563eb;
+    }
+    .cover-logo {
+      width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0;
+      background: linear-gradient(135deg, #f59e0b 0%, #2563eb 100%);
+    }
+    .cover-meta { color: #64748b; font-size: 13px; margin-top: 6px; }
+    .cover-badge {
+      display: inline-block; font-size: 11px; font-weight: 600;
+      background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+      border-radius: 20px; padding: 2px 10px; margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    /* ── Cards / Callouts ─────────────────────────────────────────── */
+    .card {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 16px 20px; margin: 14px 0;
+    }
+    .callout {
+      background: #eff6ff; border-left: 4px solid #2563eb;
+      border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0;
+    }
+    .callout.amber { background: #fffbeb; border-color: #f59e0b; }
+    .callout.green { background: #f0fdf4; border-color: #22c55e; }
+    .callout.red   { background: #fef2f2; border-color: #ef4444; }
+    .callout-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+
+    /* ── Feature Grid ─────────────────────────────────────────────── */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin: 16px 0;
+    }
+    .feature-card {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 16px; text-align: center;
+    }
+    .feature-icon {
+      width: 40px; height: 40px; border-radius: 10px; margin: 0 auto 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .feature-card h3 { margin: 0 0 6px; font-size: 13px; text-align: center; }
+    .feature-card p  { font-size: 12px; color: #64748b; margin: 0; }
+
+    /* ── Role Table ───────────────────────────────────────────────── */
+    table {
+      width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px;
+    }
+    th {
+      background: #0d1b4b; color: #fff; text-align: left;
+      padding: 10px 14px; font-weight: 600;
+    }
+    td { padding: 9px 14px; border-bottom: 1px solid #e2e8f0; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    .check { color: #22c55e; font-weight: 700; }
+    .cross { color: #ef4444; }
+
+    /* ── Flowchart ────────────────────────────────────────────────── */
+    .flowchart {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 0; margin: 20px auto; max-width: 560px;
+    }
+    .flow-row {
+      display: flex; align-items: center; gap: 0; width: 100%;
+    }
+    .flow-step {
+      flex: 1; background: #eff6ff; border: 2px solid #3b82f6;
+      border-radius: 8px; padding: 10px 14px; text-align: center;
+      font-size: 13px; font-weight: 500; color: #1e3a8a;
+    }
+    .flow-step.green { background: #f0fdf4; border-color: #22c55e; color: #14532d; }
+    .flow-step.amber { background: #fffbeb; border-color: #f59e0b; color: #78350f; }
+    .flow-step.red   { background: #fef2f2; border-color: #ef4444; color: #7f1d1d; }
+    .flow-step.gray  { background: #f8fafc; border-color: #94a3b8; color: #334155; }
+    .flow-step.dark  { background: #0d1b4b; border-color: #0d1b4b; color: #fff; }
+    .flow-step small { display: block; font-size: 11px; font-weight: 400;
+                       opacity: 0.75; margin-top: 3px; }
+    .flow-arrow-down {
+      display: flex; justify-content: center; width: 100%;
+      padding: 3px 0; color: #64748b; font-size: 20px; line-height: 1;
+    }
+    .flow-arrow-right {
+      padding: 0 6px; color: #64748b; font-size: 18px; flex-shrink: 0;
+    }
+    .flow-decision {
+      background: #fefce8; border: 2px solid #eab308;
+      border-radius: 8px; padding: 10px 14px; text-align: center;
+      font-size: 13px; font-weight: 600; color: #713f12;
+      position: relative; margin: 0 auto; min-width: 180px;
+    }
+    .flow-branch {
+      display: flex; gap: 20px; width: 100%; justify-content: center;
+    }
+    .flow-branch-label {
+      font-size: 11px; font-weight: 700; color: #64748b;
+      text-align: center; padding: 2px 0;
+    }
+
+    /* ── Architecture Diagram ─────────────────────────────────────── */
+    .arch-diagram {
+      display: flex; gap: 14px; margin: 20px 0; align-items: flex-start;
+    }
+    .arch-layer {
+      flex: 1; border: 2px solid #e2e8f0; border-radius: 10px;
+      overflow: hidden;
+    }
+    .arch-layer-title {
+      background: #0d1b4b; color: #fff; padding: 8px 14px;
+      font-size: 12px; font-weight: 700; text-align: center;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .arch-layer-body {
+      padding: 12px 14px; background: #f8fafc;
+    }
+    .arch-item {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 6px;
+      padding: 8px 10px; margin-bottom: 8px; font-size: 12px;
+    }
+    .arch-item:last-child { margin-bottom: 0; }
+    .arch-item-title { font-weight: 600; color: #0d1b4b; }
+    .arch-item-sub { color: #64748b; font-size: 11px; }
+    .arch-arrow {
+      display: flex; align-items: center; padding-top: 40px;
+      font-size: 22px; color: #94a3b8; flex-shrink: 0;
+    }
+
+    /* ── Care Circle Diagram ──────────────────────────────────────── */
+    .circle-diagram {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 10px; margin: 20px 0;
+    }
+    .circle-row {
+      display: flex; gap: 12px; justify-content: center;
+    }
+    .circle-role {
+      border-radius: 10px; padding: 12px 18px; text-align: center;
+      min-width: 140px; font-size: 13px;
+    }
+    .circle-role.admin {
+      background: #0d1b4b; color: #fff; border: 2px solid #0d1b4b;
+    }
+    .circle-role.collab {
+      background: #eff6ff; color: #1e3a8a; border: 2px solid #3b82f6;
+    }
+    .circle-role.viewer {
+      background: #f0fdf4; color: #14532d; border: 2px solid #22c55e;
+    }
+    .circle-role.patient {
+      background: #fef3c7; color: #78350f; border: 2px solid #f59e0b;
+    }
+    .circle-role-title { font-weight: 700; font-size: 14px; }
+    .circle-role-sub { font-size: 11px; opacity: 0.8; margin-top: 3px; }
+
+    /* ── Section Divider ──────────────────────────────────────────── */
+    .toc {
+      background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 10px; padding: 16px 24px; margin: 24px 0;
+    }
+    .toc ol { margin: 8px 0 0 16px; }
+    .toc li { margin-bottom: 4px; font-size: 13px; }
+
+    /* ── Env var list ─────────────────────────────────────────────── */
+    .env-table td:first-child { font-family: monospace; font-size: 12px;
+      background: #f1f5f9; color: #0f172a; }
+
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     COVER
+══════════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo"></div>
+  <div>
+    <h1>CareSync <span class="cover-badge">v1.2</span></h1>
+    <div class="cover-meta">
+      Capabilities &amp; Technical Overview &nbsp;·&nbsp;
+      CIMA 130 — Introduction to AI &nbsp;·&nbsp; May 2026
+    </div>
+  </div>
+</div>
+
+<p>
+  <strong>CareSync</strong> is a Progressive Web App (PWA) that helps families and
+  professional caregivers coordinate the care of a patient — tracking medications,
+  appointments, daily tasks, and team communication in one shared, real-time
+  workspace. The core AI feature, <strong>Scan AVS</strong>, uses Google's
+  Gemini 2.5 Flash multimodal model to extract structured data from
+  After-Visit Summary documents, eliminating manual data entry while keeping
+  the caregiver in full control of what gets saved.
+</p>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li>Care Circle Model — Roles &amp; Permissions</li>
+    <li>Feature Overview</li>
+    <li>My Day View</li>
+    <li>Calendar View</li>
+    <li>Scan AVS — AI-Powered Document Processing</li>
+    <li>Broadcast Updates</li>
+    <li>Settings &amp; Profile Management</li>
+    <li>Technical Architecture</li>
+    <li>Security &amp; Privacy Design</li>
+    <li>Deployment Infrastructure</li>
+  </ol>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     1. CARE CIRCLE MODEL
+══════════════════════════════════════════════════════════════════ -->
+<h2>1. Care Circle Model — Roles &amp; Permissions</h2>
+
+<p>
+  Every piece of data in CareSync belongs to exactly one <strong>Care Circle</strong>
+  — a secure, bounded workspace shared by a patient's care team. Data from one
+  circle is never visible to members of another. Access is controlled by three
+  roles enforced at the database level via PostgreSQL Row Level Security.
+</p>
+
+<div class="circle-diagram">
+  <div class="circle-row">
+    <div class="circle-role admin">
+      <div class="circle-role-title">👑 Admin</div>
+      <div class="circle-role-sub">Primary Caregiver</div>
+    </div>
+  </div>
+  <div style="color:#94a3b8;font-size:20px;text-align:center;">↙&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↘</div>
+  <div class="circle-row">
+    <div class="circle-role collab">
+      <div class="circle-role-title">🤝 Collaborator</div>
+      <div class="circle-role-sub">Co-Caregiver / Family</div>
+    </div>
+    <div class="circle-role viewer">
+      <div class="circle-role-title">👁 Viewer</div>
+      <div class="circle-role-sub">Extended Family</div>
+    </div>
+  </div>
+  <div style="color:#94a3b8;font-size:20px;text-align:center;">↓</div>
+  <div class="circle-row">
+    <div class="circle-role patient">
+      <div class="circle-role-title">🧑‍⚕️ Patient</div>
+      <div class="circle-role-sub">Care subject (clinical record)</div>
+    </div>
+  </div>
+</div>
+
+<table>
+  <tr>
+    <th>Capability</th>
+    <th>Admin</th>
+    <th>Collaborator</th>
+    <th>Viewer</th>
+  </tr>
+  <tr>
+    <td>View tasks &amp; appointments</td>
+    <td class="check">✓</td><td class="check">✓</td><td class="check">✓</td>
+  </tr>
+  <tr>
+    <td>Create &amp; edit tasks / appointments</td>
+    <td class="check">✓</td><td class="check">✓</td><td class="cross">✗</td>
+  </tr>
+  <tr>
+    <td>Delete tasks / appointments</td>
+    <td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td>
+  </tr>
+  <tr>
+    <td>Assign tasks to members</td>
+    <td class="check">✓</td><td class="check">✓</td><td class="cross">✗</td>
+  </tr>
+  <tr>
+    <td>Post broadcast updates</td>
+    <td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td>
+  </tr>
+  <tr>
+    <td>Scan AVS documents</td>
+    <td class="check">✓</td><td class="check">✓</td><td class="cross">✗</td>
+  </tr>
+  <tr>
+    <td>Invite &amp; remove members</td>
+    <td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td>
+  </tr>
+  <tr>
+    <td>Change member roles</td>
+    <td class="check">✓</td><td class="cross">✗</td><td class="cross">✗</td>
+  </tr>
+</table>
+
+<div class="callout">
+  <div class="callout-title">🔒 Enforced at the database layer</div>
+  Every row in every table is protected by PostgreSQL Row Level Security (RLS).
+  Even a direct API call bypassing the app UI cannot read or write data outside
+  a user's care circle. The role hierarchy is the single source of truth.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     2. FEATURE OVERVIEW
+══════════════════════════════════════════════════════════════════ -->
+<h2>2. Feature Overview</h2>
+
+<div class="feature-grid">
+  <div class="feature-card">
+    <div class="feature-icon" style="background:#fef3c7;">☀️</div>
+    <h3>My Day</h3>
+    <p>Personal daily dashboard filtered to your assigned tasks and today's appointments.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon" style="background:#eff6ff;">📅</div>
+    <h3>Calendar</h3>
+    <p>Day, Week, and Month views showing the full care circle's schedule.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon" style="background:#f0fdf4;">📢</div>
+    <h3>Broadcast Updates</h3>
+    <p>Admin-posted announcements with Info, Warning, or Critical severity levels.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon" style="background:#fdf4ff;">🤖</div>
+    <h3>Scan AVS</h3>
+    <p>AI-powered After-Visit Summary scanning using Google Gemini 2.5 Flash.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon" style="background:#fff1f2;">👥</div>
+    <h3>Care Circle</h3>
+    <p>Invite-link onboarding with PIN verification and real-time role management.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon" style="background:#f0f9ff;">⚙️</div>
+    <h3>Settings</h3>
+    <p>Profile photo, theme selection, and preferences — all synced to the cloud.</p>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     3. MY DAY VIEW
+══════════════════════════════════════════════════════════════════ -->
+<h2>3. My Day View</h2>
+
+<p>
+  My Day is a caregiver's personal daily workspace. It shows only what is relevant
+  to <em>that individual</em> on the current day, reducing cognitive overload from
+  seeing the entire care circle's workload at once.
+</p>
+
+<h3>My Tasks / All Tasks Toggle</h3>
+<p>
+  A persistent toggle at the top of My Day controls which tasks are shown.
+  The setting is saved to the cloud and remembered across sessions.
+</p>
+
+<table>
+  <tr><th>Filter Mode</th><th>What appears</th></tr>
+  <tr>
+    <td><strong>My Tasks</strong> (default)</td>
+    <td>Tasks assigned to you + all unassigned tasks + today's appointments</td>
+  </tr>
+  <tr>
+    <td><strong>All Tasks</strong></td>
+    <td>Every task for the care circle, with assignee avatar shown on each card</td>
+  </tr>
+</table>
+
+<h3>Section Layout</h3>
+<p>
+  My Day is divided into four collapsible sections that can be dragged to
+  reorder. Section order and collapse state are saved to Supabase.
+</p>
+
+<div class="card">
+  <table style="margin:0;">
+    <tr><th>Section</th><th>Contents</th><th>Special behaviour</th></tr>
+    <tr>
+      <td>📍 Today's Appointments</td>
+      <td>All appointments for today</td>
+      <td>Mark complete; shows "Completed by" name</td>
+    </tr>
+    <tr>
+      <td>⚠️ Overdue Tasks</td>
+      <td>Tasks past their due date</td>
+      <td>Shows days overdue; can be snoozed until tomorrow</td>
+    </tr>
+    <tr>
+      <td>📋 Today's Tasks</td>
+      <td>Tasks due today (timed then untimed)</td>
+      <td>Timed tasks sorted chronologically</td>
+    </tr>
+    <tr>
+      <td>📌 Unscheduled</td>
+      <td>Tasks with no due date</td>
+      <td>Drag-to-reorder; order persists to Supabase</td>
+    </tr>
+  </table>
+</div>
+
+<h3>Task Card</h3>
+<p>
+  Each task card displays: time (right-aligned), icon (medication/appointment/
+  transport/vitals inferred from the title), task title, assignee (in All Tasks
+  mode), and a colour-coded left border indicating priority.
+</p>
+
+<div class="callout amber">
+  <div class="callout-title">Priority colour coding</div>
+  🔴 Critical &nbsp;·&nbsp; 🟠 High &nbsp;·&nbsp; 🔵 Medium &nbsp;·&nbsp; ⚫ Low
+  — enforced on both card borders and the Calendar Day view.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     4. CALENDAR VIEW
+══════════════════════════════════════════════════════════════════ -->
+<h2>4. Calendar View</h2>
+
+<p>
+  Calendar is the care circle's shared coordination hub. Unlike My Day, it
+  always shows <em>all</em> tasks and appointments regardless of who they are
+  assigned to, making it the right place to see the full picture.
+</p>
+
+<table>
+  <tr><th>View</th><th>What it shows</th><th>Interaction</th></tr>
+  <tr>
+    <td><strong>Day</strong></td>
+    <td>All appointments and tasks for one day, grouped by type. Assignee avatar + name shown on task cards.</td>
+    <td>Add, edit, delete, complete; drag to reorder untimed tasks</td>
+  </tr>
+  <tr>
+    <td><strong>Week</strong></td>
+    <td>7-day grid with event and task chips on each day.</td>
+    <td>Tap a day to open Day detail sheet</td>
+  </tr>
+  <tr>
+    <td><strong>Month</strong></td>
+    <td>Full month grid with event indicators.</td>
+    <td>Tap a day to open Day detail sheet</td>
+  </tr>
+</table>
+
+<h3>Calendar Day Card layout</h3>
+<p>Each task card in the Day view shows three lines:</p>
+<div class="card" style="font-family:monospace;font-size:12px;line-height:1.8;">
+  <span style="color:#64748b;">9:00 AM</span> · <span style="color:#ef4444;font-weight:600;">Critical</span><br/>
+  <span style="font-weight:600;">Give morning medications</span><br/>
+  <span style="color:#94a3b8;">· Sarah</span>
+</div>
+<p style="margin-top:8px;">
+  Time and priority are merged onto one line. The coloured left border reinforces
+  priority visually. Assignee appears only when assigned.
+</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     5. SCAN AVS — AI FEATURE
+══════════════════════════════════════════════════════════════════ -->
+<h2>5. Scan AVS — AI-Powered Document Processing</h2>
+
+<div class="callout" style="background:#fdf4ff;border-color:#a855f7;">
+  <div class="callout-title" style="color:#581c87;">🤖 AI Model: Google Gemini 2.5 Flash</div>
+  Gemini 2.5 Flash is a multimodal large language model capable of reading both
+  images and text. CareSync sends a compressed image of a medical After-Visit
+  Summary and asks Gemini to extract structured care data — no manual typing
+  required. The model name is controlled by an environment variable and can be
+  updated without code changes when Google releases new versions.
+</div>
+
+<h3>What is an After-Visit Summary (AVS)?</h3>
+<p>
+  An AVS is a printed document given to patients at the end of a medical visit.
+  It contains medication changes, follow-up appointments, care instructions, and
+  the provider's name. Manually entering this data into a care coordination app
+  is time-consuming and error-prone. Scan AVS eliminates this step.
+</p>
+
+<h3>Pipeline — Step by Step</h3>
+
+<div class="flowchart">
+
+  <div class="flow-step dark">
+    📷 User photographs or uploads the AVS document
+    <small>Camera capture on mobile · File upload on desktop</small>
+  </div>
+  <div class="flow-arrow-down">↓</div>
+
+  <div class="flow-step amber">
+    🖼 Client-side image validation &amp; compression
+    <small>HEIC check · 15 MB size guard · Canvas API → JPEG 0.85 quality · 1600px max</small>
+  </div>
+  <div class="flow-arrow-down">↓</div>
+
+  <div class="flow-step" style="background:#eff6ff;border-color:#3b82f6;color:#1e3a8a;">
+    🔐 Supabase JWT attached to request
+    <small>Netlify function verifies the token before calling Gemini</small>
+  </div>
+  <div class="flow-arrow-down">↓</div>
+
+  <div class="flow-step" style="background:#fdf4ff;border-color:#a855f7;color:#581c87;">
+    🤖 Image sent to Google Gemini 2.5 Flash (Vision)
+    <small>Prompt instructs model to return ISO 8601 dates and structured fields</small>
+  </div>
+  <div class="flow-arrow-down">↓</div>
+
+  <div class="flow-step gray">
+    ✅ Response validated against Zod schema
+    <small>Ensures all required fields are present and correctly typed</small>
+  </div>
+  <div class="flow-arrow-down">↓</div>
+
+  <div class="flow-step amber">
+    👤 Patient name cross-check
+    <small>If Gemini's extracted name doesn't match the Care Circle patient, an orange warning banner appears</small>
+  </div>
+  <div class="flow-arrow-down">↓</div>
+
+  <div class="flow-step" style="background:#fff7ed;border-color:#f97316;color:#7c2d12;">
+    🧑 HUMAN-IN-THE-LOOP REVIEW SCREEN
+    <small>Caregiver reviews every extracted field before committing any data</small>
+  </div>
+  <div class="flow-arrow-down">↓</div>
+
+  <div style="width:100%;display:flex;justify-content:center;gap:60px;margin:4px 0;">
+    <div style="text-align:center;width:200px;">
+      <div style="color:#22c55e;font-weight:700;font-size:12px;margin-bottom:4px;">✓ APPROVE</div>
+      <div class="flow-step green">Tasks &amp; appointments created in Supabase<small>Audit record saved (no PHI)</small></div>
+    </div>
+    <div style="text-align:center;width:200px;">
+      <div style="color:#ef4444;font-weight:700;font-size:12px;margin-bottom:4px;">✗ REJECT</div>
+      <div class="flow-step red">Document discarded<small>Nothing written to database</small></div>
+    </div>
+  </div>
+
+</div>
+
+<h3>Data contract — what Gemini returns</h3>
+<div class="card">
+  <table style="margin:0;font-size:12px;">
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>patient_name</code></td><td>string</td><td>Full name extracted from document header</td></tr>
+    <tr><td><code>visit_date</code></td><td>ISO 8601 date</td><td>Date of the medical visit</td></tr>
+    <tr><td><code>provider_name</code></td><td>string</td><td>Physician or clinic name</td></tr>
+    <tr><td><code>medications</code></td><td>array</td><td>Medication name, dosage, frequency, instructions</td></tr>
+    <tr><td><code>appointments</code></td><td>array</td><td>Follow-up appointment title, date/time, location</td></tr>
+    <tr><td><code>instructions</code></td><td>array</td><td>Care instructions and notes</td></tr>
+  </table>
+</div>
+
+<div class="callout red">
+  <div class="callout-title">🔒 PHI never enters the database</div>
+  The extracted data (medications, instructions) is stored only in the device's
+  local IndexedDB during the HITL review. Only the caregiver's approval decision
+  and non-sensitive metadata (visit date, provider name) are written to Supabase.
+  This is a deliberate architectural choice to minimise Protected Health
+  Information exposure.
+</div>
+
+<h3>Environment variable control</h3>
+<p>
+  The AI model name is not hardcoded. It is read from the
+  <code>GEMINI_MODEL</code> environment variable at runtime. When Google
+  releases a new Gemini version, only the environment variable needs updating —
+  no code deployment required.
+</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     6. BROADCAST UPDATES
+══════════════════════════════════════════════════════════════════ -->
+<h2>6. Broadcast Updates</h2>
+
+<p>
+  Broadcast Updates is a one-way announcement board for the care circle.
+  Admins post messages that all members see in real time. Each update carries
+  a severity level to signal urgency at a glance.
+</p>
+
+<table>
+  <tr><th>Severity</th><th>Use case examples</th></tr>
+  <tr><td>🔵 <strong>Info</strong></td><td>Routine updates, schedule reminders, positive news</td></tr>
+  <tr><td>🟡 <strong>Warning</strong></td><td>Medication changes, upcoming procedure preparation</td></tr>
+  <tr><td>🔴 <strong>Critical</strong></td><td>Emergency changes, hospitalisation, urgent alerts</td></tr>
+</table>
+
+<p>
+  Each update card shows the author's avatar and name, the severity badge,
+  a human-readable timestamp ("12m ago", "Yesterday"), and a delete option
+  for admins. New updates appear instantly for all online members via
+  Supabase Realtime.
+</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     7. SETTINGS & PROFILE
+══════════════════════════════════════════════════════════════════ -->
+<h2>7. Settings &amp; Profile Management</h2>
+
+<table>
+  <tr><th>Setting</th><th>Details</th></tr>
+  <tr>
+    <td><strong>Profile photo</strong></td>
+    <td>Upload JPEG/PNG/WebP; compressed to 256×256 before upload; confirmation dialog shown before committing; stored in Supabase Storage</td>
+  </tr>
+  <tr>
+    <td><strong>Display name</strong></td>
+    <td>First and last name editable; changes sync to all views instantly</td>
+  </tr>
+  <tr>
+    <td><strong>Password</strong></td>
+    <td>Change via current password verification; strength requirements enforced</td>
+  </tr>
+  <tr>
+    <td><strong>Theme</strong></td>
+    <td>Black, Gray, Light, Blue, Stone, Purple, Granite — stored locally, applied on load</td>
+  </tr>
+  <tr>
+    <td><strong>My Day filter</strong></td>
+    <td>My Tasks / All Tasks preference persisted to Supabase across devices</td>
+  </tr>
+  <tr>
+    <td><strong>Care Circle management</strong></td>
+    <td>Invite members via time-limited link + PIN; view member list with avatars; change roles; remove members</td>
+  </tr>
+</table>
+
+<h3>Invite flow</h3>
+
+<div class="flowchart">
+  <div class="flow-step dark">Admin generates invite link + 4-digit PIN</div>
+  <div class="flow-arrow-down">↓</div>
+  <div class="flow-step gray">Link shared via native share sheet or clipboard<small>Expires after 24 hours</small></div>
+  <div class="flow-arrow-down">↓</div>
+  <div class="flow-step amber">New user clicks link → registers or logs in → enters PIN</div>
+  <div class="flow-arrow-down">↓</div>
+  <div class="flow-step green">User added to care circle with the assigned role<small>All members notified in real time</small></div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     8. TECHNICAL ARCHITECTURE
+══════════════════════════════════════════════════════════════════ -->
+<h2>8. Technical Architecture</h2>
+
+<div class="arch-diagram">
+
+  <div class="arch-layer">
+    <div class="arch-layer-title">Frontend</div>
+    <div class="arch-layer-body">
+      <div class="arch-item">
+        <div class="arch-item-title">React 19 + TanStack Start</div>
+        <div class="arch-item-sub">Server-side rendering · File-based routing</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-item-title">TanStack Router</div>
+        <div class="arch-item-sub">Type-safe routing · Auth guards</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-item-title">Tailwind CSS + shadcn/ui</div>
+        <div class="arch-item-sub">7 themes · Framer Motion animations</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-item-title">Supabase JS Client</div>
+        <div class="arch-item-sub">Auth · DB queries · Realtime WebSocket</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arch-arrow">→</div>
+
+  <div class="arch-layer">
+    <div class="arch-layer-title">Backend Services</div>
+    <div class="arch-layer-body">
+      <div class="arch-item">
+        <div class="arch-item-title">☁️ Cloudflare Workers</div>
+        <div class="arch-item-sub">Hosts the SSR frontend · Edge deployment</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-item-title">⚡ Netlify Functions</div>
+        <div class="arch-item-sub">process-avs · Calls Gemini API · JWT-authenticated</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-item-title">🤖 Google Gemini 2.5 Flash</div>
+        <div class="arch-item-sub">Multimodal vision model · Structured output</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arch-arrow">→</div>
+
+  <div class="arch-layer">
+    <div class="arch-layer-title">Data Layer</div>
+    <div class="arch-layer-body">
+      <div class="arch-item">
+        <div class="arch-item-title">Supabase (PostgreSQL)</div>
+        <div class="arch-item-sub">8 tables · RLS on every table · Realtime</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-item-title">Supabase Auth</div>
+        <div class="arch-item-sub">Email/password · JWT · Auto refresh</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-item-title">Supabase Storage</div>
+        <div class="arch-item-sub">Avatar photos · Public CDN · Per-user RLS</div>
+      </div>
+      <div class="arch-item">
+        <div class="arch-item-title">Device IndexedDB</div>
+        <div class="arch-item-sub">HITL staging only · PHI never leaves device</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<h3>Database Schema — Tables</h3>
+<table style="font-size:12px;">
+  <tr><th>Table</th><th>Purpose</th><th>RLS</th></tr>
+  <tr><td><code>profiles</code></td><td>User display names, avatars, preferences</td><td>Own row + circle peers</td></tr>
+  <tr><td><code>care_circles</code></td><td>Circle name and creator</td><td>Members only</td></tr>
+  <tr><td><code>care_circle_members</code></td><td>User → Circle membership with role</td><td>Members only; admin update</td></tr>
+  <tr><td><code>patients</code></td><td>Patient clinical record</td><td>Members only; collaborator write</td></tr>
+  <tr><td><code>tasks</code></td><td>Care tasks with priority, assignee, due date</td><td>Members read; collaborator write; admin delete</td></tr>
+  <tr><td><code>calendar_events</code></td><td>Appointments with time, location, completion</td><td>Members read; collaborator write; admin delete</td></tr>
+  <tr><td><code>broadcast_updates</code></td><td>Circle-wide announcements</td><td>Members read; admin write/delete</td></tr>
+  <tr><td><code>avs_documents</code></td><td>HITL audit log only — no PHI</td><td>Members read; collaborator write</td></tr>
+</table>
+
+<h3>Realtime Sync</h3>
+<p>
+  Four tables are enrolled in Supabase's Postgres Changes publication. When any
+  member creates, updates, or deletes a task or appointment, every other
+  online member's view updates within 200–500 ms via WebSocket — no page
+  refresh needed. Role changes also propagate in real time.
+</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     9. SECURITY & PRIVACY
+══════════════════════════════════════════════════════════════════ -->
+<h2>9. Security &amp; Privacy Design</h2>
+
+<h3>Row Level Security (RLS)</h3>
+<p>
+  Every table in the database has RLS enabled. All policies are anchored to
+  a single helper function, <code>is_circle_member()</code>, which checks
+  whether the requesting user belongs to the target care circle with an
+  appropriate role. A user who does not belong to a circle receives zero rows
+  from any query — not an error, just empty results.
+</p>
+
+<h3>Human-in-the-Loop (HITL) pattern</h3>
+<p>
+  The Scan AVS feature implements a deliberate safety gate: AI output is
+  never committed to the database without explicit human approval. This
+  addresses two risks inherent in automated document parsing:
+</p>
+<ul>
+  <li><strong>Hallucination</strong> — the model might extract incorrect data from a blurry image</li>
+  <li><strong>Wrong patient</strong> — a mismatched document triggers a visible orange warning banner before the user can approve</li>
+</ul>
+
+<h3>PHI Containment</h3>
+<div class="callout red">
+  <div class="callout-title">Protected Health Information never enters the server database</div>
+  Medications, care instructions, and clinical details extracted by Gemini are
+  stored exclusively in device-local IndexedDB during the review window. Only
+  after human approval are care tasks and appointments written to Supabase —
+  and those records contain task titles and dates, not raw clinical text.
+</div>
+
+<h3>API Key Security</h3>
+<table style="font-size:12px;">
+  <tr><th>Variable</th><th>Where stored</th><th>Exposure</th></tr>
+  <tr><td><code>CARESYNC_GEMINI_KEY</code></td><td>Netlify env (secret)</td><td>Server-side only — never in browser bundle</td></tr>
+  <tr><td><code>SUPABASE_ANON_KEY</code></td><td>Browser bundle (public by design)</td><td>Safe — protected by RLS, not the key itself</td></tr>
+  <tr><td><code>VITE_SUPABASE_URL</code></td><td>Browser bundle</td><td>Public URL — no sensitive capability</td></tr>
+</table>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     10. DEPLOYMENT INFRASTRUCTURE
+══════════════════════════════════════════════════════════════════ -->
+<h2>10. Deployment Infrastructure</h2>
+
+<table>
+  <tr><th>Component</th><th>Platform</th><th>URL</th><th>Deploy command</th></tr>
+  <tr>
+    <td>Frontend (SSR)</td>
+    <td>Cloudflare Workers</td>
+    <td><code>caresync.*.workers.dev</code></td>
+    <td><code>npx wrangler deploy</code></td>
+  </tr>
+  <tr>
+    <td>Scan AVS function</td>
+    <td>Netlify Functions</td>
+    <td><code>caresync-ericmiao.netlify.app</code></td>
+    <td>Auto-deploy on <code>git push</code></td>
+  </tr>
+  <tr>
+    <td>Database + Auth</td>
+    <td>Supabase (free tier)</td>
+    <td><code>*.supabase.co</code></td>
+    <td>Always on — managed service</td>
+  </tr>
+</table>
+
+<h3>Deploy a code change</h3>
+
+<div class="flowchart">
+  <div class="flow-step gray">Make and test changes locally<small>netlify dev · localhost:8888</small></div>
+  <div class="flow-arrow-down">↓</div>
+  <div class="flow-step amber">npm run build<small>Vite + TanStack Start → Cloudflare Worker bundle</small></div>
+  <div class="flow-arrow-down">↓</div>
+  <div class="flow-row" style="gap:16px;">
+    <div class="flow-step green" style="flex:1;">npx wrangler deploy<small>Frontend live in ~10 seconds</small></div>
+    <div style="display:flex;align-items:center;padding:0 4px;color:#94a3b8;font-size:13px;">+</div>
+    <div class="flow-step" style="flex:1;background:#eff6ff;border-color:#3b82f6;color:#1e3a8a;">git push origin main<small>Netlify auto-deploys function</small></div>
+  </div>
+</div>
+
+<div class="callout green">
+  <div class="callout-title">All infrastructure runs on free tiers</div>
+  Cloudflare Workers: 100,000 requests/day free &nbsp;·&nbsp;
+  Netlify Functions: 125,000 invocations/month free &nbsp;·&nbsp;
+  Supabase: 500 MB database + 1 GB storage free
+</div>
+
+<br/><br/>
+<hr style="border:none;border-top:2px solid #e2e8f0;margin:32px 0 16px;"/>
+<p style="text-align:center;color:#94a3b8;font-size:12px;">
+  CareSync v1.2 &nbsp;·&nbsp; CIMA 130 — Introduction to AI &nbsp;·&nbsp; May 2026<br/>
+  GitHub: <a href="https://github.com/ericmiaoai/caresync">github.com/ericmiaoai/caresync</a>
+  &nbsp;·&nbsp;
+  Live: <a href="https://caresync-ericmiao.netlify.app">caresync.*.workers.dev</a>
+</p>
+
+</body>
+</html>
