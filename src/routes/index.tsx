@@ -31,6 +31,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useTasks } from "@/hooks/useTasks";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
+import { useMembers } from "@/hooks/useMembers";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { usePreferences } from "@/hooks/usePreferences";
 import { can } from "@/lib/permissions";
@@ -349,12 +350,13 @@ function AppointmentCard({ event, onEdit, onDelete, onComplete }: AppointmentCar
 // ---------------------------------------------------------------------------
 
 function SortableTaskCard({
-  task, onComplete, onEdit, onDelete,
+  task, onComplete, onEdit, onDelete, showAssignee,
 }: {
-  task:       Parameters<typeof TaskCard>[0]["task"];
-  onComplete: (id: string) => void;
-  onEdit?:    (id: string) => void;
-  onDelete?:  (id: string) => void;
+  task:          Parameters<typeof TaskCard>[0]["task"];
+  onComplete:    (id: string) => void;
+  onEdit?:       (id: string) => void;
+  onDelete?:     (id: string) => void;
+  showAssignee?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id });
@@ -375,6 +377,7 @@ function SortableTaskCard({
         onEdit={onEdit}
         onDelete={onDelete}
         dragHandleProps={{ ...attributes, ...listeners }}
+        showAssignee={showAssignee}
       />
     </div>
   );
@@ -413,6 +416,7 @@ function MyDay() {
     tasks, isLoading: tasksLoading,
     completeTask, restoreTask, addTask, updateTask, deleteTask, reorderTasks,
   } = useTasks(careCircleId);
+  const { members } = useMembers(careCircleId);
   const isOnline = useOnlineStatus();
 
   // Today's local-time window for appointments
@@ -436,6 +440,7 @@ function MyDay() {
   const [sectionOrder, setSectionOrder] = useState<SectionId[]>([...ALL_SECTIONS]);
   const [overduePref,  setOverduePref]  = useState<OverduePref>({ snoozedUntil: null });
   const [collapseMap,  setCollapseMap]  = useState<CollapseMap>({});
+  const [myDayFilter,  setMyDayFilter]  = useState<"mine" | "all">("mine");
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -446,7 +451,19 @@ function MyDay() {
     }
     if (prefs.collapsed)                  setCollapseMap(prefs.collapsed as CollapseMap);
     if (prefs.snoozedUntil !== undefined) setOverduePref({ snoozedUntil: prefs.snoozedUntil ?? null });
+    if (prefs.myDayFilter)                setMyDayFilter(prefs.myDayFilter);
   }, [isLoaded, prefs]);
+
+  const handleSetFilter = (f: "mine" | "all") => {
+    setMyDayFilter(f);
+    updatePrefs({ myDayFilter: f });
+  };
+
+  // Filter tasks: "mine" shows tasks assigned to me + unassigned; "all" shows everything
+  const filterTasks = useMemo(() => (list: UITask[]) => {
+    if (myDayFilter === "all") return list;
+    return list.filter((t) => t.assigneeId === null || t.assigneeId === user?.id);
+  }, [myDayFilter, user?.id]);
 
   // Progress ring — tracks today tasks completed this session
   const [completedToday, setCompletedToday] = useState(0);
@@ -469,13 +486,14 @@ function MyDay() {
   const [apptLocation,   setApptLocation]   = useState("");
   const [apptNotes,      setApptNotes]      = useState("");
 
-  // Edit task sheet state (overdue tasks)
+  // Edit task sheet state
   const [editSheetOpen,   setEditSheetOpen]   = useState(false);
   const [editingTask,     setEditingTask]     = useState<UITask | null>(null);
   const [editTitle,       setEditTitle]       = useState("");
   const [editDate,        setEditDate]        = useState("");
   const [editTime,        setEditTime]        = useState("");
   const [editPriority,    setEditPriority]    = useState<UITask["priority"]>("medium");
+  const [editAssignedTo,  setEditAssignedTo]  = useState<string>("");
   const [editSubmitting,  setEditSubmitting]  = useState(false);
 
   const openEditSheet = (task: UITask) => {
@@ -489,6 +507,7 @@ function MyDay() {
       setEditTime("");
     }
     setEditPriority(task.priority);
+    setEditAssignedTo(task.assigneeId ?? "");
     setEditSheetOpen(true);
   };
 
@@ -496,13 +515,27 @@ function MyDay() {
     if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     if (!editTitle.trim() || !editingTask) return;
     setEditSubmitting(true);
+    const snap = {
+      id: editingTask.id, title: editingTask.title,
+      dueDate: editingTask.rawDueDate, priority: editingTask.priority,
+      assigneeId: editingTask.assigneeId,
+    };
     const dueDate: string | null = editDate
       ? (editTime ? new Date(`${editDate}T${editTime}:00`).toISOString() : editDate)
       : null;
-    const { error } = await updateTask(editingTask.id, editTitle.trim(), dueDate, editPriority);
+    const { error } = await updateTask(editingTask.id, editTitle.trim(), dueDate, editPriority, editAssignedTo || null);
     setEditSubmitting(false);
     if (error) toast.error("Failed to update task", { description: error });
-    else { setEditSheetOpen(false); toast.success("Task updated"); }
+    else {
+      setEditSheetOpen(false);
+      toast.success("Task updated", {
+        duration: 5000,
+        action: {
+          label: "Undo",
+          onClick: () => updateTask(snap.id, snap.title, snap.dueDate, snap.priority, snap.assigneeId),
+        },
+      });
+    }
   };
 
   const canManage = can(role, "manage_tasks");
@@ -521,26 +554,26 @@ function MyDay() {
   const todayKey = todayISO();
 
   const overdueTasks = useMemo(
-    () => tasks.filter((t) => t.localDateKey !== null && t.localDateKey < todayKey),
-    [tasks, todayKey],
+    () => filterTasks(tasks.filter((t) => t.localDateKey !== null && t.localDateKey < todayKey)),
+    [tasks, todayKey, filterTasks],
   );
   const todayTimedTasks = useMemo(
-    () => tasks
+    () => filterTasks(tasks
       .filter((t) => t.localDateKey === todayKey && t.hasTime)
-      .sort((a, b) => (a.rawDueDate ?? "").localeCompare(b.rawDueDate ?? "")),
-    [tasks, todayKey],
+      .sort((a, b) => (a.rawDueDate ?? "").localeCompare(b.rawDueDate ?? ""))),
+    [tasks, todayKey, filterTasks],
   );
   const todayUntimedTasks = useMemo(
-    () => tasks
+    () => filterTasks(tasks
       .filter((t) => t.localDateKey === todayKey && !t.hasTime)
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
-    [tasks, todayKey],
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))),
+    [tasks, todayKey, filterTasks],
   );
   const unscheduledTasks = useMemo(
-    () => tasks
+    () => filterTasks(tasks
       .filter((t) => t.localDateKey === null)
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
-    [tasks],
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))),
+    [tasks, filterTasks],
   );
 
   // Snooze: hide overdue section entirely until snoozedUntil passes
@@ -655,14 +688,33 @@ function MyDay() {
     if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     if (!apptTitle.trim() || !apptDate) return;
     setSubmitting(true);
+    const originalEvent = editingApptId ? (appointments.find((e) => e.id === editingApptId) ?? null) : null;
     const start = new Date(`${apptDate}T${apptTime}:00`);
     const end   = new Date(start.getTime() + 60 * 60 * 1000);
     const { error } = editingApptId
       ? await updateEvent(editingApptId, apptTitle.trim(), start.toISOString(), end.toISOString(), apptLocation || undefined, apptNotes || undefined)
       : await addEvent(apptTitle.trim(), start.toISOString(), end.toISOString(), user?.id ?? "", apptLocation || undefined, apptNotes || undefined);
     setSubmitting(false);
-    if (error) toast.error(editingApptId ? "Failed to update appointment" : "Failed to add appointment", { description: error });
-    else { setApptSheetOpen(false); setEditingApptId(null); toast.success(editingApptId ? "Appointment updated" : "Appointment added"); }
+    if (error) {
+      toast.error(editingApptId ? "Failed to update appointment" : "Failed to add appointment", { description: error });
+    } else {
+      setApptSheetOpen(false);
+      setEditingApptId(null);
+      if (originalEvent) {
+        toast.success("Appointment updated", {
+          duration: 5000,
+          action: {
+            label: "Undo",
+            onClick: () => {
+              const oldEnd = new Date(new Date(originalEvent.startISO).getTime() + 3600000);
+              updateEvent(originalEvent.id, originalEvent.title, originalEvent.startISO, oldEnd.toISOString(), originalEvent.location ?? undefined, originalEvent.description ?? undefined);
+            },
+          },
+        });
+      } else {
+        toast.success("Appointment added");
+      }
+    }
   };
 
   const handleDeleteAppt = async (id: string) => {
@@ -793,6 +845,7 @@ function MyDay() {
                     onComplete={handleComplete}
                     onEdit={canManage ? (id) => openEditSheet(tasks.find((t) => t.id === id)!) : undefined}
                     onDelete={canManage ? handleDelete : undefined}
+                    showAssignee={myDayFilter === "all"}
                   />
                 </motion.div>
               ))}
@@ -825,6 +878,7 @@ function MyDay() {
                     onComplete={handleComplete}
                     onEdit={canManage ? (id) => openEditSheet(tasks.find((t) => t.id === id)!) : undefined}
                     onDelete={canManage ? handleDelete : undefined}
+                    showAssignee={myDayFilter === "all"}
                   />
                 </motion.div>
               ))}
@@ -859,6 +913,7 @@ function MyDay() {
                       onComplete={handleComplete}
                       onEdit={canManage ? (id) => openEditSheet(tasks.find((t) => t.id === id)!) : undefined}
                       onDelete={canManage ? handleDelete : undefined}
+                      showAssignee={myDayFilter === "all"}
                     />
                   ))}
                 </div>
@@ -899,6 +954,24 @@ function MyDay() {
                     : null,
                 ].filter(Boolean).join(" · ")}
           </p>
+          {/* My Tasks / All Tasks toggle */}
+          <div className="mt-3 inline-flex rounded-lg border border-border bg-card p-0.5">
+            {(["mine", "all"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => handleSetFilter(f)}
+                className={cn(
+                  "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                  myDayFilter === f
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {f === "mine" ? "My Tasks" : "All Tasks"}
+              </button>
+            ))}
+          </div>
         </div>
         {canManage && (
           <AddButton
@@ -1092,6 +1165,26 @@ function MyDay() {
                 <option value="critical">Critical</option>
               </select>
             </div>
+            {members.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  Assign to
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">(optional)</span>
+                </label>
+                <select
+                  value={editAssignedTo}
+                  onChange={(e) => setEditAssignedTo(e.target.value)}
+                  className={INPUT}
+                >
+                  <option value="">Unassigned</option>
+                  {members.map((m) => (
+                    <option key={m.userId} value={m.userId}>
+                      {m.firstName} {m.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <SheetFooter className="mt-6">
             <Button variant="outline" onClick={() => setEditSheetOpen(false)}>Cancel</Button>
@@ -1102,14 +1195,15 @@ function MyDay() {
         </SheetContent>
       </Sheet>
 
-      {/* Add Task Sheet — shared component, same form as Calendar */}
+      {/* Add Task Sheet */}
       <AddTaskSheet
         open={addTaskSheetOpen}
         onOpenChange={setAddTaskSheetOpen}
         defaultDate=""
         isOnline={isOnline}
-        onSave={async (title, dueDate, priority) =>
-          addTask(title, dueDate, priority, user?.id ?? "")
+        members={members}
+        onSave={async (title, dueDate, priority, assignedTo) =>
+          addTask(title, dueDate, priority, user?.id ?? "", assignedTo)
         }
       />
 

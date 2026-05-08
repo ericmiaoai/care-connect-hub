@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export interface MyDayPrefs {
-  sectionOrder?: string[];
-  collapsed?:    Record<string, boolean>;
-  snoozedUntil?: string | null;
+  sectionOrder?:  string[];
+  collapsed?:     Record<string, boolean>;
+  snoozedUntil?:  string | null;
+  myDayFilter?:   "mine" | "all";
 }
 
 interface UsePreferencesReturn {

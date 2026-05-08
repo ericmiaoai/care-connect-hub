@@ -22,9 +22,10 @@ interface TaskCardProps {
   onEdit?:          (id: string) => void;
   onDelete?:        (id: string) => void;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
+  showAssignee?:    boolean;
 }
 
-export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps }: TaskCardProps) {
+export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps, showAssignee = false }: TaskCardProps) {
   const Icon        = ICON[task.kind];
   const borderClass = PRIORITY_BORDER[task.priority];
 
@@ -52,6 +53,18 @@ export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps }
           <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
           {task.detail && (
             <p className="mt-0.5 truncate text-xs text-muted-foreground">{task.detail}</p>
+          )}
+          {showAssignee && task.assigneeName && (
+            <div className="mt-1 flex items-center gap-1">
+              {task.assigneeAvatarUrl ? (
+                <img src={task.assigneeAvatarUrl} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent">
+                  <span className="text-[8px] font-semibold text-foreground">{task.assigneeName[0]}</span>
+                </div>
+              )}
+              <span className="truncate text-xs text-muted-foreground">{task.assigneeName.split(" ")[0]}</span>
+            </div>
           )}
         </div>
       </div>

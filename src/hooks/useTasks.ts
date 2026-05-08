@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { adaptTask, type UITask } from "@/lib/adapters";
+import { adaptTask, type UITask, type DBTaskWithAssignee } from "@/lib/adapters";
 
 interface UseTasksReturn {
   tasks:                       UITask[];
@@ -9,8 +9,8 @@ interface UseTasksReturn {
   error:                       string | null;
   completeTask: (id: string) => Promise<void>;
   restoreTask:  (id: string) => Promise<void>;
-  addTask:      (title: string, dueDate: string | null, priority: UITask["priority"], createdBy: string) => Promise<{ error: string | null }>;
-  updateTask:   (id: string, title: string, dueDate: string | null, priority: UITask["priority"]) => Promise<{ error: string | null }>;
+  addTask:      (title: string, dueDate: string | null, priority: UITask["priority"], createdBy: string, assignedTo?: string | null) => Promise<{ error: string | null }>;
+  updateTask:   (id: string, title: string, dueDate: string | null, priority: UITask["priority"], assignedTo?: string | null) => Promise<{ error: string | null }>;
   deleteTask:   (id: string) => Promise<void>;
   reorderTasks: (orderedIds: string[]) => Promise<void>;
 }
@@ -35,13 +35,13 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
     const [activeResult, completedResult] = await Promise.all([
       supabase
         .from("tasks")
-        .select("*")
+        .select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
         .eq("care_circle_id", careCircleId)
         .in("status", ["pending", "in_progress"])
         .order("due_date", { ascending: true }),
       supabase
         .from("tasks")
-        .select("*")
+        .select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
         .eq("care_circle_id", careCircleId)
         .eq("status", "completed")
         .is("due_date", null)
@@ -53,10 +53,10 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
       setError(activeResult.error.message);
       setTasks([]);
     } else {
-      setTasks((activeResult.data ?? []).map(adaptTask));
+      setTasks((activeResult.data ?? []).map((r) => adaptTask(r as DBTaskWithAssignee)));
     }
 
-    setCompletedUnscheduledTasks((completedResult.data ?? []).map(adaptTask));
+    setCompletedUnscheduledTasks((completedResult.data ?? []).map((r) => adaptTask(r as DBTaskWithAssignee)));
 
     setIsLoading(false);
   }, [careCircleId]);
@@ -104,6 +104,7 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
     dueDate: string | null,
     priority: UITask["priority"],
     createdBy: string,
+    assignedTo?: string | null,
   ): Promise<{ error: string | null }> => {
     if (!careCircleId) return { error: "No care circle" };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -114,6 +115,7 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
       status: "pending",
       due_date: dueDate,
       created_by: createdBy,
+      assigned_to: assignedTo ?? null,
     });
     if (!sbError) await fetchTasks(true);
     return { error: sbError?.message ?? null };
@@ -124,10 +126,11 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
     title: string,
     dueDate: string | null,
     priority: UITask["priority"],
+    assignedTo?: string | null,
   ): Promise<{ error: string | null }> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: sbError } = await (supabase.from("tasks") as any)
-      .update({ title, due_date: dueDate, priority })
+      .update({ title, due_date: dueDate, priority, assigned_to: assignedTo ?? null })
       .eq("id", id);
     if (!sbError) await fetchTasks(true);
     return { error: sbError?.message ?? null };

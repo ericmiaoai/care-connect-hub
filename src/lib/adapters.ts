@@ -14,18 +14,25 @@ import type { Task as DBTask, CalendarEvent as DBEvent, BroadcastUpdate as DBUpd
 export type TaskKind = "medication" | "appointment" | "transport" | "vitals";
 
 export interface UITask {
-  id:            string;
-  time:          string;         // "08:00" extracted from due_date, or "—" when no time set
-  hasTime:       boolean;        // false when due_date was stored without a time component
-  title:         string;
-  detail:        string | null;
-  kind:          TaskKind;
-  status:        DBTask["status"];
-  priority:      DBTask["priority"];
-  assigneeId:    string | null;  // UUID of assigned profile
-  rawDueDate:    string | null;  // original ISO string for sorting
-  localDateKey:  string | null;  // YYYY-MM-DD in the user's local timezone — use this for grouping/display
-  sortOrder:     number | null;  // display order for timeless tasks; null for timed tasks
+  id:               string;
+  time:             string;         // "08:00" extracted from due_date, or "—" when no time set
+  hasTime:          boolean;        // false when due_date was stored without a time component
+  title:            string;
+  detail:           string | null;
+  kind:             TaskKind;
+  status:           DBTask["status"];
+  priority:         DBTask["priority"];
+  assigneeId:       string | null;  // UUID of assigned profile
+  assigneeName:     string | null;  // "First Last" from joined profile
+  assigneeAvatarUrl: string | null; // avatar URL from joined profile
+  rawDueDate:       string | null;  // original ISO string for sorting
+  localDateKey:     string | null;  // YYYY-MM-DD in the user's local timezone — use this for grouping/display
+  sortOrder:        number | null;  // display order for timeless tasks; null for timed tasks
+}
+
+// Extended DB row type that includes the joined assignee profile
+export interface DBTaskWithAssignee extends DBTask {
+  assignee?: { first_name: string; last_name: string; avatar_url: string | null } | null;
 }
 
 /** Infer task kind from the title using keyword matching */
@@ -56,7 +63,7 @@ function toLocalDateKey(d: Date): string {
   ].join("-");
 }
 
-export function adaptTask(row: DBTask): UITask {
+export function adaptTask(row: DBTaskWithAssignee): UITask {
   const d       = row.due_date ? new Date(row.due_date) : null;
   const hasTime = d ? !(d.getUTCHours() === 0 && d.getUTCMinutes() === 0) : false;
   // Date-only tasks are stored as UTC midnight — the UTC date IS the intended date.
@@ -65,18 +72,22 @@ export function adaptTask(row: DBTask): UITask {
     ? (hasTime ? toLocalDateKey(d) : (row.due_date!.slice(0, 10)))
     : null;
   return {
-    id:           row.id,
-    time:         hasTime ? extractTime(row.due_date) : "—",
+    id:               row.id,
+    time:             hasTime ? extractTime(row.due_date) : "—",
     hasTime,
-    title:        row.title,
-    detail:       row.notes ?? null,
-    kind:         inferKind(row.title),
-    status:       row.status,
-    priority:     row.priority,
-    assigneeId:   row.assigned_to ?? null,
-    rawDueDate:   row.due_date ?? null,
+    title:            row.title,
+    detail:           row.notes ?? null,
+    kind:             inferKind(row.title),
+    status:           row.status,
+    priority:         row.priority,
+    assigneeId:       row.assigned_to ?? null,
+    assigneeName:     row.assignee
+      ? `${row.assignee.first_name} ${row.assignee.last_name}`
+      : null,
+    assigneeAvatarUrl: row.assignee?.avatar_url ?? null,
+    rawDueDate:       row.due_date ?? null,
     localDateKey,
-    sortOrder:    row.sort_order ?? null,
+    sortOrder:        row.sort_order ?? null,
   };
 }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { adaptTask, type UITask } from "@/lib/adapters";
+import { adaptTask, type UITask, type DBTaskWithAssignee } from "@/lib/adapters";
 
 interface UseCalendarTasksReturn {
   tasks:                       UITask[];
@@ -9,8 +9,8 @@ interface UseCalendarTasksReturn {
   error:                       string | null;
   toggleTask:                  (id: string, currentStatus: UITask["status"]) => Promise<void>;
   restoreUnscheduledTask:      (id: string) => Promise<void>;
-  addCalendarTask:             (title: string, dueDate: string | null, priority: UITask["priority"], createdBy: string) => Promise<{ error: string | null }>;
-  updateCalendarTask:          (id: string, title: string, dueDate: string | null, priority: UITask["priority"]) => Promise<{ error: string | null }>;
+  addCalendarTask:             (title: string, dueDate: string | null, priority: UITask["priority"], createdBy: string, assignedTo?: string | null) => Promise<{ error: string | null }>;
+  updateCalendarTask:          (id: string, title: string, dueDate: string | null, priority: UITask["priority"], assignedTo?: string | null) => Promise<{ error: string | null }>;
   deleteCalendarTask:          (id: string) => Promise<void>;
   reorderTasks:                (orderedIds: string[]) => Promise<void>;
 }
@@ -48,17 +48,17 @@ export function useCalendarTasks(
       { data: unscheduledData,         error: unscheduledError         },
       { data: completedUnscheduledData                                 },
     ] = await Promise.all([
-      supabase.from("tasks").select("*")
+      supabase.from("tasks").select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
         .eq("care_circle_id", careCircleId)
         .gte("due_date", startDate)
         .lte("due_date", endDate)
         .order("due_date", { ascending: true }),
-      supabase.from("tasks").select("*")
+      supabase.from("tasks").select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
         .eq("care_circle_id", careCircleId)
         .is("due_date", null)
         .in("status", ["pending", "in_progress"])
         .order("sort_order", { ascending: true, nullsFirst: false }),
-      supabase.from("tasks").select("*")
+      supabase.from("tasks").select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
         .eq("care_circle_id", careCircleId)
         .eq("status", "completed")
         .is("due_date", null)
@@ -71,10 +71,10 @@ export function useCalendarTasks(
       setError(err.message);
       setTasks([]);
     } else {
-      setTasks([...(rangedData ?? []), ...(unscheduledData ?? [])].map(adaptTask));
+      setTasks([...(rangedData ?? []), ...(unscheduledData ?? [])].map((r) => adaptTask(r as DBTaskWithAssignee)));
     }
 
-    setCompletedUnscheduledTasks((completedUnscheduledData ?? []).map(adaptTask));
+    setCompletedUnscheduledTasks((completedUnscheduledData ?? []).map((r) => adaptTask(r as DBTaskWithAssignee)));
 
     setIsLoading(false);
   }, [careCircleId, rangeStartISO, rangeEndISO]);
@@ -139,11 +139,9 @@ export function useCalendarTasks(
     dueDate: string | null,
     priority: UITask["priority"],
     createdBy: string,
+    assignedTo?: string | null,
   ): Promise<{ error: string | null }> => {
     if (!careCircleId) return { error: "No care circle" };
-    // Use .select().single() to get the inserted row back directly — avoids
-    // re-running the range-filtered fetchTasks which can miss the new task
-    // due to timezone edge cases in the date comparison.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error: sbError } = await (supabase.from("tasks") as any)
       .insert({
@@ -153,11 +151,12 @@ export function useCalendarTasks(
         status: "pending",
         due_date: dueDate,
         created_by: createdBy,
+        assigned_to: assignedTo ?? null,
       })
-      .select()
+      .select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
       .single();
     if (sbError) return { error: sbError.message };
-    setTasks((prev) => [...prev, adaptTask(data)]);
+    setTasks((prev) => [...prev, adaptTask(data as DBTaskWithAssignee)]);
     return { error: null };
   }, [careCircleId]);
 
@@ -166,10 +165,11 @@ export function useCalendarTasks(
     title: string,
     dueDate: string | null,
     priority: UITask["priority"],
+    assignedTo?: string | null,
   ): Promise<{ error: string | null }> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: sbError } = await (supabase.from("tasks") as any)
-      .update({ title, due_date: dueDate, priority })
+      .update({ title, due_date: dueDate, priority, assigned_to: assignedTo ?? null })
       .eq("id", id);
     if (!sbError) await fetchTasks(true);
     return { error: sbError?.message ?? null };

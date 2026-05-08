@@ -34,6 +34,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useCalendarTasks } from "@/hooks/useCalendarTasks";
+import { useMembers } from "@/hooks/useMembers";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { can } from "@/lib/permissions";
 import type { UICalendarEvent, UITask, TaskKind } from "@/lib/adapters";
@@ -241,6 +242,8 @@ function TaskDayCard({ task: t, onToggle, onEdit, onDelete, dragHandleProps }: T
         PRIORITY_BORDER[t.priority],
         isCompleted && "opacity-60",
       )}
+      data-priority={t.priority}
+      data-kind={t.kind}
       style={{ boxShadow: "var(--card-shadow)" }}
     >
       <div className="flex items-start gap-3 p-4">
@@ -250,7 +253,12 @@ function TaskDayCard({ task: t, onToggle, onEdit, onDelete, dragHandleProps }: T
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-xs tabular-nums text-muted-foreground">{t.time}</p>
+              <p className="text-xs tabular-nums text-muted-foreground">
+                {t.hasTime ? `${t.time} · ` : ""}
+                <span className={cn("font-medium", PRIORITY_TEXT[t.priority])}>
+                  {PRIORITY_LABEL[t.priority]}
+                </span>
+              </p>
               <p className="mt-0.5 truncate font-medium text-foreground">{t.title}</p>
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
@@ -301,9 +309,18 @@ function TaskDayCard({ task: t, onToggle, onEdit, onDelete, dragHandleProps }: T
           {t.detail && (
             <p className="mt-1.5 text-sm leading-relaxed text-foreground/70">{t.detail}</p>
           )}
-          <p className={cn("mt-2 text-xs font-medium", PRIORITY_TEXT[t.priority])}>
-            {PRIORITY_LABEL[t.priority]} priority
-          </p>
+          {t.assigneeName && (
+            <div className="mt-1.5 flex items-center gap-1.5">
+              {t.assigneeAvatarUrl ? (
+                <img src={t.assigneeAvatarUrl} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent">
+                  <span className="text-[8px] font-semibold text-foreground">{t.assigneeName[0]}</span>
+                </div>
+              )}
+              <span className="text-xs text-muted-foreground">{t.assigneeName.split(" ")[0]}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -390,12 +407,13 @@ function CalendarView() {
   const [apptNotes,      setApptNotes]      = useState("");
 
   // ── Task sheet state ─────────────────────────────────────────────────────
-  const [taskSheetOpen,  setTaskSheetOpen]  = useState(false);
-  const [editingTaskId,  setEditingTaskId]  = useState<string | null>(null);
-  const [taskTitle,      setTaskTitle]      = useState("");
-  const [taskDate,       setTaskDate]       = useState("");
-  const [taskTime,       setTaskTime]       = useState("");
-  const [taskPriority,   setTaskPriority]   = useState<UITask["priority"]>("medium");
+  const [taskSheetOpen,    setTaskSheetOpen]    = useState(false);
+  const [editingTaskId,    setEditingTaskId]    = useState<string | null>(null);
+  const [taskTitle,        setTaskTitle]        = useState("");
+  const [taskDate,         setTaskDate]         = useState("");
+  const [taskTime,         setTaskTime]         = useState("");
+  const [taskPriority,     setTaskPriority]     = useState<UITask["priority"]>("medium");
+  const [taskAssignedTo,   setTaskAssignedTo]   = useState<string>("");
 
   const [submitting,      setSubmitting]      = useState(false);
   const [actionSheetOpen,   setActionSheetOpen]   = useState(false);
@@ -488,6 +506,8 @@ function CalendarView() {
   const { tasks, completedUnscheduledTasks, isLoading: tasksLoading, toggleTask, restoreUnscheduledTask, addCalendarTask, updateCalendarTask, deleteCalendarTask, reorderTasks } =
     useCalendarTasks(careCircleId, rangeStartISO, rangeEndISO);
 
+  const { members } = useMembers(careCircleId);
+
   const [showCompleted,          setShowCompleted]          = useState(false);
   const [showScheduledCompleted, setShowScheduledCompleted] = useState(false);
 
@@ -570,17 +590,17 @@ function CalendarView() {
 
   const openTaskSheet = (forDate?: string) => {
     setAddTaskDefaultDate(forDate ?? fmtDate(referenceDate));
+    setTaskAssignedTo("");
     setAddTaskSheetOpen(true);
   };
 
   const openEditTaskSheet = (task: UITask) => {
     setEditingTaskId(task.id);
     setTaskTitle(task.title);
-    // Unscheduled tasks have no date — leave blank so they stay unscheduled
-    // unless the user explicitly sets one.
     setTaskDate(task.localDateKey ?? "");
     setTaskTime(task.hasTime && task.rawDueDate ? isoToFormTime(task.rawDueDate) : "");
     setTaskPriority(task.priority);
+    setTaskAssignedTo(task.assigneeId ?? "");
     setTaskSheetOpen(true);
   };
 
@@ -590,6 +610,7 @@ function CalendarView() {
     if (!isOnline) { toast.error("You're offline — reconnect to make changes."); return; }
     if (!apptTitle.trim() || !apptDate) return;
     setSubmitting(true);
+    const originalEvent = editingEventId ? (events.find((e) => e.id === editingEventId) ?? null) : null;
     const start = new Date(`${apptDate}T${apptTime}:00`);
     const end   = new Date(start.getTime() + 60 * 60 * 1000);
 
@@ -604,7 +625,20 @@ function CalendarView() {
       );
       setSubmitting(false);
       if (error) toast.error("Failed to update appointment", { description: error });
-      else { setApptSheetOpen(false); toast.success("Appointment updated"); }
+      else {
+        setApptSheetOpen(false);
+        toast.success("Appointment updated", {
+          duration: 5000,
+          action: {
+            label: "Undo",
+            onClick: () => {
+              if (!originalEvent) return;
+              const oldEnd = new Date(new Date(originalEvent.startISO).getTime() + 3600000);
+              updateEvent(originalEvent.id, originalEvent.title, originalEvent.startISO, oldEnd.toISOString(), originalEvent.location ?? undefined, originalEvent.description ?? undefined);
+            },
+          },
+        });
+      }
     } else {
       const { error } = await addEvent(
         apptTitle.trim(),
@@ -631,12 +665,25 @@ function CalendarView() {
       : null;
 
     if (editingTaskId) {
-      const { error } = await updateCalendarTask(editingTaskId, taskTitle.trim(), dueDateValue, taskPriority);
+      const originalTask = tasks.find((t) => t.id === editingTaskId) ?? null;
+      const { error } = await updateCalendarTask(editingTaskId, taskTitle.trim(), dueDateValue, taskPriority, taskAssignedTo || null);
       setSubmitting(false);
       if (error) toast.error("Failed to update task", { description: error });
-      else { setTaskSheetOpen(false); toast.success("Task updated"); }
+      else {
+        setTaskSheetOpen(false);
+        toast.success("Task updated", {
+          duration: 5000,
+          action: {
+            label: "Undo",
+            onClick: () => {
+              if (!originalTask) return;
+              updateCalendarTask(originalTask.id, originalTask.title, originalTask.rawDueDate, originalTask.priority, originalTask.assigneeId);
+            },
+          },
+        });
+      }
     } else {
-      const { error } = await addCalendarTask(taskTitle.trim(), dueDateValue, taskPriority, user?.id ?? "");
+      const { error } = await addCalendarTask(taskTitle.trim(), dueDateValue, taskPriority, user?.id ?? "", taskAssignedTo || null);
       setSubmitting(false);
       if (error) toast.error("Failed to add task", { description: error });
       else { setTaskSheetOpen(false); toast.success("Task added"); }
@@ -1093,8 +1140,9 @@ function CalendarView() {
         onOpenChange={setAddTaskSheetOpen}
         defaultDate={addTaskDefaultDate}
         isOnline={isOnline}
-        onSave={async (title, dueDate, priority) =>
-          addCalendarTask(title, dueDate, priority, user?.id ?? "")
+        members={members}
+        onSave={async (title, dueDate, priority, assignedTo) =>
+          addCalendarTask(title, dueDate, priority, user?.id ?? "", assignedTo)
         }
       />
 
@@ -1425,6 +1473,26 @@ function CalendarView() {
                 <option value="critical">Critical</option>
               </select>
             </div>
+            {members.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  Assign to
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">(optional)</span>
+                </label>
+                <select
+                  value={taskAssignedTo}
+                  onChange={(e) => setTaskAssignedTo(e.target.value)}
+                  className={INPUT}
+                >
+                  <option value="">Unassigned</option>
+                  {members.map((m) => (
+                    <option key={m.userId} value={m.userId}>
+                      {m.firstName} {m.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <SheetFooter className="mt-6">
             <Button variant="outline" onClick={() => { setTaskSheetOpen(false); setEditingTaskId(null); }}>
