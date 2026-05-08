@@ -108,7 +108,8 @@ async function processViaAPI(imageBase64: string, mimeType: string): Promise<AVS
     throw new Error("You must be logged in to scan a document.");
   }
 
-  const response = await fetch("/.netlify/functions/process-avs", {
+  const AVS_ENDPOINT = import.meta.env.VITE_AVS_ENDPOINT ?? "/.netlify/functions/process-avs";
+  const response = await fetch(AVS_ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type":  "application/json",
