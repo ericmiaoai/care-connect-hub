@@ -459,9 +459,9 @@ function CalendarView() {
     if (view === "day") {
       const isToday = fmtDate(referenceDate) === todayKey;
       return isToday
-        ? `Today, ${referenceDate.toLocaleDateString(undefined, { month: "long", day: "numeric" })}`
+        ? `Today, ${referenceDate.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
         : referenceDate.toLocaleDateString(undefined, {
-            weekday: "short", month: "long", day: "numeric", year: "numeric",
+            weekday: "short", month: "short", day: "numeric", year: "numeric",
           });
     }
     if (view === "week") {
@@ -479,7 +479,7 @@ function CalendarView() {
         end.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
       );
     }
-    return referenceDate.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    return referenceDate.toLocaleDateString(undefined, { month: "short", year: "numeric" });
   }, [view, days, referenceDate, todayKey]);
 
   const { events, isLoading: eventsLoading, markComplete, unmarkComplete, addEvent, updateEvent, deleteEvent } =
@@ -1107,7 +1107,7 @@ function CalendarView() {
             <SheetTitle>
               {selected &&
                 new Date(selected + "T00:00:00").toLocaleDateString(undefined, {
-                  weekday: "short", month: "long", day: "numeric",
+                  weekday: "short", month: "short", day: "numeric",
                 })}
             </SheetTitle>
             <SheetDescription>
