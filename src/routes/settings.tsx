@@ -614,7 +614,7 @@ function SettingsPage() {
             <p className="mb-4 text-xs text-muted-foreground">
               Choose a background style for CareSync.
             </p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {THEMES.map(({ id, label }) => (
                 <ThemeSwatch key={id} id={id} label={label} theme={theme} setTheme={setTheme} />
               ))}
