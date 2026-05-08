@@ -29,6 +29,7 @@ import { z } from "zod";
 const GEMINI_API_KEY     = process.env.CARESYNC_GEMINI_KEY!;
 const SUPABASE_URL       = process.env.SUPABASE_URL!;
 const SUPABASE_ANON_KEY  = process.env.SUPABASE_ANON_KEY!;
+const GEMINI_MODEL       = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
 if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error(
@@ -189,7 +190,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
   // ── GEMINI API CALL ────────────────────────────────────────────────────────
   try {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
     const result = await model.generateContent([
       STRICT_EXTRACTION_PROMPT,

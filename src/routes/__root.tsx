@@ -100,9 +100,19 @@ function AppHeader() {
         id="header-user-menu"
         onClick={signOut}
         title="Sign out"
-        className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-xs font-semibold text-foreground ring-2 ring-background transition-opacity hover:opacity-80"
+        className="h-7 w-7 overflow-hidden rounded-full ring-2 ring-background transition-opacity hover:opacity-80"
       >
-        {initials}
+        {profile?.avatar_url ? (
+          <img
+            src={profile.avatar_url}
+            alt="Profile"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center bg-accent text-xs font-semibold text-foreground">
+            {initials}
+          </span>
+        )}
       </button>
     </header>
   );

@@ -36,10 +36,11 @@ interface SignInOptions {
 }
 
 interface AuthActions {
-  signUp:         (opts: SignUpOptions)  => Promise<{ error: AuthError | null }>;
-  signIn:         (opts: SignInOptions)  => Promise<{ error: AuthError | null }>;
-  signOut:        ()                     => Promise<void>;
-  updateProfile:  (firstName: string, lastName: string) => Promise<{ error: string | null }>;
+  signUp:          (opts: SignUpOptions)  => Promise<{ error: AuthError | null }>;
+  signIn:          (opts: SignInOptions)  => Promise<{ error: AuthError | null }>;
+  signOut:         ()                     => Promise<void>;
+  updateProfile:   (firstName: string, lastName: string) => Promise<{ error: string | null }>;
+  refreshProfile:  ()                     => Promise<void>;
 }
 
 export type UseAuthReturn = AuthState & AuthActions;
@@ -89,6 +90,13 @@ export function useAuth(): UseAuthReturn {
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
 
+  // Re-fetch profile whenever another part of the app signals an update
+  useEffect(() => {
+    const handler = () => { if (user) fetchProfile(user.id); };
+    window.addEventListener("caresync:profile-updated", handler);
+    return () => window.removeEventListener("caresync:profile-updated", handler);
+  }, [user, fetchProfile]);
+
   // ── Actions ───────────────────────────────────────────────────────────────
 
   const signUp = useCallback(
@@ -129,5 +137,9 @@ export function useAuth(): UseAuthReturn {
     return { error: null };
   }, [user, fetchProfile]);
 
-  return { user, session, profile, isLoading, signUp, signIn, signOut, updateProfile };
+  const refreshProfile = useCallback(async () => {
+    if (user) await fetchProfile(user.id);
+  }, [user, fetchProfile]);
+
+  return { user, session, profile, isLoading, signUp, signIn, signOut, updateProfile, refreshProfile };
 }

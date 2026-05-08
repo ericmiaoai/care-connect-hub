@@ -143,6 +143,7 @@ function AppointmentCard({ event: ev, onComplete, onUnmark, onEdit, onDelete }: 
         "rounded-xl border border-border bg-card overflow-hidden transition-opacity",
         ev.isCompleted && "opacity-60",
       )}
+      data-kind="appointment"
       style={{ boxShadow: "var(--card-shadow)" }}
     >
       <div className="flex items-start gap-3 p-4">

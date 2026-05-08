@@ -261,13 +261,14 @@ function AppointmentCard({ event, onEdit, onDelete, onComplete }: AppointmentCar
     <div
       className={cn(
         "flex items-stretch gap-3 rounded-xl border border-border border-l-4 bg-background/50",
-        "border-l-[oklch(0.65_0.15_210)]",
+        "border-l-[oklch(0.62_0.21_295)]",
         event.isCompleted && "opacity-55",
       )}
+      data-kind="appointment"
       style={{ boxShadow: "var(--card-shadow)" }}
     >
-      <div className="flex w-16 flex-col items-center justify-center border-r border-border py-3 text-center">
-        <span className="text-sm font-semibold tabular-nums">{event.time}</span>
+      <div className="flex w-24 shrink-0 flex-col items-end justify-center border-r border-border py-3 px-3">
+        <span className="whitespace-nowrap text-sm font-semibold tabular-nums">{event.time}</span>
       </div>
 
       <div className="flex flex-1 items-center gap-3 py-3 pr-2">

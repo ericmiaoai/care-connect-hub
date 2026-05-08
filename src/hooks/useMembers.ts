@@ -8,6 +8,7 @@ export interface Member {
   joinedAt:  string;
   firstName: string;
   lastName:  string;
+  avatarUrl: string | null;
 }
 
 export interface PendingInvite {
@@ -57,7 +58,8 @@ export function useMembers(careCircleId: string | null | undefined): UseMembersR
         joined_at,
         profiles (
           first_name,
-          last_name
+          last_name,
+          avatar_url
         )
       `)
       .eq("care_circle_id", careCircleId);
@@ -73,6 +75,7 @@ export function useMembers(careCircleId: string | null | undefined): UseMembersR
         joinedAt:  m.joined_at,
         firstName: m.profiles?.first_name ?? "",
         lastName:  m.profiles?.last_name  ?? "",
+        avatarUrl: m.profiles?.avatar_url ?? null,
       })));
     }
 
@@ -95,6 +98,13 @@ export function useMembers(careCircleId: string | null | undefined): UseMembersR
   }, [careCircleId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // Re-fetch when any member uploads a new profile photo
+  useEffect(() => {
+    const handler = () => fetchAll();
+    window.addEventListener("caresync:profile-updated", handler);
+    return () => window.removeEventListener("caresync:profile-updated", handler);
+  }, [fetchAll]);
 
   useEffect(() => {
     if (!careCircleId) return;

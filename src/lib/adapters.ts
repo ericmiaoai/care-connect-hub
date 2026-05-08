@@ -125,19 +125,20 @@ export function adaptCalendarEvent(row: DBCalendarEventWithCompleter): UICalenda
 // Broadcast Update
 // ---------------------------------------------------------------------------
 export interface UIBroadcast {
-  id:         string;
-  title:      string;
-  content:    string;
-  severity:   DBUpdate["severity"];
-  authorId:   string;
-  authorName: string | null;  // "First Last" from joined profile
-  createdAt:  string;         // ISO string
-  timeAgo:    string;         // Human readable: "12m ago", "2h ago", "Yesterday"
+  id:               string;
+  title:            string;
+  content:          string;
+  severity:         DBUpdate["severity"];
+  authorId:         string;
+  authorName:       string | null;
+  authorAvatarUrl:  string | null;
+  createdAt:        string;
+  timeAgo:          string;
 }
 
 // Extended DB row type that includes the joined author profile
 export interface DBBroadcastWithAuthor extends DBUpdate {
-  author: { first_name: string; last_name: string } | null;
+  author: { first_name: string; last_name: string; avatar_url?: string | null } | null;
 }
 
 export function formatTimeAgo(iso: string): string {
@@ -156,15 +157,16 @@ export function formatTimeAgo(iso: string): string {
 
 export function adaptBroadcast(row: DBBroadcastWithAuthor): UIBroadcast {
   return {
-    id:         row.id,
-    title:      row.title,
-    content:    row.content,
-    severity:   row.severity,
-    authorId:   row.author_id,
-    authorName: row.author
+    id:              row.id,
+    title:           row.title,
+    content:         row.content,
+    severity:        row.severity,
+    authorId:        row.author_id,
+    authorName:      row.author
       ? `${row.author.first_name} ${row.author.last_name}`
       : null,
-    createdAt:  row.created_at,
-    timeAgo:    formatTimeAgo(row.created_at),
+    authorAvatarUrl: row.author?.avatar_url ?? null,
+    createdAt:       row.created_at,
+    timeAgo:         formatTimeAgo(row.created_at),
   };
 }

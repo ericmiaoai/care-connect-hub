@@ -34,6 +34,8 @@ export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps }
         "flex items-stretch gap-3 rounded-xl border border-border border-l-4 bg-card",
         borderClass,
       )}
+      data-priority={task.priority}
+      data-kind={task.kind}
       style={{ boxShadow: "var(--card-shadow)" }}
     >
       {/* Time column */}

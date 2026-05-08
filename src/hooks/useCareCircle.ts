@@ -8,7 +8,7 @@
  * created a Care Circle — this triggers the onboarding redirect in __root.tsx.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CareCircleRole } from "@/lib/database.types";
 
@@ -31,6 +31,9 @@ export function useCareCircle(userId: string | null | undefined): CareCircleCont
   const [careCircleName, setCareCircleName] = useState<string | null>(null);
   const [role,           setRole]           = useState<CareCircleRole | null>(null);
   const [isLoading,      setIsLoading]      = useState(true);
+  // Unique suffix per hook instance — prevents channel name collisions when
+  // multiple components (e.g. __root.tsx + a route) call useCareCircle simultaneously.
+  const instanceId = useRef(Math.random().toString(36).slice(2, 9));
 
   const fetchCareCircle = useCallback(async () => {
     if (!userId) {
@@ -78,6 +81,25 @@ export function useCareCircle(userId: string | null | undefined): CareCircleCont
   useEffect(() => {
     fetchCareCircle();
   }, [fetchCareCircle]);
+
+  // Re-fetch when THIS user's membership row is updated (e.g. an admin changes their role).
+  // This ensures permission-gated UI (Post update button, task management, etc.)
+  // reflects the new role immediately without requiring a page refresh.
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel(`my_membership_rt_${userId}_${instanceId.current}`)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "care_circle_members",
+        filter: `user_id=eq.${userId}`,
+      }, () => {
+        fetchCareCircle();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userId, fetchCareCircle]);
 
   return { careCircleId, careCircleName, role, isLoading, refetch: fetchCareCircle };
 }

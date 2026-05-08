@@ -21,7 +21,16 @@ interface UpdateCardProps {
   onDelete?: () => void;
 }
 
-function AuthorAvatar({ name }: { name: string | null }) {
+function AuthorAvatar({ name, avatarUrl }: { name: string | null; avatarUrl: string | null }) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name ?? "Author"}
+        className="h-7 w-7 shrink-0 rounded-full object-cover"
+      />
+    );
+  }
   const initials = name
     ? name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "?";
@@ -41,7 +50,7 @@ export function UpdateCard({ update, index, onDelete }: UpdateCardProps) {
       className="rounded-2xl border border-border bg-card p-4 shadow-sm"
     >
       <header className="mb-2 flex items-center gap-2">
-        <AuthorAvatar name={update.authorName} />
+        <AuthorAvatar name={update.authorName} avatarUrl={update.authorAvatarUrl} />
         <span className="text-sm font-medium text-foreground">
           {update.authorName ?? "Care Coordinator"}
         </span>

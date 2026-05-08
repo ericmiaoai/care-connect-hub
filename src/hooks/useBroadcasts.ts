@@ -29,7 +29,7 @@ export function useBroadcasts(
 
     const { data, error: sbError } = await supabase
       .from("broadcast_updates")
-      .select("*, author:author_id(first_name, last_name)")
+      .select("*, author:author_id(first_name, last_name, avatar_url)")
       .eq("care_circle_id", careCircleId)
       .order("created_at", { ascending: false });
 
@@ -47,6 +47,13 @@ export function useBroadcasts(
 
   useEffect(() => {
     fetchBroadcasts();
+  }, [fetchBroadcasts]);
+
+  // Re-fetch when any member uploads a new profile photo
+  useEffect(() => {
+    const handler = () => fetchBroadcasts();
+    window.addEventListener("caresync:profile-updated", handler);
+    return () => window.removeEventListener("caresync:profile-updated", handler);
   }, [fetchBroadcasts]);
 
   useEffect(() => {

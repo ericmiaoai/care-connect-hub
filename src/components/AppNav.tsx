@@ -99,9 +99,17 @@ export function SideNav() {
       {/* User profile + Sign out */}
       <div className="border-t border-border pt-3 mt-2">
         <div className="mb-1 flex items-center gap-2.5 rounded-lg px-2 py-2">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-foreground">
-            {initials}
-          </div>
+          {profile?.avatar_url ? (
+            <img
+              src={profile.avatar_url}
+              alt={fullName}
+              className="h-7 w-7 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-foreground">
+              {initials}
+            </div>
+          )}
           <span className="truncate text-xs text-muted-foreground">{fullName}</span>
         </div>
         <button

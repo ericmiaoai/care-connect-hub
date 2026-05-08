@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
-  Check, ChevronRight, Palette, Users, LogOut, Share2, Trash2, KeyRound, Eye, EyeOff, UserCircle,
+  Check, ChevronRight, Palette, Users, LogOut, Share2, Trash2, KeyRound, Eye, EyeOff, UserCircle, Camera,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -65,6 +65,7 @@ const SWATCH_STYLE: Record<Theme, React.CSSProperties> = {
   blue:             { background: "linear-gradient(175deg, #3d6dd0 0%, #1e3a9e 45%, #0d1462 100%)" },
   stone:            { background: "radial-gradient(ellipse at 90% 5%, #5a4e3a 0%, #2e2820 40%, #141210 100%)" },
   prototypeLovable: { background: "radial-gradient(ellipse at 20% 0%, #3d1f6e 0%, #1a0d3a 50%, #0a0514 100%)" },
+  granite:          { background: "radial-gradient(ellipse at 96% 0%, #4a5a6e 0%, #252e38 20%, #151c24 50%, #080c10 100%)" },
 };
 
 function ThemeSwatch({
@@ -144,12 +145,41 @@ function SettingsRow({
   );
 }
 
+// ── Avatar compression (256×256, JPEG 0.85) ───────────────────────────────────
+
+function compressAvatar(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const SIZE = 256;
+      const canvas = document.createElement("canvas");
+      canvas.width  = SIZE;
+      canvas.height = SIZE;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("Canvas not supported")); return; }
+      // Centre-crop to square before scaling
+      const min = Math.min(img.width, img.height);
+      const sx  = (img.width  - min) / 2;
+      const sy  = (img.height - min) / 2;
+      ctx.drawImage(img, sx, sy, min, min, 0, 0, SIZE, SIZE);
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Failed to compress image"));
+      }, "image/jpeg", 0.85);
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 const INVITE_INPUT = "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 
 function SettingsPage() {
-  const { user, profile, signOut, updateProfile } = useAuth();
+  const { user, profile, signOut, updateProfile, refreshProfile } = useAuth();
   const { careCircleId, careCircleName, role } = useCareCircle(user?.id);
   const { theme, setTheme }              = useTheme();
   const {
@@ -165,6 +195,18 @@ function SettingsPage() {
   const [inviteOpen,     setInviteOpen]     = useState(false);
   const [passwordOpen,   setPasswordOpen]   = useState(false);
   const [profileOpen,    setProfileOpen]    = useState(false);
+
+  // Avatar upload state
+  const avatarInputRef                          = useRef<HTMLInputElement>(null);
+  const [avatarUrl,        setAvatarUrl]        = useState<string | null>(profile?.avatar_url ?? null);
+  const [avatarBusy,       setAvatarBusy]       = useState(false);
+  const [pendingBlob,      setPendingBlob]      = useState<Blob | null>(null);
+  const [pendingPreviewUrl,setPendingPreviewUrl] = useState<string | null>(null);
+
+  // Keep local avatarUrl in sync whenever the profile refreshes
+  useEffect(() => {
+    setAvatarUrl(profile?.avatar_url ?? null);
+  }, [profile?.avatar_url]);
 
   // Edit profile form state
   const [editFirstName,  setEditFirstName]  = useState("");
@@ -277,6 +319,82 @@ function SettingsPage() {
     setProfileOpen(true);
   };
 
+  const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user) return;
+
+    // Reject HEIC — iOS auto-converts on mobile, this only catches desktop HEIC
+    if (file.type === "image/heic" || file.type === "image/heif" ||
+        file.name.toLowerCase().endsWith(".heic") || file.name.toLowerCase().endsWith(".heif")) {
+      toast.error("HEIC photos aren't supported on desktop", {
+        description: "On your iPhone, select the photo directly from your camera roll. On a Mac, open the photo in Preview and export as JPEG first.",
+      });
+      return;
+    }
+
+    // Guard against extremely large files
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("Photo is too large", { description: "Please choose a photo under 15 MB." });
+      return;
+    }
+
+    setAvatarBusy(true);
+    try {
+      const blob       = await compressAvatar(file);
+      const previewUrl = URL.createObjectURL(blob);
+      setPendingBlob(blob);
+      setPendingPreviewUrl(previewUrl);
+    } catch (err: unknown) {
+      toast.error("Could not process photo", {
+        description: err instanceof Error ? err.message : "Please try again.",
+      });
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const handleAvatarCancel = () => {
+    if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    setPendingBlob(null);
+    setPendingPreviewUrl(null);
+  };
+
+  const handleAvatarConfirm = async () => {
+    if (!pendingBlob || !user) return;
+    const blobToUpload = pendingBlob;
+    if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    setPendingBlob(null);
+    setPendingPreviewUrl(null);
+    setAvatarBusy(true);
+    try {
+      const path = `${user.id}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, blobToUpload, { contentType: "image/jpeg", upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("profiles") as any)
+        .update({ avatar_url: publicUrl })
+        .eq("id", user.id);
+
+      setAvatarUrl(publicUrl);
+      await refreshProfile();
+      window.dispatchEvent(new CustomEvent("caresync:profile-updated"));
+      toast.success("Profile photo updated");
+    } catch (err: unknown) {
+      toast.error("Upload failed", {
+        description: err instanceof Error ? err.message : "Please try again.",
+      });
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!editFirstName.trim() || !editLastName.trim()) return;
     setProfileBusy(true);
@@ -294,22 +412,91 @@ function SettingsPage() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6">
 
+      {/* Avatar confirmation dialog */}
+      {pendingPreviewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xs rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <h2 className="mb-1 text-center text-base font-semibold text-foreground">Use this photo?</h2>
+            <p className="mb-5 text-center text-sm text-muted-foreground">This will replace your current profile photo.</p>
+            <div className="mb-6 flex justify-center">
+              <img
+                src={pendingPreviewUrl}
+                alt="Preview"
+                className="h-28 w-28 rounded-full object-cover ring-4 ring-border"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleAvatarCancel}
+                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAvatarConfirm}
+                disabled={avatarBusy}
+                className="flex-1 rounded-xl bg-foreground py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-80 disabled:opacity-50"
+              >
+                {avatarBusy ? "Uploading…" : "Use Photo"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Page header */}
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
       </header>
 
-      {/* Profile card — frosted glass, tappable to edit */}
+      {/* Hidden file input for avatar upload */}
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/*"
+        className="sr-only"
+        onChange={handleAvatarSelect}
+      />
+
+      {/* Profile card — frosted glass */}
       <div className="mb-10 flex items-center gap-3 rounded-xl border border-white/10 bg-card/85 px-4 py-4 backdrop-blur-xl">
-        <div className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white",
-          avatarColor(fullName),
-        )}>
-          {initials}
-        </div>
+        {/* Tappable avatar */}
+        <button
+          type="button"
+          aria-label="Change profile photo"
+          disabled={avatarBusy}
+          onClick={() => avatarInputRef.current?.click()}
+          className="relative shrink-0 h-11 w-11 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={fullName}
+              className="h-11 w-11 rounded-full object-cover"
+            />
+          ) : (
+            <div className={cn(
+              "flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold text-white",
+              avatarColor(fullName),
+            )}>
+              {initials}
+            </div>
+          )}
+          {/* Camera overlay */}
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 hover:opacity-100 transition-opacity">
+            {avatarBusy
+              ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              : <Camera className="h-3.5 w-3.5 text-white" />
+            }
+          </div>
+        </button>
+
         <div className="min-w-0">
           <p className="truncate font-medium text-foreground">{fullName}</p>
           <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground/60">Tap photo to change</p>
         </div>
       </div>
 
@@ -470,12 +657,20 @@ function SettingsPage() {
                     const isSelf   = m.userId === user?.id;
                     return (
                       <div key={m.id} className="flex items-center gap-3 px-4 py-3">
-                        <div className={cn(
-                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white",
-                          avatarColor(name),
-                        )}>
-                          {initials}
-                        </div>
+                        {m.avatarUrl ? (
+                          <img
+                            src={m.avatarUrl}
+                            alt={name}
+                            className="h-9 w-9 shrink-0 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className={cn(
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white",
+                            avatarColor(name),
+                          )}>
+                            {initials}
+                          </div>
+                        )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-foreground">
                             {name}{isSelf && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
