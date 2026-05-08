@@ -278,8 +278,8 @@ Before every production deployment, verify:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/ericmiaoai/care-connect-hub
-cd care-connect-hub
+git clone https://github.com/ericmiaoai/caresync
+cd caresync
 
 # 2. Install dependencies
 npm install
