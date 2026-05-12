@@ -210,10 +210,100 @@
     }
     .toc ol { margin: 8px 0 0 16px; }
     .toc li { margin-bottom: 4px; font-size: 13px; }
+    .toc a { color: #1e3a8a; }
+    .toc a:hover { color: #2563eb; text-decoration: underline; }
 
     /* ── Env var list ─────────────────────────────────────────────── */
     .env-table td:first-child { font-family: monospace; font-size: 12px;
       background: #f1f5f9; color: #0f172a; }
+
+    /* ── Workflow Cards (§11) ─────────────────────────────────────── */
+    .wf-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 14px; margin: 16px 0;
+    }
+    .wf-card {
+      background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 10px; padding: 16px 18px;
+    }
+    .wf-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .wf-icon {
+      width: 34px; height: 34px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .wf-card h3 { margin: 0; font-size: 13px; color: #0d1b4b; }
+    .wf-step { display: flex; gap: 10px; margin-bottom: 7px; font-size: 12px; color: #334155; line-height: 1.5; }
+    .wf-num {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #0d1b4b; color: white; font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .wf-ai-note {
+      margin-top: 8px; padding: 6px 10px; background: #fdf4ff;
+      border-left: 3px solid #a855f7; border-radius: 0 6px 6px 0;
+      font-size: 11px; color: #581c87; font-weight: 500;
+    }
+
+    /* ── Swim Lane (§11) ─────────────────────────────────────────── */
+    .swimlane { border-collapse: collapse; margin: 16px 0; font-size: 12px; }
+    .swimlane th {
+      padding: 10px 14px; font-weight: 700; text-align: center;
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .swimlane th.sl-user { background: #0d1b4b; color: white; width: 33%; }
+    .swimlane th.sl-app  { background: #1e40af; color: white; width: 33%; }
+    .swimlane th.sl-ai   { background: #6b21a8; color: white; width: 34%; }
+    .swimlane td {
+      padding: 10px 12px; border: 1px solid #e2e8f0;
+      vertical-align: top; line-height: 1.5; color: #94a3b8;
+    }
+    .sl-user { background: #eff6ff; color: #1e3a8a; font-weight: 500; }
+    .sl-app  { background: #dbeafe; color: #1e40af; font-weight: 500; }
+    .sl-ai   { background: #f3e8ff; color: #6b21a8; font-weight: 500; }
+    .sl-warn { background: #fef9c3; color: #713f12; font-weight: 500; }
+    .sl-hitl { background: #fff7ed; color: #7c2d12; font-weight: 600; }
+    .sl-ok   { background: #dcfce7; color: #14532d; font-weight: 500; }
+    .sl-fail { background: #fee2e2; color: #7f1d1d; font-weight: 500; }
+
+    /* ── Retrospective Timeline (§12) ────────────────────────────── */
+    .timeline { position: relative; padding-left: 36px; margin: 24px 0; }
+    .timeline::before {
+      content: ''; position: absolute; left: 10px; top: 6px; bottom: 6px;
+      width: 2px; background: linear-gradient(to bottom, #2563eb, #22c55e);
+    }
+    .tl-item { position: relative; margin-bottom: 28px; }
+    .tl-item:last-child { margin-bottom: 0; }
+    .tl-dot {
+      position: absolute; left: -30px; top: 5px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #2563eb; border: 3px solid #fff;
+      box-shadow: 0 0 0 2px #2563eb;
+    }
+    .tl-dot.gray   { background: #64748b; box-shadow: 0 0 0 2px #64748b; }
+    .tl-dot.blue   { background: #2563eb; box-shadow: 0 0 0 2px #2563eb; }
+    .tl-dot.green  { background: #22c55e; box-shadow: 0 0 0 2px #22c55e; }
+    .tl-dot.amber  { background: #f59e0b; box-shadow: 0 0 0 2px #f59e0b; }
+    .tl-dot.purple { background: #a855f7; box-shadow: 0 0 0 2px #a855f7; }
+    .tl-dot.dark   { background: #0d1b4b; box-shadow: 0 0 0 2px #0d1b4b; }
+    .tl-date {
+      font-size: 11px; font-weight: 700; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 3px;
+    }
+    .tl-phase {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+      border-radius: 20px; padding: 1px 9px; margin-bottom: 6px;
+      text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .tl-phase.green  { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+    .tl-phase.amber  { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .tl-phase.purple { background: #fdf4ff; color: #7e22ce; border-color: #e9d5ff; }
+    .tl-phase.dark   { background: #f1f5f9; color: #0d1b4b; border-color: #cbd5e1; }
+    .tl-title { font-size: 14px; font-weight: 700; color: #0d1b4b; margin-bottom: 7px; }
+    .tl-list { font-size: 12px; color: #334155; margin: 0; padding-left: 16px; }
+    .tl-list li { margin-bottom: 3px; }
 
   </style>
 </head>
@@ -246,16 +336,18 @@
 <div class="toc">
   <strong>Contents</strong>
   <ol>
-    <li>Care Circle Model — Roles &amp; Permissions</li>
-    <li>Feature Overview</li>
-    <li>My Day View</li>
-    <li>Calendar View</li>
-    <li>Scan AVS — AI-Powered Document Processing</li>
-    <li>Broadcast Updates</li>
-    <li>Settings &amp; Profile Management</li>
-    <li>Technical Architecture</li>
-    <li>Security &amp; Privacy Design</li>
-    <li>Deployment Infrastructure</li>
+    <li><a href="#s1">Care Circle Model — Roles &amp; Permissions</a></li>
+    <li><a href="#s2">Feature Overview</a></li>
+    <li><a href="#s3">My Day View</a></li>
+    <li><a href="#s4">Calendar View</a></li>
+    <li><a href="#s5">Scan AVS — AI-Powered Document Processing</a></li>
+    <li><a href="#s6">Broadcast Updates</a></li>
+    <li><a href="#s7">Settings &amp; Profile Management</a></li>
+    <li><a href="#s8">Technical Architecture</a></li>
+    <li><a href="#s9">Security &amp; Privacy Design</a></li>
+    <li><a href="#s10">Deployment Infrastructure</a></li>
+    <li><a href="#s11">Workflow &amp; Multimodal Design</a></li>
+    <li><a href="#s12">Project Timeline</a></li>
   </ol>
 </div>
 
@@ -263,7 +355,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      1. CARE CIRCLE MODEL
 ══════════════════════════════════════════════════════════════════ -->
-<h2>1. Care Circle Model — Roles &amp; Permissions</h2>
+<h2 id="s1">1. Care Circle Model — Roles &amp; Permissions</h2>
 
 <p>
   Every piece of data in CareSync belongs to exactly one <strong>Care Circle</strong>
@@ -351,7 +443,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      2. FEATURE OVERVIEW
 ══════════════════════════════════════════════════════════════════ -->
-<h2>2. Feature Overview</h2>
+<h2 id="s2">2. Feature Overview</h2>
 
 <div class="feature-grid">
   <div class="feature-card">
@@ -390,7 +482,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      3. MY DAY VIEW
 ══════════════════════════════════════════════════════════════════ -->
-<h2>3. My Day View</h2>
+<h2 id="s3">3. My Day View</h2>
 
 <p>
   My Day is a caregiver's personal daily workspace. It shows only what is relevant
@@ -465,7 +557,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      4. CALENDAR VIEW
 ══════════════════════════════════════════════════════════════════ -->
-<h2>4. Calendar View</h2>
+<h2 id="s4">4. Calendar View</h2>
 
 <p>
   Calendar is the care circle's shared coordination hub. Unlike My Day, it
@@ -508,7 +600,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      5. SCAN AVS — AI FEATURE
 ══════════════════════════════════════════════════════════════════ -->
-<h2>5. Scan AVS — AI-Powered Document Processing</h2>
+<h2 id="s5">5. Scan AVS — AI-Powered Document Processing</h2>
 
 <div class="callout" style="background:#fdf4ff;border-color:#a855f7;">
   <div class="callout-title" style="color:#581c87;">🤖 AI Model: Google Gemini 2.5 Flash</div>
@@ -620,7 +712,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      6. BROADCAST UPDATES
 ══════════════════════════════════════════════════════════════════ -->
-<h2>6. Broadcast Updates</h2>
+<h2 id="s6">6. Broadcast Updates</h2>
 
 <p>
   Broadcast Updates is a one-way announcement board for the care circle.
@@ -646,7 +738,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      7. SETTINGS & PROFILE
 ══════════════════════════════════════════════════════════════════ -->
-<h2>7. Settings &amp; Profile Management</h2>
+<h2 id="s7">7. Settings &amp; Profile Management</h2>
 
 <table>
   <tr><th>Setting</th><th>Details</th></tr>
@@ -692,7 +784,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      8. TECHNICAL ARCHITECTURE
 ══════════════════════════════════════════════════════════════════ -->
-<h2>8. Technical Architecture</h2>
+<h2 id="s8">8. Technical Architecture</h2>
 
 <div class="arch-diagram">
 
@@ -789,7 +881,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      9. SECURITY & PRIVACY
 ══════════════════════════════════════════════════════════════════ -->
-<h2>9. Security &amp; Privacy Design</h2>
+<h2 id="s9">9. Security &amp; Privacy Design</h2>
 
 <h3>Row Level Security (RLS)</h3>
 <p>
@@ -821,18 +913,69 @@
 </div>
 
 <h3>API Key Security</h3>
-<table style="font-size:12px;">
-  <tr><th>Variable</th><th>Where stored</th><th>Exposure</th></tr>
-  <tr><td><code>CARESYNC_GEMINI_KEY</code></td><td>Netlify env (secret)</td><td>Server-side only — never in browser bundle</td></tr>
-  <tr><td><code>SUPABASE_ANON_KEY</code></td><td>Browser bundle (public by design)</td><td>Safe — protected by RLS, not the key itself</td></tr>
-  <tr><td><code>VITE_SUPABASE_URL</code></td><td>Browser bundle</td><td>Public URL — no sensitive capability</td></tr>
+<table style="font-size:12px;" class="env-table">
+  <tr><th>Variable</th><th>Where stored</th><th>Sensitive?</th><th>Notes</th></tr>
+  <tr>
+    <td><code>VITE_SUPABASE_URL</code></td>
+    <td>Build-time .env → browser bundle</td>
+    <td>No</td>
+    <td>Public Supabase project URL — no capability without a valid JWT</td>
+  </tr>
+  <tr>
+    <td><code>VITE_SUPABASE_ANON_KEY</code></td>
+    <td>Build-time .env → browser bundle</td>
+    <td>No</td>
+    <td>Public anon key — safe because every row is protected by RLS policies</td>
+  </tr>
+  <tr>
+    <td><code>VITE_AVS_ENDPOINT</code></td>
+    <td>Build-time .env → browser bundle</td>
+    <td>No</td>
+    <td>Absolute URL of the Netlify scan function — not a secret</td>
+  </tr>
+  <tr>
+    <td><code>VITE_VLM_PROVIDER</code></td>
+    <td>Build-time .env → browser bundle</td>
+    <td>No</td>
+    <td>Switches AI mode: <code>mock</code> (dev) or <code>api</code> (production)</td>
+  </tr>
+  <tr>
+    <td><code>CARESYNC_GEMINI_KEY</code></td>
+    <td>Netlify dashboard (secret)</td>
+    <td><strong>Yes</strong></td>
+    <td>Google AI API key — server-side only, never enters the browser bundle</td>
+  </tr>
+  <tr>
+    <td><code>GEMINI_MODEL</code></td>
+    <td>Netlify dashboard</td>
+    <td>No</td>
+    <td>AI model name (e.g. <code>gemini-2.5-flash</code>) — change here to upgrade without a code deploy</td>
+  </tr>
+  <tr>
+    <td><code>SUPABASE_URL</code></td>
+    <td>Netlify dashboard</td>
+    <td>No</td>
+    <td>Same URL as <code>VITE_SUPABASE_URL</code> but without the VITE_ prefix for server-side function use</td>
+  </tr>
+  <tr>
+    <td><code>SUPABASE_ANON_KEY</code></td>
+    <td>Netlify dashboard</td>
+    <td>No</td>
+    <td>Same anon key as above — used by Netlify functions to query Supabase server-side</td>
+  </tr>
+  <tr>
+    <td><code>APP_URL</code></td>
+    <td>Netlify dashboard</td>
+    <td>No</td>
+    <td>Cloudflare Workers URL (no trailing slash) — used as the CORS allowed origin for the scan function</td>
+  </tr>
 </table>
 
 
 <!-- ══════════════════════════════════════════════════════════════════
      10. DEPLOYMENT INFRASTRUCTURE
 ══════════════════════════════════════════════════════════════════ -->
-<h2>10. Deployment Infrastructure</h2>
+<h2 id="s10">10. Deployment Infrastructure</h2>
 
 <table>
   <tr><th>Component</th><th>Platform</th><th>URL</th><th>Deploy command</th></tr>
@@ -875,6 +1018,286 @@
   Cloudflare Workers: 100,000 requests/day free &nbsp;·&nbsp;
   Netlify Functions: 125,000 invocations/month free &nbsp;·&nbsp;
   Supabase: 500 MB database + 1 GB storage free
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     11. WORKFLOW & MULTIMODAL DESIGN
+══════════════════════════════════════════════════════════════════ -->
+<h2 id="s11">11. Workflow &amp; Multimodal Design</h2>
+
+<p>
+  The diagrams below trace the end-to-end flow for each CareSync capability —
+  what the user does, what the app does in response, and where AI or cloud
+  services are involved. The Scan AVS pipeline is shown in full swim-lane
+  detail because it is the primary multimodal AI feature.
+</p>
+
+<div class="wf-grid">
+
+  <div class="wf-card">
+    <div class="wf-card-header">
+      <div class="wf-icon" style="background:#fff1f2;">👥</div>
+      <h3>Care Circle Setup &amp; Invitation</h3>
+    </div>
+    <div class="wf-step"><div class="wf-num">1</div><div>Admin creates the Care Circle and names the patient.</div></div>
+    <div class="wf-step"><div class="wf-num">2</div><div>CareSync generates a unique invite link and 4-digit PIN valid for 24 hours.</div></div>
+    <div class="wf-step"><div class="wf-num">3</div><div>Admin shares the link; new member clicks it, signs in, and enters the PIN.</div></div>
+    <div class="wf-step"><div class="wf-num">4</div><div>Member joins with the assigned role; all existing members are notified in real time.</div></div>
+  </div>
+
+  <div class="wf-card">
+    <div class="wf-card-header">
+      <div class="wf-icon" style="background:#fef3c7;">☀️</div>
+      <h3>My Day Dashboard</h3>
+    </div>
+    <div class="wf-step"><div class="wf-num">1</div><div>Caregiver opens My Day; CareSync loads tasks filtered by their saved preference (My Tasks or All Tasks).</div></div>
+    <div class="wf-step"><div class="wf-num">2</div><div>Tasks are grouped into four sections — Overdue, Today, Unscheduled, and Today's Appointments.</div></div>
+    <div class="wf-step"><div class="wf-num">3</div><div>Caregiver completes, snoozes, edits, or reorders tasks; all changes save instantly to the cloud.</div></div>
+    <div class="wf-step"><div class="wf-num">4</div><div>An Undo toast appears after any edit with a 5-second window to reverse the change.</div></div>
+  </div>
+
+  <div class="wf-card">
+    <div class="wf-card-header">
+      <div class="wf-icon" style="background:#eff6ff;">📅</div>
+      <h3>Calendar</h3>
+    </div>
+    <div class="wf-step"><div class="wf-num">1</div><div>Caregiver selects Day, Week, or Month view to see the full care circle's schedule.</div></div>
+    <div class="wf-step"><div class="wf-num">2</div><div>In Day view, each card shows time, priority, task name, and assignee — color-coded by priority or event type.</div></div>
+    <div class="wf-step"><div class="wf-num">3</div><div>Caregiver marks items complete; completion is timestamped and attributed to the caregiver who acted.</div></div>
+    <div class="wf-step"><div class="wf-num">4</div><div>All changes sync to every circle member within seconds — no refresh needed.</div></div>
+  </div>
+
+  <div class="wf-card">
+    <div class="wf-card-header">
+      <div class="wf-icon" style="background:#f0fdf4;">📢</div>
+      <h3>Broadcast Updates</h3>
+    </div>
+    <div class="wf-step"><div class="wf-num">1</div><div>Admin writes an update and selects a severity level — Info, Warning, or Critical.</div></div>
+    <div class="wf-step"><div class="wf-num">2</div><div>CareSync posts the update tagged with the admin's name, avatar, and timestamp.</div></div>
+    <div class="wf-step"><div class="wf-num">3</div><div>All online circle members see the update appear on their screen in real time.</div></div>
+    <div class="wf-step"><div class="wf-num">4</div><div>Admins can delete any update; the card disappears for all members immediately.</div></div>
+  </div>
+
+  <div class="wf-card">
+    <div class="wf-card-header">
+      <div class="wf-icon" style="background:#f0f9ff;">⚙️</div>
+      <h3>Profile &amp; Settings</h3>
+    </div>
+    <div class="wf-step"><div class="wf-num">1</div><div>Caregiver uploads a new profile photo; CareSync shows a preview before any changes are saved.</div></div>
+    <div class="wf-step"><div class="wf-num">2</div><div>On confirmation, CareSync compresses the photo to 256×256 and uploads it to cloud storage.</div></div>
+    <div class="wf-step"><div class="wf-num">3</div><div>Every avatar in the app — sidebar, header, member list, broadcasts — refreshes instantly without a page reload.</div></div>
+    <div class="wf-step"><div class="wf-num">4</div><div>Admin can change a member's role from the member list; the change takes effect for that member in real time.</div></div>
+  </div>
+
+  <div class="wf-card" style="border-color:#d8b4fe;background:#fdf4ff;">
+    <div class="wf-card-header">
+      <div class="wf-icon" style="background:#f3e8ff;">🤖</div>
+      <h3>Scan AVS — AI Document Analysis</h3>
+    </div>
+    <div class="wf-step"><div class="wf-num">1</div><div>Caregiver photographs or uploads a medical document (e.g., After-Visit Summary).</div></div>
+    <div class="wf-step"><div class="wf-num">2</div><div>Google Gemini 2.5 Flash (vision AI) reads the image and extracts structured care data.</div></div>
+    <div class="wf-step"><div class="wf-num">3</div><div>Caregiver reviews the AI's output and approves or rejects — nothing is saved without human sign-off.</div></div>
+    <div class="wf-ai-note">🤖 AI pipeline — see swim-lane diagram below for the full step-by-step flow</div>
+  </div>
+
+</div>
+
+<h3>Scan AVS — AI Pipeline (Swim Lane)</h3>
+<p style="font-size:13px;color:#64748b;margin-bottom:12px;">
+  Each column represents one actor. Highlighted cells show which actor is active at that step.
+  Inactive cells are shown in gray.
+</p>
+
+<table class="swimlane">
+  <thead>
+    <tr>
+      <th class="sl-user">👤 User (Caregiver)</th>
+      <th class="sl-app">⚙️ CareSync</th>
+      <th class="sl-ai">🤖 AI &amp; Cloud (Gemini)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="sl-user">Photographs or uploads the AVS document from their device.</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>—</td>
+      <td class="sl-app">Validates file type; compresses image to JPEG (max 1600 px, ~1 MB). Attaches the user's Supabase JWT to authenticate the request.</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>—</td>
+      <td class="sl-app">Sends compressed image + structured extraction prompt to the Netlify cloud function.</td>
+      <td class="sl-ai">Gemini 2.5 Flash reads the image and returns structured JSON: patient name, visit date, provider, medications, appointments, and care instructions.</td>
+    </tr>
+    <tr>
+      <td>—</td>
+      <td class="sl-app">Validates the JSON response against a strict schema. Checks extracted patient name against the Care Circle's patient record.</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td class="sl-warn">Sees an orange warning banner if the extracted patient name does not match the care circle's patient.</td>
+      <td class="sl-warn">Surfaces the mismatch warning; does not block review — the caregiver decides whether to proceed.</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td class="sl-hitl">⚠️ HUMAN-IN-THE-LOOP — Inspects every extracted field; edits any errors before making a decision.</td>
+      <td class="sl-app">Presents all fields in an editable review form. No data has been written to the database yet.</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td class="sl-ok">✓ Taps <strong>Approve</strong></td>
+      <td class="sl-ok">Creates tasks and appointments in Supabase. Saves a non-PHI audit record. All PHI remains on-device only.</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td class="sl-fail">✗ Taps <strong>Reject</strong></td>
+      <td class="sl-fail">Discards all extracted data. Nothing is written to the database.</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout" style="background:#fdf4ff;border-color:#a855f7;">
+  <div class="callout-title" style="color:#581c87;">🔑 Key multimodal design principle</div>
+  The AI model never writes directly to the database. Every Scan AVS session passes
+  through a mandatory human review step before any data is persisted — protecting
+  against hallucinations, wrong-patient errors, and misread documents.
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     12. PROJECT TIMELINE
+══════════════════════════════════════════════════════════════════ -->
+<h2 id="s12">12. Project Timeline</h2>
+
+<p>
+  CareSync was built over approximately three weeks (April 20 – May 8, 2026),
+  progressing from an architectural plan to a fully deployed, feature-complete PWA.
+  The timeline below is derived from the project's Git commit history.
+</p>
+
+<div class="timeline">
+
+  <div class="tl-item">
+    <div class="tl-dot gray"></div>
+    <div class="tl-date">April 20, 2026</div>
+    <div class="tl-phase">Phase 1 — Planning</div>
+    <div class="tl-title">Architecture &amp; Design</div>
+    <ul class="tl-list">
+      <li>Defined AI-first frontend architecture</li>
+      <li>Established Supabase data model and care circle bounded context</li>
+      <li>Selected technology stack: React 19, TanStack Start, Tailwind CSS v4, Supabase</li>
+    </ul>
+  </div>
+
+  <div class="tl-item">
+    <div class="tl-dot blue"></div>
+    <div class="tl-date">April 21–22, 2026</div>
+    <div class="tl-phase">Phase 2 — Core Build</div>
+    <div class="tl-title">Full Application Scaffold &amp; Live Data</div>
+    <ul class="tl-list">
+      <li>Full frontend rebuild with Supabase authentication and live data integration</li>
+      <li>Calendar Day view with timezone-safe date keying</li>
+      <li>Calendar editing, drag-and-drop task reorder, and task time fields</li>
+      <li>Scan AVS Human-in-the-Loop pipeline wired to Supabase</li>
+      <li>Patient onboarding step during Care Circle creation</li>
+      <li>Offline detection banner and theme foundation</li>
+    </ul>
+  </div>
+
+  <div class="tl-item">
+    <div class="tl-dot green"></div>
+    <div class="tl-date">April 23, 2026</div>
+    <div class="tl-phase green">Phase 3 — Collaboration</div>
+    <div class="tl-title">Invite Flow, Member Management &amp; Real-time Sync</div>
+    <ul class="tl-list">
+      <li>Invite-link + PIN onboarding flow for new care circle members</li>
+      <li>Member management: view, role assignment, remove members</li>
+      <li>Real-time sync via Supabase Realtime WebSocket (tasks, events, broadcasts)</li>
+      <li>My Day dashboard redesign with collapsible sections</li>
+      <li>Settings page polish and profile editing</li>
+    </ul>
+  </div>
+
+  <div class="tl-item">
+    <div class="tl-dot blue"></div>
+    <div class="tl-date">April 24, 2026</div>
+    <div class="tl-phase">Phase 4 — Calendar Refinements</div>
+    <div class="tl-title">Unscheduled Tasks &amp; Calendar Fixes</div>
+    <ul class="tl-list">
+      <li>Unscheduled tasks surfaced in Calendar view (previously hidden)</li>
+      <li>Calendar section labels clarified ("No Time Set" vs "Unscheduled")</li>
+    </ul>
+  </div>
+
+  <div class="tl-item">
+    <div class="tl-dot amber"></div>
+    <div class="tl-date">April 30, 2026</div>
+    <div class="tl-phase amber">Phase 5 — Preferences &amp; Polish</div>
+    <div class="tl-title">Persistent Preferences &amp; UI Improvements</div>
+    <ul class="tl-list">
+      <li>User preferences (section order, collapse state, filter mode) saved to Supabase</li>
+      <li>Appointment editing directly from My Day view</li>
+      <li>12-hour time format throughout the app</li>
+      <li>Profile editing (first name, last name)</li>
+      <li>Calendar and My Day UI polish pass</li>
+    </ul>
+  </div>
+
+  <div class="tl-item">
+    <div class="tl-dot purple"></div>
+    <div class="tl-date">May 6, 2026</div>
+    <div class="tl-phase purple">Phase 6 — AI Integration</div>
+    <div class="tl-title">Scan AVS with Gemini 2.5 Flash</div>
+    <ul class="tl-list">
+      <li>Scan AVS upgraded to Google Gemini 2.5 Flash multimodal vision model</li>
+      <li>Image compression pipeline (client-side JPEG, 1600 px max, 1 MB cap)</li>
+      <li>Patient name mismatch warning banner</li>
+      <li>Stone and Purple UI themes added</li>
+      <li>Time column display fixes across calendar views</li>
+    </ul>
+  </div>
+
+  <div class="tl-item">
+    <div class="tl-dot blue"></div>
+    <div class="tl-date">May 7, 2026</div>
+    <div class="tl-phase">Phase 7 — Avatars &amp; Security</div>
+    <div class="tl-title">Profile Photos, RLS Hardening &amp; Real-time Role Sync</div>
+    <ul class="tl-list">
+      <li>Profile photo upload with client-side compression (256×256 JPEG) and confirmation dialog</li>
+      <li>Avatars displayed throughout: sidebar, header, member list, and broadcast cards</li>
+      <li>Granite theme with grain texture</li>
+      <li>RLS policy fixes: circle-peer profile visibility, admin role update enforcement</li>
+      <li>Real-time role change propagation (care_circle_members enrolled in Supabase Realtime)</li>
+      <li>Schema and SOP updated to reflect live database state</li>
+    </ul>
+  </div>
+
+  <div class="tl-item">
+    <div class="tl-dot dark"></div>
+    <div class="tl-date">May 8, 2026</div>
+    <div class="tl-phase dark">Phase 8 — Final Features &amp; Deployment</div>
+    <div class="tl-title">Ship — Feature Complete &amp; Deployed</div>
+    <ul class="tl-list">
+      <li>Assigned-to feature: person picker in task forms, assignee avatar chips on cards, My Tasks / All Tasks filter</li>
+      <li>Undo toasts (5-second window) after editing tasks and appointments in both My Day and Calendar</li>
+      <li>Calendar Day view polish: time + priority merged, card glow effects, abbreviated month names</li>
+      <li>Frontend deployed to Cloudflare Workers (<code>npx wrangler deploy</code>)</li>
+      <li>Repository renamed from <em>care-connect-hub</em> to <em>caresync</em></li>
+      <li>Maintenance SOP (v1.2) updated for Cloudflare + Netlify split deployment</li>
+      <li>Capabilities &amp; Technical Overview document created for professor demo</li>
+    </ul>
+  </div>
+
+</div>
+
+<div class="callout green">
+  <div class="callout-title">Project summary</div>
+  <strong>19 days</strong> from first commit to feature-complete deployment &nbsp;·&nbsp;
+  <strong>30+ commits</strong> across 8 development phases &nbsp;·&nbsp;
+  <strong>1 live PWA</strong> on Cloudflare Workers + Netlify + Supabase
 </div>
 
 <br/><br/>

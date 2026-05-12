@@ -53,8 +53,8 @@ export function SideNav() {
     <aside className="hidden border-r border-border bg-card/30 md:flex md:w-60 md:flex-col md:p-4">
       {/* Logo */}
       <div className="mb-4 flex items-center gap-2 px-2">
-        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[var(--user-mom)] to-[var(--user-nurse)]" />
-        <span className="text-base font-semibold tracking-tight">CareSync</span>
+        <img src="/logo-icon.png" alt="CareSync" className="h-12 w-12 rounded-xl object-cover" style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.25))" }} />
+        <span className="text-xl font-semibold tracking-tight">CareSync</span>
       </div>
 
       {/* Navigation links */}

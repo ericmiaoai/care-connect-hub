@@ -76,7 +76,7 @@ function RegisterPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[var(--user-mom)] to-[var(--user-nurse)] shadow-lg" />
+          <img src="/logo-icon.png" alt="CareSync" className="h-14 w-14 rounded-2xl object-cover" style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.25))" }} />
           <div className="text-center">
             <h1 className="text-xl font-semibold tracking-tight">Create your account</h1>
             <p className="mt-1 text-sm text-muted-foreground">Start coordinating care in minutes</p>

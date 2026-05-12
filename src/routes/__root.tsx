@@ -56,6 +56,9 @@ export const Route = createRootRoute({
       { property: "og:type", content: "website" },
     ],
     links: [
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "icon", href: "/logo-icon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/logo-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

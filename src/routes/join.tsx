@@ -166,7 +166,7 @@ function JoinPage() {
 
       {/* Logo / brand */}
       <div className="mb-8 flex flex-col items-center gap-2">
-        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[var(--user-mom)] to-[var(--user-nurse)]" />
+        <img src="/logo-icon.png" alt="CareSync" className="h-14 w-14 rounded-2xl object-cover" style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.25))" }} />
         <span className="text-lg font-semibold tracking-tight text-foreground">CareSync</span>
       </div>
 
