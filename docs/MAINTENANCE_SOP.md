@@ -207,7 +207,7 @@ Users tap their avatar circle in Settings to upload a new photo. The app:
 | `SUPABASE_ANON_KEY` | Netlify functions (server) | `.env` + Netlify dashboard |
 | `CARESYNC_GEMINI_KEY` | `process-avs` function | `.env` + Netlify dashboard |
 | `GEMINI_MODEL` | `process-avs` function | `.env` + Netlify dashboard |
-| `APP_URL` | Netlify functions (CORS origin) | Netlify dashboard only — must equal Cloudflare Workers URL, no trailing slash |
+| `APP_URL` | Netlify functions (CORS origin) | `.env` (`http://localhost:8888` for local dev) + Netlify dashboard (Cloudflare Workers URL, no trailing slash) |
 | `SUPABASE_SERVICE_ROLE_KEY` | `delete-account` function only | Netlify dashboard only — **never** in `.env` or browser |
 | `AVS_DAILY_SCAN_LIMIT` | `process-avs` rate limiter | Netlify dashboard (optional — defaults to `10` if unset) |
 
@@ -346,6 +346,7 @@ SUPABASE_ANON_KEY=[anon key]
 CARESYNC_GEMINI_KEY=[gemini api key]
 GEMINI_MODEL=gemini-2.5-flash
 VITE_VLM_PROVIDER=api
+APP_URL=http://localhost:8888
 # SUPABASE_SERVICE_ROLE_KEY — set in Netlify dashboard only, NOT here
 
 # 4. Install Netlify CLI
