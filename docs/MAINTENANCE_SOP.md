@@ -224,9 +224,9 @@ Users tap their avatar circle in Settings to upload a new photo. The app:
 ### Supabase project URL/key change
 If the Supabase project is migrated or recreated, update `.env` locally,
 rebuild (`npm run build`), and redeploy (`npx wrangler deploy`). Also update
-`SUPABASE_URL` and `SUPABASE_ANON_KEY` in the Netlify dashboard for the
-process-avs function. Re-run `schema.sql` and re-create the `avatars` bucket
-(Section 4) in the new Supabase project.
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` in the
+Netlify dashboard. Re-run all SQL files in order (Section 7 step 1–4) and
+re-create the `avatars` bucket (Section 4) in the new Supabase project.
 
 ### Row Level Security (RLS)
 RLS policies must be verified any time the database schema changes. A
@@ -239,6 +239,10 @@ Verify policies in: Supabase Dashboard → Authentication → Policies.
   display correctly for other users.
 - `members: admin can update` — allows admins to change member roles. Without
   this, the role dropdown in Settings silently does nothing.
+
+**Policies added via `avs_scan_rate_limit.sql`:**
+- `users can log own scans` — allows authenticated users to INSERT their own rows into `avs_scan_logs`. Required for the rate limiter in `process-avs` to record each scan using the caller's JWT.
+- `users can read own scan logs` — allows users to SELECT their own rows. Required for the in-app scan counter on the Scan AVS page.
 
 ### Realtime configuration
 Four tables must be enrolled in the `supabase_realtime` publication for
@@ -274,7 +278,7 @@ CareSync uses a split deployment model:
 | Layer | Platform | URL | What it does |
 |---|---|---|---|
 | Frontend + SSR | Cloudflare Workers | `caresync.*.workers.dev` | Serves the React app |
-| Scan AVS function | Netlify Functions | `caresync-ericmiao.netlify.app` | Calls Gemini API |
+| Serverless functions | Netlify Functions | `caresync-ericmiao.netlify.app` | `process-avs` (Gemini) + `delete-account` |
 | Database + Auth | Supabase | `*.supabase.co` | Stores all app data |
 
 **Why split?** The app is built on TanStack Start which outputs a Cloudflare
@@ -299,6 +303,7 @@ stays on Netlify because it was already working there and requires no changes.
   - `SUPABASE_ANON_KEY`
   - `SUPABASE_SERVICE_ROLE_KEY` (required by `delete-account` — never commit to source control)
   - `APP_URL` (must equal the Cloudflare Workers URL — no trailing slash)
+  - `AVS_DAILY_SCAN_LIMIT` (optional — defaults to `10` if unset)
 
 ### Deploying a code change
 ```bash
@@ -357,7 +362,8 @@ If setting up against a brand-new Supabase project:
 1. Run `supabase/schema.sql` in the SQL Editor
 2. Run `supabase/create_care_circle_fn.sql` in the SQL Editor
 3. Run `supabase/add_completion_fields.sql` in the SQL Editor
-4. Create the `avatars` storage bucket (Section 4 of this document)
+4. Run `supabase/avs_scan_rate_limit.sql` in the SQL Editor (creates `avs_scan_logs` table + RLS policies for the Scan AVS rate limiter)
+5. Create the `avatars` storage bucket (Section 4 of this document)
 
 ---
 
@@ -370,7 +376,10 @@ If setting up against a brand-new Supabase project:
 | Supabase rotates anon key | Update `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` in `.env` and Netlify dashboard |
 | Supabase rotates service role key | Update `SUPABASE_SERVICE_ROLE_KEY` in Netlify dashboard only |
 | New developer joins team | Follow Section 7 onboarding |
-| Netlify free tier limit approached | Only process-avs runs on Netlify — usage is minimal |
+| Netlify free tier limit approached | Both `process-avs` and `delete-account` run on Netlify — consider a new free account (see SOP note on env var migration) |
+| Scan AVS daily limit needs adjusting | Update `AVS_DAILY_SCAN_LIMIT` in Netlify dashboard — takes effect immediately, no redeploy needed |
+| Users receiving unexpected 429 on Scan AVS | Check `avs_scan_logs` table in Supabase for the user's recent rows; verify RLS policies from `avs_scan_rate_limit.sql` are applied |
+| Viewer can access Scan AVS | Verify `can(role, "scan_avs")` in `src/lib/permissions.ts` and role check in `netlify/functions/process-avs.ts` |
 | Cloudflare Workers free tier limit approached | 100,000 requests/day free; upgrade plan if exceeded |
 | iOS major update | Test Scan AVS camera capture + profile photo upload on iPhone |
 | Android major update | Test Scan AVS camera capture + profile photo upload on Android |
@@ -383,4 +392,4 @@ If setting up against a brand-new Supabase project:
 
 ---
 
-*Last updated: May 2026 — CareSync v1.2*
+*Last updated: May 2026 — CareSync v1.3*
