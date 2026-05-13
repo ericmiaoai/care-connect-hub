@@ -14,6 +14,10 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/settings")({
@@ -194,6 +198,38 @@ function SettingsPage() {
   const [membersOpen,    setMembersOpen]    = useState(false);
   const [inviteOpen,     setInviteOpen]     = useState(false);
   const [passwordOpen,   setPasswordOpen]   = useState(false);
+  const [deleteOpen,     setDeleteOpen]     = useState(false);
+  const [deleteLoading,  setDeleteLoading]  = useState(false);
+
+  async function handleDeleteAccount() {
+    setDeleteLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Not authenticated");
+
+      const endpoint = import.meta.env.VITE_AVS_ENDPOINT
+        ?.replace("process-avs", "delete-account")
+        ?? "/.netlify/functions/delete-account";
+
+      const res = await fetch(endpoint, {
+        method:  "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(error ?? "Deletion failed");
+      }
+
+      await signOut();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      toast.error(msg);
+      setDeleteLoading(false);
+      setDeleteOpen(false);
+    }
+  }
   const [profileOpen,    setProfileOpen]    = useState(false);
 
   // Avatar upload state
@@ -550,9 +586,47 @@ function SettingsPage() {
         />
       </div>
 
-      <p className="mt-8 text-center text-[11px] leading-relaxed text-muted-foreground/60">
+      {/* ── Danger Zone ── */}
+      <div className="mt-8 rounded-2xl border border-destructive/30 bg-destructive/5 p-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-destructive/70">
+          Danger Zone
+        </p>
+        <SettingsRow
+          icon={<Trash2 className="h-4 w-4" />}
+          label="Delete Account"
+          subtitle="Permanently removes your account and all your data"
+          onClick={() => setDeleteOpen(true)}
+          destructive
+        />
+      </div>
+
+      <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground/60">
         Theme preference is saved to this device.
       </p>
+
+      {/* ── Delete Account confirmation dialog ── */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes your account and removes you from all Care
+              Circles. Tasks you were assigned to will remain but become unassigned.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDeleteAccount(); }}
+              disabled={deleteLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteLoading ? "Deleting…" : "Yes, delete my account"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Edit Profile sheet ── */}
       <Sheet open={profileOpen} onOpenChange={(o) => { if (!o) setProfileOpen(false); }}>
