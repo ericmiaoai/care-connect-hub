@@ -18,7 +18,8 @@ const MAIN_NAV = NAV.filter((n) => n.to !== "/settings");
 export function BottomTabBar() {
   const { user }   = useAuth();
   const { role }   = useCareCircle(user?.id);
-  const canScan    = can(role, "scan_avs");
+  // Show while role is loading (null) — only hide once confirmed as viewer
+  const canScan    = role === null || can(role, "scan_avs");
   const visibleNav = NAV.filter((n) => !("requiresScan" in n && n.requiresScan) || canScan);
 
   return (
@@ -48,7 +49,8 @@ export function BottomTabBar() {
 export function SideNav() {
   const { profile, signOut } = useAuth();
   const { role }             = useCareCircle(profile?.id);
-  const canScan              = can(role, "scan_avs");
+  // Show while role is loading (null) — only hide once confirmed as viewer
+  const canScan              = role === null || can(role, "scan_avs");
   const visibleMain          = MAIN_NAV.filter((n) => !("requiresScan" in n && n.requiresScan) || canScan);
   const initials = profile
     ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()

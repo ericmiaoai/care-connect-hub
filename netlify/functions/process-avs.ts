@@ -177,13 +177,22 @@ export const handler: Handler = async (event: HandlerEvent) => {
     auth:   { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: membership } = await authedClient
+  const { data: membership, error: roleError } = await authedClient
     .from("care_circle_members")
     .select("role")
     .eq("user_id", user.id)
     .in("role", ["admin", "collaborator"])
     .limit(1)
     .maybeSingle();
+
+  if (roleError) {
+    console.error("[process-avs] Role check query failed:", roleError.message);
+    return {
+      statusCode: 500,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ error: "Unable to verify permissions. Please try again." }),
+    };
+  }
 
   if (!membership) {
     return {
