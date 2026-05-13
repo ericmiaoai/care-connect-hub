@@ -390,7 +390,9 @@ If setting up against a brand-new Supabase project:
 | Member names/avatars showing as blank | Verify `profiles: read circle peers` RLS policy exists (Section 5) |
 | Role change not reflecting without refresh | Verify `care_circle_members` is in realtime publication (Section 5) |
 | Realtime sync stops working | Re-run Section 7 realtime configuration SQL |
+| A route shows an error fallback instead of crashing | Expected behaviour — `AppErrorBoundary` caught a render crash. Check the browser console for the error message logged by the boundary. Fix the underlying component issue and redeploy. |
+| Error boundary fallback appears on every page load | A persistent render crash — likely a bad data shape from Supabase. Check the console error, inspect the relevant hook/query, and verify the data contract matches `database.types.ts`. |
 
 ---
 
-*Last updated: May 2026 — CareSync v1.3*
+*Last updated: May 2026 — CareSync v1.4*
