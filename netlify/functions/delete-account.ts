@@ -76,18 +76,18 @@ export const handler: Handler = async (event: HandlerEvent) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // ── 3. Guardrail: sole-admin check ────────────────────────────────────────
-  // Block deletion if the user is the only Admin of a circle that still has
-  // other members. Exception: a circle where they are the sole member is
-  // allowed — it becomes orphaned but blocks no one.
-  const { data: myAdminCircles, error: queryAdminErr } = await adminClient
+  // ── 3. Inspect every circle this user belongs to (single pass) ───────────
+  // We need three pieces of info per circle:
+  //   • blocking?         user is sole Admin AND other members exist → 409
+  //   • soleMemberCircle? user is the only member → mark for cleanup deletion
+  //   • otherwise         normal — user's membership cascades away when deleted
+  const { data: myMemberships, error: queryMembershipsErr } = await adminClient
     .from("care_circle_members")
-    .select("care_circle_id, care_circles!inner(id, name)")
-    .eq("user_id", user.id)
-    .eq("role", "admin");
+    .select("care_circle_id, role, care_circles!inner(id, name)")
+    .eq("user_id", user.id);
 
-  if (queryAdminErr) {
-    console.error("[delete-account] admin circle lookup failed:", queryAdminErr.message);
+  if (queryMembershipsErr) {
+    console.error("[delete-account] membership lookup failed:", queryMembershipsErr.message);
     return {
       statusCode: 500,
       headers: CORS_HEADERS,
@@ -95,18 +95,20 @@ export const handler: Handler = async (event: HandlerEvent) => {
     };
   }
 
-  const blockingCircles: { id: string; name: string }[] = [];
+  const myMembershipsArr = (myMemberships ?? []) as any[];
+  const blockingCircles:     { id: string; name: string }[] = [];
+  const soleMemberCircleIds: string[]                       = [];
 
-  if (myAdminCircles && myAdminCircles.length > 0) {
-    const circleIds = myAdminCircles.map((m: any) => m.care_circle_id);
+  if (myMembershipsArr.length > 0) {
+    const myCircleIds = myMembershipsArr.map((m) => m.care_circle_id);
 
     const { data: allMembers, error: queryMembersErr } = await adminClient
       .from("care_circle_members")
       .select("care_circle_id, user_id, role")
-      .in("care_circle_id", circleIds);
+      .in("care_circle_id", myCircleIds);
 
     if (queryMembersErr) {
-      console.error("[delete-account] membership scan failed:", queryMembersErr.message);
+      console.error("[delete-account] member scan failed:", queryMembersErr.message);
       return {
         statusCode: 500,
         headers: CORS_HEADERS,
@@ -114,19 +116,28 @@ export const handler: Handler = async (event: HandlerEvent) => {
       };
     }
 
-    for (const adminMembership of myAdminCircles as any[]) {
-      const circleId   = adminMembership.care_circle_id;
-      const circleName = adminMembership.care_circles?.name ?? "Unnamed Circle";
+    const allMembersArr = (allMembers ?? []) as any[];
 
-      const membersOfCircle = (allMembers ?? []).filter((m: any) => m.care_circle_id === circleId);
-      const otherMembers    = membersOfCircle.filter((m: any) => m.user_id !== user.id);
+    for (const membership of myMembershipsArr) {
+      const circleId   = membership.care_circle_id;
+      const circleName = membership.care_circles?.name ?? "Unnamed Circle";
+      const myRole     = membership.role;
 
-      // Sole-member exception — no other members, deletion is fine
-      if (otherMembers.length === 0) continue;
+      const allInCircle  = allMembersArr.filter((m) => m.care_circle_id === circleId);
+      const otherMembers = allInCircle.filter((m) => m.user_id !== user.id);
 
-      const otherAdmins = otherMembers.filter((m: any) => m.role === "admin");
-      if (otherAdmins.length === 0) {
-        blockingCircles.push({ id: circleId, name: circleName });
+      // Sole-member circle — flag for cleanup, no need to guardrail
+      if (otherMembers.length === 0) {
+        soleMemberCircleIds.push(circleId);
+        continue;
+      }
+
+      // Other members exist — apply the sole-admin guardrail
+      if (myRole === "admin") {
+        const otherAdmins = otherMembers.filter((m) => m.role === "admin");
+        if (otherAdmins.length === 0) {
+          blockingCircles.push({ id: circleId, name: circleName });
+        }
       }
     }
   }
@@ -143,7 +154,27 @@ export const handler: Handler = async (event: HandlerEvent) => {
     };
   }
 
-  // ── 4. Delete the user via admin API ─────────────────────────────────────
+  // ── 4. Clean up sole-member orphan circles ──────────────────────────────
+  // Delete circles where the user is the only member. CASCADE on
+  // care_circles → tasks, calendar_events, broadcast_updates, avs_documents,
+  // patients, and care_circle_members will wipe all dependent rows.
+  if (soleMemberCircleIds.length > 0) {
+    const { error: cleanupErr } = await adminClient
+      .from("care_circles")
+      .delete()
+      .in("id", soleMemberCircleIds);
+
+    if (cleanupErr) {
+      console.error("[delete-account] orphan circle cleanup failed:", cleanupErr.message);
+      return {
+        statusCode: 500,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: "Failed to clean up Care Circles. Please try again." }),
+      };
+    }
+  }
+
+  // ── 5. Delete the user via admin API ─────────────────────────────────────
   const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
 
   if (deleteError) {
