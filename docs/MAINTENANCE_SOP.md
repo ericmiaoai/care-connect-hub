@@ -207,7 +207,7 @@ Users tap their avatar circle in Settings to upload a new photo. The app:
 | `SUPABASE_ANON_KEY` | Netlify functions (server) | `.env` + Netlify dashboard |
 | `CARESYNC_GEMINI_KEY` | `process-avs` function | `.env` + Netlify dashboard |
 | `GEMINI_MODEL` | `process-avs` function | `.env` + Netlify dashboard |
-| `APP_URL` | Netlify functions (CORS origin) | `.env` (`http://localhost:8888` for local dev) + Netlify dashboard (Cloudflare Workers URL, no trailing slash) |
+| `APP_URL` | Netlify functions (CORS origin) | `.env` (`http://localhost:8888` for local dev) + Netlify dashboard (Cloudflare Workers URL, no trailing slash). Note that .env is gitignored so the local value won't be pushed to Github Repo; the production APP_URL (your Cloudflare Workers URL) remains set only in the Netlify dashboard. |
 | `SUPABASE_SERVICE_ROLE_KEY` | `delete-account` function only | Netlify dashboard only — **never** in `.env` or browser |
 | `AVS_DAILY_SCAN_LIMIT` | `process-avs` rate limiter | Netlify dashboard (optional — defaults to `10` if unset) |
 
