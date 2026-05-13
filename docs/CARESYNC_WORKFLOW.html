@@ -311,9 +311,10 @@
     .column {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 36px;
       position: relative;
     }
+    .column > .col-head { margin-bottom: -20px; }  /* tighten gap below header */
 
     .col-head {
       display: flex;
@@ -1164,99 +1165,84 @@
   }
 
   /**
-   * Compute the SVG path for an arrow between two card rects, routing
-   * around any active-card obstacles. Three-phase strategy:
-   *   1. Compute the natural bezier between the cards
-   *   2. If it collides with any obstacle, route ABOVE all obstacles
-   *   3. If even the above route collides, route BELOW
+   * Routing rules:
+   *   • Same column, clear path  → straight vertical line
+   *   • Same column, blocked     → detour right around the obstacle
+   *   • Cross-column forward     → exit right, bezier to target's left
+   *   • Cross-column backward    → exit right, arc above to target's top
+   *   • Any cross-column blocked → bypass above all obstacles
+   * Every cross-column arrow exits from the source's RIGHT side.
    */
   function routeArrow(from, to, obstacles) {
-    const PAD = 4;
     const isForward    = to.cx >  from.right;
     const isBackward   = to.cx <  from.left;
     const isSameColumn = !isForward && !isBackward;
 
-    // Pick connection edges based on relative position
-    let fx, fy, tx, ty;
+    // ── SAME COLUMN — prefer straight vertical line ─────────────────────
     if (isSameColumn) {
-      if (to.cy > from.cy) {
-        fx = from.cx; fy = from.bottom + PAD;
-        tx = to.cx;   ty = to.top - PAD;
-      } else {
-        fx = from.cx; fy = from.top - PAD;
-        tx = to.cx;   ty = to.bottom + PAD;
-      }
-    } else if (isBackward) {
-      fx = from.left - PAD;  fy = from.cy;
-      tx = to.right + PAD;   ty = to.cy;
-    } else {
-      fx = from.right + PAD; fy = from.cy;
-      tx = to.left - PAD;    ty = to.cy;
+      const goingDown = to.cy > from.cy;
+      const fx0 = from.cx;
+      const fy0 = goingDown ? from.bottom : from.top;
+      const tx0 = to.cx;
+      const ty0 = goingDown ? to.top : to.bottom;
+      const straight = `M ${fx0} ${fy0} L ${tx0} ${ty0}`;
+      if (!pathCollides(straight, obstacles)) return straight;
+      // Blocked — detour around the right side of the column
+      const fx = from.right;
+      const fy = from.cy;
+      const tx = to.cx;
+      const ty = goingDown ? to.top : to.bottom;
+      const detourX = Math.max(from.right, to.right) + 40;
+      return `M ${fx} ${fy} C ${detourX} ${fy}, ${detourX} ${ty}, ${tx} ${ty}`;
     }
 
-    // 1. Try the natural curve
-    const natural = naturalPath(fx, fy, tx, ty, isSameColumn, isBackward);
+    // ── CROSS-COLUMN — always exit from source's right side ─────────────
+    const fx = from.right;
+    const fy = from.cy;
+
+    if (isForward) {
+      const tx = to.left;
+      const ty = to.cy;
+      const dx = (tx - fx) / 2;
+      const natural = `M ${fx} ${fy} C ${fx + dx} ${fy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+      if (!pathCollides(natural, obstacles)) return natural;
+      return crossColumnBypass(fx, fy, tx, ty, obstacles, "forward");
+    }
+
+    // Backward — enter target from its TOP
+    const tx = to.cx;
+    const ty = to.top;
+    const arcY = Math.min(fy, ty) - 60;
+    const natural = `M ${fx} ${fy} C ${fx + 60} ${fy}, ${tx} ${arcY}, ${tx} ${ty}`;
     if (!pathCollides(natural, obstacles)) return natural;
-
-    // 2. Try routing above the obstacles
-    const above = bypassPath(fx, fy, tx, ty, obstacles, "above");
-    if (!pathCollides(above, obstacles)) return above;
-
-    // 3. Last resort — route below
-    return bypassPath(fx, fy, tx, ty, obstacles, "below");
-  }
-
-  function naturalPath(fx, fy, tx, ty, isSameColumn, isBackward) {
-    if (isSameColumn) {
-      // Vertical flow — curve gently to the side
-      const offset = 18;
-      const midY = (fy + ty) / 2;
-      return `M ${fx} ${fy} C ${fx + offset} ${midY}, ${tx + offset} ${midY}, ${tx} ${ty}`;
-    }
-    if (isBackward) {
-      // Backward — arc above the source/target
-      const arcY = Math.min(fy, ty) - 60;
-      return `M ${fx} ${fy} C ${fx - 40} ${arcY}, ${tx + 40} ${arcY}, ${tx} ${ty}`;
-    }
-    // Forward — standard horizontal bezier
-    const dx = (tx - fx) / 2;
-    return `M ${fx} ${fy} C ${fx + dx} ${fy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+    return crossColumnBypass(fx, fy, tx, ty, obstacles, "backward");
   }
 
   /**
-   * Route around obstacles by leaving the source card, traversing to a
-   * clear Y above (or below) all active cards, then coming down (up) into
-   * the target. Three cubic segments joined together.
+   * Two-segment cubic that exits source horizontally to the right, climbs
+   * to a safe Y above every obstacle, traverses, and descends into the
+   * target — either horizontally (forward) or vertically (backward).
    */
-  function bypassPath(fx, fy, tx, ty, obstacles, direction) {
-    const buffer = 28;
-    let safeY;
-    if (direction === "above") {
-      const topMost = Math.min(
-        ...obstacles.map((o) => o.top),
-        Math.min(fy, ty)
-      );
-      safeY = Math.max(8, topMost - buffer);
-    } else {
-      const bottomMost = Math.max(
-        ...obstacles.map((o) => o.bottom),
-        Math.max(fy, ty)
-      );
-      safeY = bottomMost + buffer;
-    }
-
-    // Three cubic segments: exit → traverse → enter
-    const lift = direction === "above"
-      ? (Math.min(fy, ty) - safeY) * 0.6
-      : (safeY - Math.max(fy, ty)) * 0.6;
-
-    const fyLift = direction === "above" ? fy - lift : fy + lift;
-    const tyLift = direction === "above" ? ty - lift : ty + lift;
+  function crossColumnBypass(fx, fy, tx, ty, obstacles, direction) {
+    const buffer  = 28;
+    const topMost = Math.min(
+      ...obstacles.map((o) => o.top),
+      Math.min(fy, ty)
+    );
+    const safeY  = Math.max(8, topMost - buffer);
+    const offset = 50;
     const midX   = (fx + tx) / 2;
 
+    if (direction === "forward") {
+      // Enter target from its left side
+      return `M ${fx} ${fy}
+              C ${fx + offset} ${fy}, ${fx + offset} ${safeY}, ${midX} ${safeY}
+              C ${tx - offset} ${safeY}, ${tx - offset} ${ty}, ${tx} ${ty}`;
+    }
+    // Backward — descend vertically into target's top
     return `M ${fx} ${fy}
-            C ${fx} ${fyLift}, ${fx} ${safeY}, ${midX} ${safeY}
-            C ${tx} ${safeY}, ${tx} ${tyLift}, ${tx} ${ty}`;
+            C ${fx + offset} ${fy}, ${fx + offset} ${safeY}, ${midX} ${safeY}
+            C ${tx} ${safeY}, ${tx} ${ty - offset}, ${tx} ${ty}`;
   }
 
   /**
