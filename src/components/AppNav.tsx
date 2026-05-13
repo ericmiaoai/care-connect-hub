@@ -2,20 +2,25 @@ import { Link } from "@tanstack/react-router";
 import { Calendar, Megaphone, ScanLine, Sun, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useCareCircle } from "@/hooks/useCareCircle";
+import { can } from "@/lib/permissions";
 
-// All tabs — used by the mobile bottom bar
 const NAV = [
-  { to: "/",        label: "My Day",   icon: Sun         },
-  { to: "/calendar",label: "Calendar", icon: Calendar    },
+  { to: "/",        label: "My Day",   icon: Sun      },
+  { to: "/calendar",label: "Calendar", icon: Calendar },
   { to: "/updates", label: "Updates",  icon: Megaphone },
-  { to: "/scan",    label: "Scan AVS", icon: ScanLine    },
-  { to: "/settings",label: "Settings", icon: Settings    },
+  { to: "/scan",    label: "Scan AVS", icon: ScanLine, requiresScan: true },
+  { to: "/settings",label: "Settings", icon: Settings },
 ] as const;
 
-// Primary nav links shown in the desktop sidebar (Settings is placed separately at the bottom)
 const MAIN_NAV = NAV.filter((n) => n.to !== "/settings");
 
 export function BottomTabBar() {
+  const { user }   = useAuth();
+  const { role }   = useCareCircle(user?.id);
+  const canScan    = can(role, "scan_avs");
+  const visibleNav = NAV.filter((n) => !("requiresScan" in n && n.requiresScan) || canScan);
+
   return (
     <nav
       aria-label="Primary"
@@ -23,7 +28,7 @@ export function BottomTabBar() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="flex items-stretch justify-around">
-        {NAV.map(({ to, label, icon: Icon }) => (
+        {visibleNav.map(({ to, label, icon: Icon }) => (
           <li key={to} className="flex-1">
             <Link
               to={to}
@@ -42,6 +47,9 @@ export function BottomTabBar() {
 
 export function SideNav() {
   const { profile, signOut } = useAuth();
+  const { role }             = useCareCircle(profile?.id);
+  const canScan              = can(role, "scan_avs");
+  const visibleMain          = MAIN_NAV.filter((n) => !("requiresScan" in n && n.requiresScan) || canScan);
   const initials = profile
     ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()
     : "…";
@@ -60,7 +68,7 @@ export function SideNav() {
       {/* Navigation links */}
       <nav aria-label="Primary">
         <ul className="flex flex-col gap-0.5">
-          {MAIN_NAV.map(({ to, label, icon: Icon }) => (
+          {visibleMain.map(({ to, label, icon: Icon }) => (
             <li key={to}>
               <Link
                 to={to}

@@ -1,14 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   AlertTriangle, Check, X, CalendarDays, ClipboardList,
-  Stethoscope, CheckCircle2, ScanLine, Pencil, Save,
+  Stethoscope, CheckCircle2, ScanLine, Pencil, Save, ShieldOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
 import { processAVSImage, type AVSContract } from "@/services/VLMService";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
+import { can } from "@/lib/permissions";
 import { Dropzone } from "@/components/Dropzone";
 
 export const Route = createFileRoute("/scan")({
@@ -64,8 +65,19 @@ function compressImage(file: File): Promise<{ base64: string; mimeType: "image/j
 }
 
 function ScanAVS() {
-  const { user }         = useAuth();
-  const { careCircleId } = useCareCircle(user?.id);
+  const { user }                    = useAuth();
+  const { careCircleId, role }      = useCareCircle(user?.id);
+  const navigate                    = useNavigate();
+  const canScan                     = can(role, "scan_avs");
+
+  // Redirect Viewers away — role may be null briefly while loading, so only
+  // redirect once we have a confirmed non-null role that lacks permission.
+  useEffect(() => {
+    if (role !== null && !canScan) {
+      navigate({ to: "/" });
+      toast.error("Access restricted", { description: "Scanning AVS documents requires a Caregiver or Admin role." });
+    }
+  }, [role, canScan, navigate]);
 
   const [phase,          setPhase]          = useState<Phase>("idle");
   const [scanError,      setScanError]      = useState<string | null>(null);
