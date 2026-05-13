@@ -198,13 +198,16 @@ Users tap their avatar circle in Settings to upload a new photo. The app:
 
 ## 5. Supabase Maintenance
 
-### Environment variables (five required)
+### Environment variables (eight required)
 | Variable | Used by | Where set |
 |---|---|---|
 | `VITE_SUPABASE_URL` | React app (browser bundle) | `.env` (baked in at build time) |
 | `VITE_SUPABASE_ANON_KEY` | React app (browser bundle) | `.env` (baked in at build time) |
 | `SUPABASE_URL` | Netlify functions (server) | `.env` + Netlify dashboard |
 | `SUPABASE_ANON_KEY` | Netlify functions (server) | `.env` + Netlify dashboard |
+| `CARESYNC_GEMINI_KEY` | `process-avs` function | `.env` + Netlify dashboard |
+| `GEMINI_MODEL` | `process-avs` function | `.env` + Netlify dashboard |
+| `APP_URL` | Netlify functions (CORS origin) | Netlify dashboard only — must equal Cloudflare Workers URL, no trailing slash |
 | `SUPABASE_SERVICE_ROLE_KEY` | `delete-account` function only | Netlify dashboard only — **never** in `.env` or browser |
 
 > `SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security and must never be
