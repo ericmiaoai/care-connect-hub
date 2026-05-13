@@ -168,6 +168,31 @@ export const handler: Handler = async (event: HandlerEvent) => {
       body: JSON.stringify({ error: "Unauthorized: Invalid or expired session." })
     };
   }
+
+  // ── ROLE CHECK ────────────────────────────────────────────────────────────
+  // Viewers are read-only and must not be able to trigger Gemini API calls.
+  // Query as the authenticated user so RLS applies — no service role needed.
+  const authedClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth:   { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data: membership } = await authedClient
+    .from("care_circle_members")
+    .select("role")
+    .eq("user_id", user.id)
+    .in("role", ["admin", "collaborator"])
+    .limit(1)
+    .maybeSingle();
+
+  if (!membership) {
+    return {
+      statusCode: 403,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ error: "Forbidden: Viewer role cannot use Scan AVS." }),
+    };
+  }
+  // ── END ROLE CHECK ────────────────────────────────────────────────────────
   // ── END SECURITY GATE ──────────────────────────────────────────────────────
 
   // Parse and validate the request body
