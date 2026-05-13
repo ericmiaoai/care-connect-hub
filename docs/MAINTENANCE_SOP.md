@@ -198,13 +198,19 @@ Users tap their avatar circle in Settings to upload a new photo. The app:
 
 ## 5. Supabase Maintenance
 
-### Environment variables (four required)
+### Environment variables (five required)
 | Variable | Used by | Where set |
 |---|---|---|
 | `VITE_SUPABASE_URL` | React app (browser bundle) | `.env` (baked in at build time) |
 | `VITE_SUPABASE_ANON_KEY` | React app (browser bundle) | `.env` (baked in at build time) |
-| `SUPABASE_URL` | Netlify function (server) | `.env` + Netlify dashboard |
-| `SUPABASE_ANON_KEY` | Netlify function (server) | `.env` + Netlify dashboard |
+| `SUPABASE_URL` | Netlify functions (server) | `.env` + Netlify dashboard |
+| `SUPABASE_ANON_KEY` | Netlify functions (server) | `.env` + Netlify dashboard |
+| `SUPABASE_SERVICE_ROLE_KEY` | `delete-account` function only | Netlify dashboard only — **never** in `.env` or browser |
+
+> `SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security and must never be
+> exposed to the browser or committed to source control. Set it only in the
+> Netlify dashboard. It is required for the Delete Account feature to call
+> `auth.admin.deleteUser()` on the user's behalf.
 
 > The `VITE_` prefix makes a variable accessible in the browser bundle.
 > Variables without it are server-only and never exposed to users.
@@ -287,6 +293,7 @@ stays on Netlify because it was already working there and requires no changes.
   - `GEMINI_MODEL`
   - `SUPABASE_URL`
   - `SUPABASE_ANON_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY` (required by `delete-account` — never commit to source control)
   - `APP_URL` (must equal the Cloudflare Workers URL — no trailing slash)
 
 ### Deploying a code change
@@ -330,6 +337,7 @@ SUPABASE_ANON_KEY=[anon key]
 CARESYNC_GEMINI_KEY=[gemini api key]
 GEMINI_MODEL=gemini-2.5-flash
 VITE_VLM_PROVIDER=api
+# SUPABASE_SERVICE_ROLE_KEY — set in Netlify dashboard only, NOT here
 
 # 4. Install Netlify CLI
 npm install -g netlify-cli
@@ -355,7 +363,8 @@ If setting up against a brand-new Supabase project:
 |---|---|
 | Google deprecates current Gemini model | Update `GEMINI_MODEL` env var (Section 1) |
 | `@google/generative-ai` releases new major version | Update package, test Scan AVS |
-| Supabase rotates anon key | Update all four Supabase env vars |
+| Supabase rotates anon key | Update `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` in `.env` and Netlify dashboard |
+| Supabase rotates service role key | Update `SUPABASE_SERVICE_ROLE_KEY` in Netlify dashboard only |
 | New developer joins team | Follow Section 7 onboarding |
 | Netlify free tier limit approached | Only process-avs runs on Netlify — usage is minimal |
 | Cloudflare Workers free tier limit approached | 100,000 requests/day free; upgrade plan if exceeded |
