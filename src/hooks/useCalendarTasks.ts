@@ -36,8 +36,18 @@ export function useCalendarTasks(
     if (!silent) setIsLoading(true);
     setError(null);
 
-    const startDate = rangeStartISO.slice(0, 10);
-    const endDate   = rangeEndISO.slice(0, 10);
+    // ── Timezone-safe range ──────────────────────────────────────────────────
+    // due_date is TIMESTAMPTZ. Comparing against a date-only string (e.g.
+    // ".lte('due_date', '2026-05-13')") makes Postgres read it as midnight UTC
+    // of that date, which excludes any timed task later that same day. Always
+    // pass full ISO timestamps. We also widen by one day on each side so that
+    // untimed tasks (stored at UTC midnight regardless of the user's local TZ)
+    // are caught even when their UTC instant falls just outside the local day
+    // window; calendar.tsx then groups by localDateKey for precise display.
+    const widenStart = new Date(rangeStartISO); widenStart.setUTCDate(widenStart.getUTCDate() - 1);
+    const widenEnd   = new Date(rangeEndISO);   widenEnd.setUTCDate(widenEnd.getUTCDate() + 1);
+    const startTs = widenStart.toISOString();
+    const endTs   = widenEnd.toISOString();
 
     // Three parallel queries:
     // 1. Dated tasks in the visible range
@@ -50,8 +60,8 @@ export function useCalendarTasks(
     ] = await Promise.all([
       supabase.from("tasks").select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
         .eq("care_circle_id", careCircleId)
-        .gte("due_date", startDate)
-        .lte("due_date", endDate)
+        .gte("due_date", startTs)
+        .lte("due_date", endTs)
         .order("due_date", { ascending: true }),
       supabase.from("tasks").select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
         .eq("care_circle_id", careCircleId)
