@@ -198,11 +198,21 @@ function SettingsPage() {
   const [membersOpen,    setMembersOpen]    = useState(false);
   const [inviteOpen,     setInviteOpen]     = useState(false);
   const [passwordOpen,   setPasswordOpen]   = useState(false);
-  const [deleteOpen,     setDeleteOpen]     = useState(false);
-  const [deleteLoading,  setDeleteLoading]  = useState(false);
+  const [deleteOpen,         setDeleteOpen]         = useState(false);
+  const [deleteLoading,      setDeleteLoading]      = useState(false);
+  const [blockingCircles,    setBlockingCircles]    = useState<string[] | null>(null);
+
+  function formatCircleList(names: string[]): string {
+    if (names.length === 0) return "a Care Circle";
+    if (names.length === 1) return `"${names[0]}"`;
+    if (names.length === 2) return `"${names[0]}" and "${names[1]}"`;
+    const head = names.slice(0, -1).map((n) => `"${n}"`).join(", ");
+    return `${head}, and "${names[names.length - 1]}"`;
+  }
 
   async function handleDeleteAccount() {
     setDeleteLoading(true);
+    setBlockingCircles(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -216,6 +226,15 @@ function SettingsPage() {
         method:  "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      // 409 = sole-admin guardrail tripped
+      if (res.status === 409) {
+        const body = await res.json().catch(() => null);
+        const names: string[] = (body?.circles ?? []).map((c: { name: string }) => c.name);
+        setBlockingCircles(names);
+        setDeleteLoading(false);
+        return;
+      }
 
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -605,26 +624,61 @@ function SettingsPage() {
       </p>
 
       {/* ── Delete Account confirmation dialog ── */}
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <AlertDialog
+        open={deleteOpen}
+        onOpenChange={(o) => {
+          setDeleteOpen(o);
+          if (!o) setBlockingCircles(null);  // reset on close
+        }}
+      >
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently deletes your account and removes you from all Care
-              Circles. Tasks you were assigned to will remain but become unassigned.
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleDeleteAccount(); }}
-              disabled={deleteLoading}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteLoading ? "Deleting…" : "Yes, delete my account"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+          {blockingCircles ? (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Transfer Admin first</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You're the only Admin of {formatCircleList(blockingCircles)}, and
+                  there are other members in {blockingCircles.length > 1 ? "those circles" : "that circle"}.
+                  <br /><br />
+                  Open the Members list and change another member's role to{" "}
+                  <strong>Admin</strong> — or remove the other members if you no longer
+                  need {blockingCircles.length > 1 ? "those circles" : "the circle"} —
+                  then come back here to delete your account.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogAction
+                  onClick={() => {
+                    setBlockingCircles(null);
+                    setDeleteOpen(false);
+                  }}
+                >
+                  Got it
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          ) : (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently deletes your account and removes you from all Care
+                  Circles. Tasks you were assigned to will remain but become unassigned.
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => { e.preventDefault(); handleDeleteAccount(); }}
+                  disabled={deleteLoading}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deleteLoading ? "Deleting…" : "Yes, delete my account"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
         </AlertDialogContent>
       </AlertDialog>
 

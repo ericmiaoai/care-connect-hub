@@ -71,11 +71,79 @@ export const handler: Handler = async (event: HandlerEvent) => {
     };
   }
 
-  // ── 2. Delete the user via admin API ──────────────────────────────────────
+  // ── 2. Build admin client (bypasses RLS for ownership checks + deletion) ──
   const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // ── 3. Guardrail: sole-admin check ────────────────────────────────────────
+  // Block deletion if the user is the only Admin of a circle that still has
+  // other members. Exception: a circle where they are the sole member is
+  // allowed — it becomes orphaned but blocks no one.
+  const { data: myAdminCircles, error: queryAdminErr } = await adminClient
+    .from("care_circle_members")
+    .select("care_circle_id, care_circles!inner(id, name)")
+    .eq("user_id", user.id)
+    .eq("role", "admin");
+
+  if (queryAdminErr) {
+    console.error("[delete-account] admin circle lookup failed:", queryAdminErr.message);
+    return {
+      statusCode: 500,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ error: "Failed to verify circle membership. Please try again." }),
+    };
+  }
+
+  const blockingCircles: { id: string; name: string }[] = [];
+
+  if (myAdminCircles && myAdminCircles.length > 0) {
+    const circleIds = myAdminCircles.map((m: any) => m.care_circle_id);
+
+    const { data: allMembers, error: queryMembersErr } = await adminClient
+      .from("care_circle_members")
+      .select("care_circle_id, user_id, role")
+      .in("care_circle_id", circleIds);
+
+    if (queryMembersErr) {
+      console.error("[delete-account] membership scan failed:", queryMembersErr.message);
+      return {
+        statusCode: 500,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: "Failed to verify circle membership. Please try again." }),
+      };
+    }
+
+    for (const adminMembership of myAdminCircles as any[]) {
+      const circleId   = adminMembership.care_circle_id;
+      const circleName = adminMembership.care_circles?.name ?? "Unnamed Circle";
+
+      const membersOfCircle = (allMembers ?? []).filter((m: any) => m.care_circle_id === circleId);
+      const otherMembers    = membersOfCircle.filter((m: any) => m.user_id !== user.id);
+
+      // Sole-member exception — no other members, deletion is fine
+      if (otherMembers.length === 0) continue;
+
+      const otherAdmins = otherMembers.filter((m: any) => m.role === "admin");
+      if (otherAdmins.length === 0) {
+        blockingCircles.push({ id: circleId, name: circleName });
+      }
+    }
+  }
+
+  if (blockingCircles.length > 0) {
+    return {
+      statusCode: 409,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({
+        error: "sole_admin",
+        message: "You are the only Admin of one or more Care Circles that still have other members. Please transfer the Admin role to another member, or remove the other members, before deleting your account.",
+        circles: blockingCircles,
+      }),
+    };
+  }
+
+  // ── 4. Delete the user via admin API ─────────────────────────────────────
   const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
 
   if (deleteError) {
