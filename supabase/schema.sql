@@ -85,7 +85,7 @@ COMMENT ON TABLE public.profiles IS
 CREATE TABLE public.care_circles (
   id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   name          TEXT        NOT NULL,  -- e.g., "John Doe's Care Circle"
-  created_by    UUID        NOT NULL REFERENCES public.profiles(id),
+  created_by    UUID        REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE public.care_circles IS
@@ -143,7 +143,7 @@ CREATE TABLE public.tasks (
   assigned_to     UUID            REFERENCES public.profiles(id) ON DELETE SET NULL,
   due_date        TIMESTAMPTZ,
   completed_at    TIMESTAMPTZ,
-  created_by      UUID            NOT NULL REFERENCES public.profiles(id),
+  created_by      UUID            REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at      TIMESTAMPTZ     NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ     NOT NULL DEFAULT now()
 );
@@ -162,7 +162,7 @@ CREATE TABLE public.calendar_events (
   location        TEXT,
   start_time      TIMESTAMPTZ NOT NULL,
   end_time        TIMESTAMPTZ NOT NULL,
-  created_by      UUID        NOT NULL REFERENCES public.profiles(id),
+  created_by      UUID        REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT valid_time_range CHECK (end_time > start_time)
 );
@@ -178,7 +178,7 @@ CREATE TABLE public.broadcast_updates (
   title           TEXT                NOT NULL,
   content         TEXT                NOT NULL,
   severity        broadcast_severity  NOT NULL DEFAULT 'info',
-  author_id       UUID                NOT NULL REFERENCES public.profiles(id),
+  author_id       UUID                REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at      TIMESTAMPTZ         NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE public.broadcast_updates IS 'Circle-wide announcements for the Updates board.';
@@ -207,7 +207,7 @@ CREATE TABLE public.avs_documents (
   -- The local device storage key where PHI payload lives on the user's device.
   -- This lets the app re-hydrate the staging UI if the app is closed mid-review.
   local_storage_key   TEXT              UNIQUE,
-  scanned_by          UUID              NOT NULL REFERENCES public.profiles(id),
+  scanned_by          UUID              REFERENCES public.profiles(id) ON DELETE SET NULL,
   scanned_at          TIMESTAMPTZ       NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE public.avs_documents IS
