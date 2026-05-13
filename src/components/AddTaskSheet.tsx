@@ -4,6 +4,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { TimeInput } from "@/components/TimeInput";
 import type { UITask } from "@/lib/adapters";
 
 const INPUT = "rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
@@ -97,10 +98,9 @@ export function AddTaskSheet({
                 (optional)
               </span>
             </label>
-            <input
-              type="time"
+            <TimeInput
               value={time}
-              onChange={(e) => setTime(e.target.value)}
+              onChange={setTime}
               disabled={!date}
               className={INPUT}
             />

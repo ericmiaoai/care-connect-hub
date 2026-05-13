@@ -27,6 +27,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { TaskCard } from "@/components/TaskCard";
+import { TimeInput } from "@/components/TimeInput";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useTasks } from "@/hooks/useTasks";
@@ -1062,10 +1063,9 @@ function MyDay() {
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-foreground">Time</label>
-              <input
-                type="time"
+              <TimeInput
                 value={apptTime}
-                onChange={(e) => setApptTime(e.target.value)}
+                onChange={setApptTime}
                 className={INPUT}
               />
             </div>
@@ -1144,10 +1144,9 @@ function MyDay() {
                   (optional)
                 </span>
               </label>
-              <input
-                type="time"
+              <TimeInput
                 value={editTime}
-                onChange={(e) => setEditTime(e.target.value)}
+                onChange={setEditTime}
                 disabled={!editDate}
                 className={INPUT}
               />

@@ -27,6 +27,7 @@ import {
 import { AddButton } from "@/components/AddButton";
 import { ActionTypeSheet } from "@/components/ActionTypeSheet";
 import { AddTaskSheet } from "@/components/AddTaskSheet";
+import { TimeInput } from "@/components/TimeInput";
 import { toast } from "sonner";
 import { EventChip } from "@/components/EventChip";
 import { TaskChip } from "@/components/TaskChip";
@@ -1365,10 +1366,9 @@ function CalendarView() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-foreground">Time</label>
-                <input
-                  type="time"
+                <TimeInput
                   value={apptTime}
-                  onChange={(e) => setApptTime(e.target.value)}
+                  onChange={setApptTime}
                   className={INPUT}
                 />
               </div>
@@ -1452,10 +1452,9 @@ function CalendarView() {
                 <label className="text-sm font-medium text-foreground">
                   Time <span className="text-muted-foreground font-normal">(optional)</span>
                 </label>
-                <input
-                  type="time"
+                <TimeInput
                   value={taskTime}
-                  onChange={(e) => setTaskTime(e.target.value)}
+                  onChange={setTaskTime}
                   className={INPUT}
                 />
               </div>
