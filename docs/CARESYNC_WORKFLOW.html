@@ -692,6 +692,11 @@
           <p class="card__desc">Verifies JWT → runs sole-admin guardrail → cleans orphan circles → calls <code class="card__tag">admin.deleteUser</code>.</p>
           <span class="card__tag">SUPABASE_SERVICE_ROLE_KEY</span>
         </div>
+        <div class="card" data-id="N4">
+          <div class="card__head"><span class="card__icon">💓</span><span class="card__title">Netlify · health</span></div>
+          <p class="card__desc">Public liveness endpoint. Returns <code class="card__tag">{ status: "ok" }</code> with HTTP 200. No auth required — poll with UptimeRobot or similar.</p>
+          <span class="card__tag">GET /health</span>
+        </div>
       </div>
 
       <!-- ────────── COLUMN 4: SUPABASE ────────── -->

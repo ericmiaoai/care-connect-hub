@@ -278,8 +278,17 @@ CareSync uses a split deployment model:
 | Layer | Platform | URL | What it does |
 |---|---|---|---|
 | Frontend + SSR | Cloudflare Workers | `caresync.*.workers.dev` | Serves the React app |
-| Serverless functions | Netlify Functions | `caresync-ericmiao.netlify.app` | `process-avs` (Gemini) + `delete-account` |
+| Serverless functions | Netlify Functions | `caresync-ericmiao.netlify.app` | `process-avs` (Gemini) + `delete-account` + `health` |
 | Database + Auth | Supabase | `*.supabase.co` | Stores all app data |
+
+### Health check
+The Netlify functions layer exposes a public liveness endpoint:
+
+```
+GET https://caresync-ericmiao.netlify.app/.netlify/functions/health
+```
+
+Returns `{ "status": "ok", "service": "caresync-netlify", "timestamp": "..." }` with HTTP 200 while healthy. No authentication required. Connect this URL to an external monitor (e.g. UptimeRobot — free tier, 5-minute polling) to receive alerts if the functions layer goes down.
 
 **Why split?** The app is built on TanStack Start which outputs a Cloudflare
 Worker bundle (SSR). Netlify cannot run Worker bundles. The Scan AVS function
@@ -395,4 +404,4 @@ If setting up against a brand-new Supabase project:
 
 ---
 
-*Last updated: May 2026 — CareSync v1.4*
+*Last updated: May 2026 — CareSync v1.5*
