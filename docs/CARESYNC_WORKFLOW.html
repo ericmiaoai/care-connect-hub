@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CareSync — Workflow Architecture</title>
+  <style>
+    /* ════════════════════════════════════════════════════════════════
+       TOKENS — dark technical aesthetic
+       ════════════════════════════════════════════════════════════════ */
+    :root {
+      --bg:           #0a0a0b;
+      --surface:      #18181b;
+      --surface-2:    #1f1f23;
+      --surface-3:    #27272a;
+      --border:       #2a2a30;
+      --border-2:     #3f3f46;
+      --text:         #fafafa;
+      --text-2:       #a1a1aa;
+      --text-3:       #71717a;
+      --text-4:       #52525b;
+      --accent:       #fbbf24;
+      --accent-soft:  rgba(251,191,36,0.12);
+      --accent-line:  rgba(251,191,36,0.85);
+
+      --col-ui:       #c084fc;
+      --col-fe:       #60a5fa;
+      --col-edge:     #22d3ee;
+      --col-db:       #4ade80;
+      --col-ai:       #f472b6;
+
+      --col-ui-bg:    rgba(192,132,252,0.08);
+      --col-fe-bg:    rgba(96,165,250,0.08);
+      --col-edge-bg:  rgba(34,211,238,0.08);
+      --col-db-bg:    rgba(74,222,128,0.08);
+      --col-ai-bg:    rgba(244,114,182,0.08);
+
+      --ease:         cubic-bezier(0.16, 1, 0.3, 1);
+      --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.55;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    ::selection { background: var(--accent); color: var(--bg); }
+
+    /* ════════════════════════════════════════════════════════════════
+       APP SHELL
+       ════════════════════════════════════════════════════════════════ */
+    .app {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      grid-template-rows: 60px 1fr;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar__brand {
+      display: flex; align-items: center; gap: 12px;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+    }
+    .topbar__brand img {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+    }
+    .topbar__brand small {
+      font-weight: 500;
+      color: var(--text-3);
+      font-size: 12px;
+      margin-left: 4px;
+      letter-spacing: 0;
+    }
+    .topbar__meta {
+      font-size: 12px;
+      color: var(--text-3);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .canvas-area {
+      position: relative;
+      overflow: auto;
+      padding: 32px;
+      background:
+        radial-gradient(circle at 25% 0%, rgba(96,165,250,0.04), transparent 50%),
+        radial-gradient(circle at 75% 100%, rgba(244,114,182,0.04), transparent 50%),
+        var(--bg);
+    }
+
+    .sidepanel {
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       SIDEPANEL — scenario list + controls
+       ════════════════════════════════════════════════════════════════ */
+    .sidepanel__head {
+      padding: 20px 22px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidepanel__title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 6px;
+    }
+    .sidepanel__sub {
+      font-size: 13px;
+      color: var(--text-2);
+      line-height: 1.5;
+    }
+
+    .scenarios {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .scenarios::-webkit-scrollbar { width: 8px; }
+    .scenarios::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
+
+    .scenario {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: all 0.2s var(--ease);
+      text-align: left;
+      width: 100%;
+      font-family: inherit;
+      color: var(--text);
+      font-size: 13px;
+    }
+    .scenario:hover {
+      background: var(--surface-3);
+      border-color: var(--border-2);
+    }
+    .scenario.is-active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 8px 24px -8px rgba(251,191,36,0.3);
+    }
+    .scenario__num {
+      display: inline-block;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--border-2);
+      color: var(--text-2);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 22px;
+      text-align: center;
+      margin-right: 8px;
+      font-family: var(--mono);
+      transition: all 0.2s var(--ease);
+    }
+    .scenario.is-active .scenario__num {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    .scenario__name {
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .scenario__hint {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 4px;
+      margin-left: 30px;
+      line-height: 1.45;
+    }
+
+    /* Step-through controls */
+    .step-controls {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .step-controls__top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .step-toggle {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--border-2);
+      color: var(--text-2);
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s var(--ease);
+    }
+    .step-toggle:hover { color: var(--text); border-color: var(--text-3); }
+    .step-toggle.is-on {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+    .step-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .step-row[hidden] { display: none; }
+    .step-btn {
+      background: var(--surface-3);
+      border: 1px solid var(--border-2);
+      color: var(--text);
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all 0.15s var(--ease);
+    }
+    .step-btn:hover:not(:disabled) { background: var(--border-2); }
+    .step-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .step-indicator {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-2);
+      font-family: var(--mono);
+    }
+
+    .narrator {
+      padding: 16px 22px;
+      border-top: 1px solid var(--border);
+      background: var(--surface-2);
+      min-height: 84px;
+    }
+    .narrator__label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 6px;
+    }
+    .narrator__text {
+      font-size: 13px;
+      color: var(--text-2);
+      line-height: 1.55;
+    }
+    .narrator__text strong { color: var(--text); font-weight: 600; }
+    .narrator__text code {
+      font-family: var(--mono);
+      background: var(--surface-3);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      color: var(--accent);
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       CANVAS — 5 columns of cards
+       ════════════════════════════════════════════════════════════════ */
+    .canvas {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(200px, 1fr));
+      gap: 16px;
+      min-width: 1100px;
+      min-height: 100%;
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+    }
+
+    .col-head {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 6px;
+    }
+    .col-head__label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .col-head__title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .col-head__dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .col-head__sub {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 2px;
+    }
+
+    .col-ui    .col-head__dot { background: var(--col-ui); box-shadow: 0 0 8px var(--col-ui); }
+    .col-fe    .col-head__dot { background: var(--col-fe); box-shadow: 0 0 8px var(--col-fe); }
+    .col-edge  .col-head__dot { background: var(--col-edge); box-shadow: 0 0 8px var(--col-edge); }
+    .col-db    .col-head__dot { background: var(--col-db); box-shadow: 0 0 8px var(--col-db); }
+    .col-ai    .col-head__dot { background: var(--col-ai); box-shadow: 0 0 8px var(--col-ai); }
+
+    /* Card */
+    .card {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 13px;
+      transition: all 0.4s var(--ease);
+      opacity: 0.32;
+      filter: saturate(0.4);
+    }
+    .card.is-on {
+      opacity: 1;
+      filter: saturate(1);
+      background: var(--surface-2);
+      border-color: var(--border-2);
+    }
+    .card.is-active {
+      opacity: 1;
+      filter: saturate(1);
+      background: linear-gradient(135deg, var(--surface-2), var(--surface-3));
+      border-color: var(--accent);
+      box-shadow:
+        0 0 0 1px var(--accent),
+        0 12px 32px -10px rgba(251,191,36,0.25),
+        inset 0 0 20px rgba(251,191,36,0.06);
+      transform: translateY(-2px);
+    }
+    .card.is-current {
+      box-shadow:
+        0 0 0 2px var(--accent),
+        0 0 0 6px rgba(251,191,36,0.15),
+        0 16px 40px -12px rgba(251,191,36,0.4),
+        inset 0 0 20px rgba(251,191,36,0.1);
+      transform: translateY(-3px) scale(1.02);
+    }
+
+    /* Card body */
+    .card__step {
+      position: absolute;
+      top: -8px; left: -8px;
+      width: 22px; height: 22px;
+      background: var(--accent);
+      color: var(--bg);
+      border-radius: 50%;
+      font-size: 10px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      opacity: 0;
+      transition: opacity 0.3s var(--ease);
+      z-index: 2;
+    }
+    .card.is-active .card__step { opacity: 1; }
+
+    .card__head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .card__icon {
+      width: 18px; height: 18px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+    .card__title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+    .card__desc {
+      font-size: 11.5px;
+      color: var(--text-2);
+      line-height: 1.5;
+    }
+    .card__tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 10px;
+      background: var(--surface-3);
+      color: var(--text-2);
+      padding: 1px 6px;
+      border-radius: 3px;
+      margin-top: 6px;
+      margin-right: 4px;
+      letter-spacing: 0;
+    }
+    .card.is-active .card__tag { background: rgba(251,191,36,0.15); color: var(--accent); }
+
+    .col-ui    .card__icon { background: var(--col-ui-bg);   color: var(--col-ui); }
+    .col-fe    .card__icon { background: var(--col-fe-bg);   color: var(--col-fe); }
+    .col-edge  .card__icon { background: var(--col-edge-bg); color: var(--col-edge); }
+    .col-db    .card__icon { background: var(--col-db-bg);   color: var(--col-db); }
+    .col-ai    .card__icon { background: var(--col-ai-bg);   color: var(--col-ai); }
+
+    /* Arrow overlay */
+    .arrows {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .arrow {
+      stroke: var(--accent-line);
+      stroke-width: 1.5;
+      fill: none;
+      opacity: 0;
+      transition: opacity 0.5s var(--ease);
+    }
+    .arrow.is-on { opacity: 0.85; }
+    .arrow-head {
+      fill: var(--accent-line);
+      opacity: 0;
+      transition: opacity 0.5s var(--ease);
+    }
+    .arrow-head.is-on { opacity: 0.95; }
+
+    /* Empty state */
+    .empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      color: var(--text-3);
+      pointer-events: none;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.4s var(--ease);
+    }
+    .empty.is-on { opacity: 1; }
+    .empty__title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-2);
+      letter-spacing: -0.01em;
+    }
+
+    /* Reset button */
+    .reset-btn {
+      background: transparent;
+      border: 1px solid var(--border-2);
+      color: var(--text-2);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: -0.01em;
+    }
+    .reset-btn:hover { color: var(--text); border-color: var(--text-3); }
+
+    /* Scrollbar global */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-4); }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; grid-template-rows: 60px 1fr auto; }
+      .sidepanel { border-left: none; border-top: 1px solid var(--border); max-height: 50vh; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── Top bar ── -->
+  <header class="topbar">
+    <div class="topbar__brand">
+      <img src="../public/logo-icon.png" alt="" />
+      <span>CareSync <small>· Workflow Architecture</small></span>
+    </div>
+    <div class="topbar__meta">8 scenarios · 5 layers · 37 actions</div>
+  </header>
+
+  <!-- ── Canvas ── -->
+  <section class="canvas-area">
+    <div class="canvas" id="canvas">
+
+      <svg class="arrows" id="arrows" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="arrow-head" />
+          </marker>
+        </defs>
+      </svg>
+
+      <!-- ────────── COLUMN 1: USER & UI ────────── -->
+      <div class="column col-ui">
+        <div class="col-head">
+          <span class="col-head__label">Layer 1</span>
+          <div class="col-head__title"><span class="col-head__dot"></span>User &amp; UI</div>
+          <span class="col-head__sub">What the user sees and does</span>
+        </div>
+
+        <div class="card" data-id="U1">
+          <div class="card__head"><span class="card__icon">👤</span><span class="card__title">Sign up</span></div>
+          <p class="card__desc">User opens <code class="card__tag">/register</code> and fills in name, email, password.</p>
+        </div>
+        <div class="card" data-id="U2">
+          <div class="card__head"><span class="card__icon">✉️</span><span class="card__title">Verify email</span></div>
+          <p class="card__desc">User clicks confirmation link sent by Supabase Auth (gotrue).</p>
+        </div>
+        <div class="card" data-id="U3">
+          <div class="card__head"><span class="card__icon">⭕</span><span class="card__title">Create Care Circle</span></div>
+          <p class="card__desc">In onboarding, user names the circle and adds the patient.</p>
+        </div>
+        <div class="card" data-id="U4">
+          <div class="card__head"><span class="card__icon">🔗</span><span class="card__title">Join via invite</span></div>
+          <p class="card__desc">User opens <code class="card__tag">/join?code=…</code> and enters the 4-digit PIN.</p>
+        </div>
+        <div class="card" data-id="U5">
+          <div class="card__head"><span class="card__icon">➕</span><span class="card__title">Add task</span></div>
+          <p class="card__desc">My Day → Add Task. Fills title, time, priority, assignee.</p>
+        </div>
+        <div class="card" data-id="U6">
+          <div class="card__head"><span class="card__icon">📅</span><span class="card__title">Add appointment</span></div>
+          <p class="card__desc">Calendar → Add Appointment. Fills date, time, location, who's going.</p>
+        </div>
+        <div class="card" data-id="U7">
+          <div class="card__head"><span class="card__icon">📢</span><span class="card__title">Post broadcast</span></div>
+          <p class="card__desc">Admin composes update + severity (Info/Warning/Critical).</p>
+        </div>
+        <div class="card" data-id="U8">
+          <div class="card__head"><span class="card__icon">📷</span><span class="card__title">Take AVS photo</span></div>
+          <p class="card__desc">Scan AVS → camera. User photographs an After-Visit Summary.</p>
+        </div>
+        <div class="card" data-id="U9">
+          <div class="card__head"><span class="card__icon">✏️</span><span class="card__title">Review extracted</span></div>
+          <p class="card__desc">HITL screen — user inspects each field, edits if needed, taps Approve.</p>
+        </div>
+        <div class="card" data-id="U10">
+          <div class="card__head"><span class="card__icon">⚠️</span><span class="card__title">Delete account</span></div>
+          <p class="card__desc">Settings → Danger Zone → Delete Account → confirmation dialog.</p>
+        </div>
+      </div>
+
+      <!-- ────────── COLUMN 2: FRONTEND ────────── -->
+      <div class="column col-fe">
+        <div class="col-head">
+          <span class="col-head__label">Layer 2</span>
+          <div class="col-head__title"><span class="col-head__dot"></span>Frontend</div>
+          <span class="col-head__sub">React 19 · TanStack Start · runs in the browser</span>
+        </div>
+
+        <div class="card" data-id="F1">
+          <div class="card__head"><span class="card__icon">✓</span><span class="card__title">Zod validation</span></div>
+          <p class="card__desc">Client-side schema validation — bad input never leaves the browser.</p>
+          <span class="card__tag">RegisterSchema</span>
+        </div>
+        <div class="card" data-id="F2">
+          <div class="card__head"><span class="card__icon">🔑</span><span class="card__title">supabase.auth.signUp</span></div>
+          <p class="card__desc">Frontend calls Supabase JS client → hits Auth API.</p>
+          <span class="card__tag">useAuth.ts</span>
+        </div>
+        <div class="card" data-id="F3">
+          <div class="card__head"><span class="card__icon">🔁</span><span class="card__title">Auth state listener</span></div>
+          <p class="card__desc">onAuthStateChange fires → router navigates to <code class="card__tag">/onboarding</code> or <code class="card__tag">/login</code>.</p>
+        </div>
+        <div class="card" data-id="F4">
+          <div class="card__head"><span class="card__icon">⚡</span><span class="card__title">createCircle RPC</span></div>
+          <p class="card__desc">Calls Postgres function that creates circle + admin membership atomically.</p>
+          <span class="card__tag">create_care_circle</span>
+        </div>
+        <div class="card" data-id="F5">
+          <div class="card__head"><span class="card__icon">📡</span><span class="card__title">Optimistic insert</span></div>
+          <p class="card__desc">UI updates instantly · Supabase request fires in parallel · rollback if it fails.</p>
+          <span class="card__tag">useTasks.ts</span>
+        </div>
+        <div class="card" data-id="F6">
+          <div class="card__head"><span class="card__icon">🗜️</span><span class="card__title">Image compression</span></div>
+          <p class="card__desc">Canvas API resizes to 1600px max, JPEG @ 0.85 quality. 3.2 MB → ~240 KB.</p>
+          <span class="card__tag">VLMService.ts</span>
+        </div>
+        <div class="card" data-id="F7">
+          <div class="card__head"><span class="card__icon">🧠</span><span class="card__title">HITL review state</span></div>
+          <p class="card__desc">Extracted fields cached in IndexedDB during review. Never written to DB until Approve.</p>
+        </div>
+        <div class="card" data-id="F8">
+          <div class="card__head"><span class="card__icon">📤</span><span class="card__title">POST to function</span></div>
+          <p class="card__desc">Fetch with <code class="card__tag">Authorization: Bearer &lt;JWT&gt;</code> → Netlify function URL.</p>
+        </div>
+        <div class="card" data-id="F9">
+          <div class="card__head"><span class="card__icon">🔄</span><span class="card__title">Realtime subscribe</span></div>
+          <p class="card__desc">WebSocket listens for <code class="card__tag">postgres_changes</code> on tasks, events, broadcasts, members.</p>
+          <span class="card__tag">supabase.channel()</span>
+        </div>
+      </div>
+
+      <!-- ────────── COLUMN 3: EDGE & FUNCTIONS ────────── -->
+      <div class="column col-edge">
+        <div class="col-head">
+          <span class="col-head__label">Layer 3</span>
+          <div class="col-head__title"><span class="col-head__dot"></span>Edge &amp; Functions</div>
+          <span class="col-head__sub">Cloudflare Workers · Netlify Functions</span>
+        </div>
+
+        <div class="card" data-id="N1">
+          <div class="card__head"><span class="card__icon">☁️</span><span class="card__title">Cloudflare Worker SSR</span></div>
+          <p class="card__desc">Serves the React app at the edge. Every page request resolved by Workers.</p>
+          <span class="card__tag">wrangler deploy</span>
+        </div>
+        <div class="card" data-id="N2">
+          <div class="card__head"><span class="card__icon">🤖</span><span class="card__title">Netlify · process-avs</span></div>
+          <p class="card__desc">Verifies JWT → forwards image + structured prompt to Gemini → validates response → returns JSON.</p>
+          <span class="card__tag">CARESYNC_GEMINI_KEY</span>
+        </div>
+        <div class="card" data-id="N3">
+          <div class="card__head"><span class="card__icon">🗑️</span><span class="card__title">Netlify · delete-account</span></div>
+          <p class="card__desc">Verifies JWT → runs sole-admin guardrail → cleans orphan circles → calls <code class="card__tag">admin.deleteUser</code>.</p>
+          <span class="card__tag">SUPABASE_SERVICE_ROLE_KEY</span>
+        </div>
+      </div>
+
+      <!-- ────────── COLUMN 4: SUPABASE ────────── -->
+      <div class="column col-db">
+        <div class="col-head">
+          <span class="col-head__label">Layer 4</span>
+          <div class="col-head__title"><span class="col-head__dot"></span>Supabase</div>
+          <span class="col-head__sub">Auth · Postgres · Realtime · Storage</span>
+        </div>
+
+        <div class="card" data-id="S1">
+          <div class="card__head"><span class="card__icon">🔐</span><span class="card__title">auth.users INSERT</span></div>
+          <p class="card__desc">Supabase Auth (gotrue) hashes the password with bcrypt and creates the user row.</p>
+        </div>
+        <div class="card" data-id="S2">
+          <div class="card__head"><span class="card__icon">⚡</span><span class="card__title">profiles trigger</span></div>
+          <p class="card__desc">DB trigger auto-creates a profile row referencing the new user id.</p>
+          <span class="card__tag">handle_new_user()</span>
+        </div>
+        <div class="card" data-id="S3">
+          <div class="card__head"><span class="card__icon">📧</span><span class="card__title">Confirmation email</span></div>
+          <p class="card__desc">Auth dispatches the email with a one-time confirmation link (24-hour validity).</p>
+        </div>
+        <div class="card" data-id="S4">
+          <div class="card__head"><span class="card__icon">🎟️</span><span class="card__title">JWT session</span></div>
+          <p class="card__desc">After confirmation, Auth issues an access token (1h) + refresh token to the browser.</p>
+        </div>
+        <div class="card" data-id="S5">
+          <div class="card__head"><span class="card__icon">⭕</span><span class="card__title">care_circles INSERT</span></div>
+          <p class="card__desc">Row created with name + <code class="card__tag">created_by</code>. RLS guards reads to circle members only.</p>
+        </div>
+        <div class="card" data-id="S6">
+          <div class="card__head"><span class="card__icon">👥</span><span class="card__title">care_circle_members INSERT</span></div>
+          <p class="card__desc">Adds the user → circle relationship with their role (admin/collaborator/viewer).</p>
+        </div>
+        <div class="card" data-id="S7">
+          <div class="card__head"><span class="card__icon">🎫</span><span class="card__title">Invite validate</span></div>
+          <p class="card__desc">RPC checks invite code + PIN match, not expired, single-use → grants membership.</p>
+        </div>
+        <div class="card" data-id="S8">
+          <div class="card__head"><span class="card__icon">📋</span><span class="card__title">tasks INSERT</span></div>
+          <p class="card__desc">Row inserted with title, due_date, priority, assigned_to, created_by, care_circle_id.</p>
+        </div>
+        <div class="card" data-id="S9">
+          <div class="card__head"><span class="card__icon">📅</span><span class="card__title">calendar_events INSERT</span></div>
+          <p class="card__desc">Appointment row created with start/end times, location, patient_id, care_circle_id.</p>
+        </div>
+        <div class="card" data-id="S10">
+          <div class="card__head"><span class="card__icon">📢</span><span class="card__title">broadcast_updates INSERT</span></div>
+          <p class="card__desc">Author, content, severity. RLS limits inserts to Admins of the circle.</p>
+        </div>
+        <div class="card" data-id="S11">
+          <div class="card__head"><span class="card__icon">📜</span><span class="card__title">avs_documents audit</span></div>
+          <p class="card__desc">Non-PHI audit row (visit date, provider, reviewer, timestamps). No medications or clinical text.</p>
+        </div>
+        <div class="card" data-id="S12">
+          <div class="card__head"><span class="card__icon">🔄</span><span class="card__title">Realtime broadcast</span></div>
+          <p class="card__desc">Postgres publication emits change event → WebSocket pushes to every subscribed member's app.</p>
+          <span class="card__tag">supabase_realtime</span>
+        </div>
+        <div class="card" data-id="S13">
+          <div class="card__head"><span class="card__icon">🛡️</span><span class="card__title">Guardrail query</span></div>
+          <p class="card__desc">Server queries circles where user is sole admin with other members → returns blocking list.</p>
+        </div>
+        <div class="card" data-id="S14">
+          <div class="card__head"><span class="card__icon">🧹</span><span class="card__title">Orphan circles DELETE</span></div>
+          <p class="card__desc">Sole-member circles deleted → CASCADE wipes their tasks, events, broadcasts, AVS records.</p>
+        </div>
+        <div class="card" data-id="S15">
+          <div class="card__head"><span class="card__icon">💥</span><span class="card__title">auth.users DELETE</span></div>
+          <p class="card__desc">Admin API removes the user row → CASCADE deletes profile, memberships. Tasks/events created by them stay (SET NULL).</p>
+        </div>
+      </div>
+
+      <!-- ────────── COLUMN 5: EXTERNAL AI ────────── -->
+      <div class="column col-ai">
+        <div class="col-head">
+          <span class="col-head__label">Layer 5</span>
+          <div class="col-head__title"><span class="col-head__dot"></span>External AI</div>
+          <span class="col-head__sub">Google Gemini 2.5 Flash · multimodal</span>
+        </div>
+
+        <div class="card" data-id="G1">
+          <div class="card__head"><span class="card__icon">🧠</span><span class="card__title">Gemini analyzes image</span></div>
+          <p class="card__desc">Multimodal vision-language model reads the AVS photo using a strict extraction prompt.</p>
+          <span class="card__tag">gemini-2.5-flash</span>
+        </div>
+        <div class="card" data-id="G2">
+          <div class="card__head"><span class="card__icon">🆔</span><span class="card__title">Patient name check</span></div>
+          <p class="card__desc">First field extracted = patient name. If it doesn't match the circle's patient, the response is flagged.</p>
+        </div>
+        <div class="card" data-id="G3">
+          <div class="card__head"><span class="card__icon">📦</span><span class="card__title">Structured JSON</span></div>
+          <p class="card__desc">Returns only the next-appointment fields (date, time, provider, location). PHI never persisted.</p>
+        </div>
+      </div>
+
+      <!-- Empty state when no scenario is active -->
+      <div class="empty is-on" id="emptyState">
+        <div class="empty__title">Select a scenario →</div>
+        <p>Pick one from the right pane to see exactly which layers it touches.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Side panel: scenarios + controls ── -->
+  <aside class="sidepanel">
+    <div class="sidepanel__head">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="sidepanel__title">Scenarios</span>
+        <button class="reset-btn" id="resetBtn">Clear</button>
+      </div>
+      <p class="sidepanel__sub">
+        Click any scenario to see which actions across all five layers it triggers.
+        Cards not on the path dim out.
+      </p>
+    </div>
+
+    <div class="scenarios" id="scenarios"></div>
+
+    <div class="step-controls">
+      <div class="step-controls__top">
+        <button class="step-toggle" id="stepToggle">Step through ▷</button>
+      </div>
+      <div class="step-row" id="stepRow" hidden>
+        <button class="step-btn" id="prevStep" aria-label="Previous step">◀</button>
+        <div class="step-indicator" id="stepIndicator">— / —</div>
+        <button class="step-btn" id="nextStep" aria-label="Next step">▶</button>
+      </div>
+    </div>
+
+    <div class="narrator" id="narrator">
+      <div class="narrator__label">Walkthrough</div>
+      <p class="narrator__text" id="narratorText">
+        No scenario selected. Pick one from above to begin.
+      </p>
+    </div>
+  </aside>
+
+</div>
+
+
+<script>
+  /* ════════════════════════════════════════════════════════════════
+     SCENARIO DEFINITIONS
+     Each scenario has:
+       • id, name, hint
+       • path: ordered array of card IDs
+       • steps: matching array of narration strings (one per card)
+     ════════════════════════════════════════════════════════════════ */
+  const SCENARIOS = [
+    {
+      id: 1,
+      name: "New user signs up",
+      hint: "Account creation + email verification",
+      path: ["U1", "F1", "F2", "S1", "S2", "S3", "U2", "S4", "F3"],
+      steps: [
+        "User opens <code>/register</code> and fills the form: first name, last name, email, password.",
+        "Zod validates the input locally — length, format, password length ≥ 8. Bad input never leaves the browser.",
+        "Frontend calls <code>supabase.auth.signUp()</code> with the form values via the Supabase JS client.",
+        "Supabase Auth (gotrue) creates a row in <code>auth.users</code>. The password is hashed with bcrypt; the plaintext is discarded.",
+        "A database trigger fires automatically and creates a matching row in <code>profiles</code> with the same id and the user's first/last name.",
+        "Supabase Auth sends a confirmation email containing a one-time link valid for 24 hours.",
+        "User clicks the email link. The redirect URL exchanges the one-time token for a session.",
+        "Auth issues a JWT access token (1-hour TTL) and a long-lived refresh token. The browser stores them.",
+        "The frontend's <code>onAuthStateChange</code> listener fires → the router navigates to <code>/onboarding</code>."
+      ],
+    },
+    {
+      id: 2,
+      name: "Create a Care Circle",
+      hint: "Onboarding flow · admin role auto-assigned",
+      path: ["U3", "F4", "S5", "S6", "F3"],
+      steps: [
+        "On the onboarding page, the user names the circle (e.g., <em>\"Dad's Care Team\"</em>) and adds the patient.",
+        "Frontend calls the <code>create_care_circle</code> Postgres function — atomic in one transaction.",
+        "A row is inserted in <code>care_circles</code> with the chosen name and <code>created_by</code> = current user.",
+        "A row is inserted in <code>care_circle_members</code> assigning the creator the <strong>Admin</strong> role.",
+        "Frontend navigates the user to <code>/</code> (My Day). The circle is now live and ready to invite members."
+      ],
+    },
+    {
+      id: 3,
+      name: "Join a Care Circle via invite",
+      hint: "Link + PIN flow · realtime member sync",
+      path: ["U4", "F1", "S7", "S6", "F3", "S12", "F9"],
+      steps: [
+        "Invitee opens the shared link <code>/join?code=…</code> and is prompted for the 4-digit PIN.",
+        "Frontend validates the PIN format (4 digits, numeric) locally before submitting.",
+        "Server checks <code>care_circle_invites</code>: code matches, PIN matches, not expired, not consumed.",
+        "On success, a row is inserted in <code>care_circle_members</code> with the invitee's id and the role chosen at invite time.",
+        "Frontend navigates the new member into My Day inside the circle.",
+        "Postgres publishes the membership INSERT to the <code>supabase_realtime</code> publication.",
+        "Every other circle member's WebSocket subscription receives the event → their member list updates instantly."
+      ],
+    },
+    {
+      id: 4,
+      name: "Create a task",
+      hint: "Optimistic insert · live sync to all members",
+      path: ["U5", "F1", "F5", "S8", "S12", "F9"],
+      steps: [
+        "User taps <strong>Add Task</strong> in My Day. Fills the title, time (custom TimeInput), priority, and assignee.",
+        "Zod validates: title required, time defaults to 00 minutes if hour is provided alone.",
+        "Frontend inserts the task into local state <em>optimistically</em> — the UI updates before the network round-trip.",
+        "Supabase JS client INSERTs into <code>tasks</code>. RLS verifies the user is a circle member with write permission.",
+        "Postgres publishes the INSERT event through the realtime publication.",
+        "Every other circle member's subscribed channel receives the row. Their My Day / Calendar updates without a refresh."
+      ],
+    },
+    {
+      id: 5,
+      name: "Create an appointment",
+      hint: "Same flow as task, different table",
+      path: ["U6", "F1", "F5", "S9", "S12", "F9"],
+      steps: [
+        "User taps <strong>Add Appointment</strong> in Calendar. Fills date, time, location, and who's going.",
+        "Form is Zod-validated: both date and start time required. End time defaults to +1 hour.",
+        "Frontend writes optimistically to local state so the event appears immediately in the calendar grid.",
+        "Supabase INSERTs into <code>calendar_events</code> with start_time, end_time, location, patient_id, care_circle_id.",
+        "Realtime publishes the new event row to the publication.",
+        "Other members receive the WebSocket event → calendars across the circle update in lockstep."
+      ],
+    },
+    {
+      id: 6,
+      name: "Admin posts a broadcast",
+      hint: "Admin-only · severity-tagged · live ripple",
+      path: ["U7", "F1", "S10", "S12", "F9"],
+      steps: [
+        "Admin composes the broadcast: title, message body, and severity (Info · Warning · Critical).",
+        "Frontend validates required fields. Severity defaults to Info.",
+        "Supabase INSERTs into <code>broadcast_updates</code>. RLS rejects the insert unless the user is an Admin of the circle.",
+        "Postgres publishes the new row through realtime.",
+        "Every member's app receives the event. The new card appears at the top of their Updates feed, with the author avatar and timestamp."
+      ],
+    },
+    {
+      id: 7,
+      name: "Scan AVS — photo to calendar",
+      hint: "The AI feature · multimodal · HITL gated",
+      path: ["U8", "F6", "F8", "N2", "G1", "G2", "G3", "F7", "U9", "F5", "S9", "S11", "S12", "F9"],
+      steps: [
+        "User taps Scan AVS, takes a photo (or uploads one) of an After-Visit Summary.",
+        "Frontend compresses the image client-side using the Canvas API. 3.2 MB → ~240 KB JPEG.",
+        "Frontend POSTs the compressed image + the user's JWT to <code>/.netlify/functions/process-avs</code>.",
+        "Netlify function verifies the JWT, then forwards the image to Gemini with a strict extraction prompt.",
+        "<strong>Gemini 2.5 Flash</strong> — a multimodal vision-language model — reads the document and prepares a JSON response.",
+        "First field extracted is the <strong>patient name</strong>. If it doesn't match the circle's patient, the response is flagged for warning.",
+        "Gemini returns structured JSON containing only the next-appointment fields. PHI like medications and clinical notes are not persisted.",
+        "Frontend caches the extracted fields in IndexedDB for the review session — never written to the server yet.",
+        "User reviews the HITL screen, edits any field that's wrong, taps <strong>Approve</strong>.",
+        "Approved fields are optimistically added to local state so the calendar updates immediately.",
+        "Supabase INSERTs the new event row into <code>calendar_events</code>.",
+        "A non-PHI audit row is inserted into <code>avs_documents</code> — visit date, provider, reviewer id, timestamps. No clinical text.",
+        "Realtime publishes the new event.",
+        "Other members' apps receive the WebSocket event. The new appointment appears on every calendar across the circle."
+      ],
+    },
+    {
+      id: 8,
+      name: "Delete account",
+      hint: "Sole-admin guardrail · orphan cleanup · cascade",
+      path: ["U10", "F8", "N3", "S13", "S14", "S15", "F3"],
+      steps: [
+        "User opens Settings → Danger Zone → <strong>Delete Account</strong> and confirms in the AlertDialog.",
+        "Frontend POSTs to <code>/.netlify/functions/delete-account</code> with the user's JWT in the Authorization header.",
+        "Netlify function verifies the JWT and constructs a Supabase admin client using <code>SUPABASE_SERVICE_ROLE_KEY</code>.",
+        "Guardrail check: queries every circle the user belongs to → if they are sole Admin of any circle with other members, returns 409 and blocks the deletion.",
+        "Orphan cleanup: any circle where the user is the sole member is DELETED. CASCADE wipes that circle's tasks, events, broadcasts, and AVS records.",
+        "<code>admin.deleteUser(userId)</code> removes the <code>auth.users</code> row. CASCADE deletes the matching <code>profiles</code> row and every <code>care_circle_members</code> row pointing at them. Tasks/events they authored stay in place with attribution set to NULL.",
+        "Function returns 200. Frontend calls <code>supabase.auth.signOut()</code> and redirects to <code>/login</code>."
+      ],
+    },
+  ];
+
+  /* ════════════════════════════════════════════════════════════════
+     STATE
+     ════════════════════════════════════════════════════════════════ */
+  const state = {
+    activeScenario: null,
+    stepMode:       false,
+    currentStep:    -1,   // -1 = all steps visible
+  };
+
+  /* ════════════════════════════════════════════════════════════════
+     ELEMENTS
+     ════════════════════════════════════════════════════════════════ */
+  const $scenarios     = document.getElementById("scenarios");
+  const $resetBtn      = document.getElementById("resetBtn");
+  const $emptyState    = document.getElementById("emptyState");
+  const $narratorText  = document.getElementById("narratorText");
+  const $stepToggle    = document.getElementById("stepToggle");
+  const $stepRow       = document.getElementById("stepRow");
+  const $prevStep      = document.getElementById("prevStep");
+  const $nextStep      = document.getElementById("nextStep");
+  const $stepIndicator = document.getElementById("stepIndicator");
+  const $arrows        = document.getElementById("arrows");
+  const $canvas        = document.getElementById("canvas");
+
+  /* ════════════════════════════════════════════════════════════════
+     RENDER SIDE PANE
+     ════════════════════════════════════════════════════════════════ */
+  function renderScenarios() {
+    $scenarios.innerHTML = "";
+    SCENARIOS.forEach((s) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "scenario";
+      btn.dataset.scenarioId = s.id;
+      btn.innerHTML = `
+        <div>
+          <span class="scenario__num">${s.id}</span>
+          <span class="scenario__name">${s.name}</span>
+        </div>
+        <div class="scenario__hint">${s.hint}</div>
+      `;
+      btn.addEventListener("click", () => selectScenario(s.id));
+      $scenarios.appendChild(btn);
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     SELECT / CLEAR
+     ════════════════════════════════════════════════════════════════ */
+  function selectScenario(id) {
+    state.activeScenario = SCENARIOS.find((s) => s.id === id) || null;
+    state.currentStep    = state.stepMode ? 0 : -1;
+    renderActive();
+  }
+
+  function clearScenario() {
+    state.activeScenario = null;
+    state.currentStep    = -1;
+    state.stepMode       = false;
+    $stepToggle.classList.remove("is-on");
+    $stepToggle.textContent = "Step through ▷";
+    $stepRow.hidden = true;
+    renderActive();
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     RENDER ACTIVE STATE — cards, arrows, sidebar
+     ════════════════════════════════════════════════════════════════ */
+  function renderActive() {
+    // Side pane buttons
+    document.querySelectorAll(".scenario").forEach((el) => {
+      el.classList.toggle(
+        "is-active",
+        state.activeScenario && Number(el.dataset.scenarioId) === state.activeScenario.id
+      );
+    });
+
+    // Empty state
+    $emptyState.classList.toggle("is-on", !state.activeScenario);
+
+    // Cards
+    const allCards = document.querySelectorAll(".card");
+    if (!state.activeScenario) {
+      allCards.forEach((c) => {
+        c.classList.remove("is-on", "is-active", "is-current");
+        c.removeAttribute("data-step");
+        const step = c.querySelector(".card__step");
+        if (step) step.remove();
+      });
+      $narratorText.innerHTML = "No scenario selected. Pick one from above to begin.";
+      drawArrows([]);
+      return;
+    }
+
+    const path = state.activeScenario.path;
+    const visibleUpTo = state.stepMode ? state.currentStep : path.length - 1;
+
+    allCards.forEach((c) => {
+      const id = c.dataset.id;
+      const idx = path.indexOf(id);
+      const isOnPath = idx !== -1 && idx <= visibleUpTo;
+      const isCurrent = state.stepMode && idx === state.currentStep;
+
+      c.classList.toggle("is-on", isOnPath);
+      c.classList.toggle("is-active", isOnPath);
+      c.classList.toggle("is-current", isCurrent);
+
+      // Add step number badge
+      let badge = c.querySelector(".card__step");
+      if (isOnPath) {
+        if (!badge) {
+          badge = document.createElement("span");
+          badge.className = "card__step";
+          c.appendChild(badge);
+        }
+        badge.textContent = String(idx + 1);
+      } else if (badge) {
+        badge.remove();
+      }
+    });
+
+    // Narration
+    if (state.stepMode) {
+      $narratorText.innerHTML = state.activeScenario.steps[state.currentStep];
+      $stepIndicator.textContent = `${state.currentStep + 1} / ${path.length}`;
+      $prevStep.disabled = state.currentStep === 0;
+      $nextStep.disabled = state.currentStep === path.length - 1;
+    } else {
+      const summary = state.activeScenario.steps.join(" ⟶ ");
+      $narratorText.innerHTML = `<strong>${state.activeScenario.name}</strong> — ${path.length} actions across ${countLayers(path)} layers.`;
+    }
+
+    // Arrows
+    const visiblePath = path.slice(0, visibleUpTo + 1);
+    drawArrows(visiblePath);
+  }
+
+  function countLayers(path) {
+    const layers = new Set(
+      path.map((id) => {
+        if (id.startsWith("U")) return "ui";
+        if (id.startsWith("F")) return "fe";
+        if (id.startsWith("N")) return "edge";
+        if (id.startsWith("S")) return "db";
+        if (id.startsWith("G")) return "ai";
+        return "?";
+      })
+    );
+    return layers.size;
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     ARROW DRAWING
+     ════════════════════════════════════════════════════════════════ */
+  function drawArrows(path) {
+    // Clear existing arrows
+    $arrows.querySelectorAll(".arrow, .arrow-group").forEach((a) => a.remove());
+
+    if (path.length < 2) {
+      sizeArrowOverlay();
+      return;
+    }
+
+    sizeArrowOverlay();
+    const canvasRect = $canvas.getBoundingClientRect();
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const fromEl = document.querySelector(`.card[data-id="${path[i]}"]`);
+      const toEl   = document.querySelector(`.card[data-id="${path[i+1]}"]`);
+      if (!fromEl || !toEl) continue;
+
+      const f = fromEl.getBoundingClientRect();
+      const t = toEl.getBoundingClientRect();
+
+      // Calculate connection points relative to canvas
+      const fx = f.right  - canvasRect.left;
+      const fy = f.top + f.height / 2 - canvasRect.top;
+      const tx = t.left   - canvasRect.left;
+      const ty = t.top + t.height / 2 - canvasRect.top;
+
+      // Detect if cards are in same column (vertical flow)
+      const sameColumn = Math.abs(fx - tx) < 50 && fx > tx;
+      let pathStr;
+      if (sameColumn) {
+        // Use bottom-to-top vertical curve
+        const fxMid = f.left + f.width / 2 - canvasRect.left;
+        const fyBot = f.bottom - canvasRect.top;
+        const tyTop = t.top - canvasRect.top;
+        const midY = (fyBot + tyTop) / 2;
+        pathStr = `M ${fxMid} ${fyBot} C ${fxMid} ${midY}, ${fxMid} ${midY}, ${fxMid} ${tyTop}`;
+      } else if (tx < fx) {
+        // Going backwards (col N → earlier col) — arc above
+        const midY = Math.min(fy, ty) - 80;
+        pathStr = `M ${fx} ${fy} C ${fx + 60} ${midY}, ${tx - 60} ${midY}, ${tx} ${ty}`;
+      } else {
+        // Forward flow — bezier with horizontal control points
+        const dx = (tx - fx) / 2;
+        pathStr = `M ${fx} ${fy} C ${fx + dx} ${fy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+      }
+
+      const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path1.setAttribute("d", pathStr);
+      path1.setAttribute("class", "arrow is-on");
+      path1.setAttribute("marker-end", "url(#arrowhead)");
+      $arrows.appendChild(path1);
+    }
+
+    // Ensure arrowhead marker is updated
+    document.querySelectorAll(".arrow-head").forEach((ah) => ah.classList.add("is-on"));
+  }
+
+  function sizeArrowOverlay() {
+    $arrows.setAttribute("width", $canvas.scrollWidth);
+    $arrows.setAttribute("height", $canvas.scrollHeight);
+    $arrows.style.width = $canvas.scrollWidth + "px";
+    $arrows.style.height = $canvas.scrollHeight + "px";
+  }
+
+  /* ════════════════════════════════════════════════════════════════
+     CONTROLS
+     ════════════════════════════════════════════════════════════════ */
+  $resetBtn.addEventListener("click", clearScenario);
+
+  $stepToggle.addEventListener("click", () => {
+    if (!state.activeScenario) return;
+    state.stepMode = !state.stepMode;
+    $stepToggle.classList.toggle("is-on", state.stepMode);
+    $stepToggle.textContent = state.stepMode ? "Step mode · on" : "Step through ▷";
+    $stepRow.hidden = !state.stepMode;
+    state.currentStep = state.stepMode ? 0 : -1;
+    renderActive();
+  });
+
+  $prevStep.addEventListener("click", () => {
+    if (state.currentStep > 0) {
+      state.currentStep--;
+      renderActive();
+    }
+  });
+
+  $nextStep.addEventListener("click", () => {
+    if (state.activeScenario && state.currentStep < state.activeScenario.path.length - 1) {
+      state.currentStep++;
+      renderActive();
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if (!state.stepMode || !state.activeScenario) return;
+    if (e.key === "ArrowLeft")  $prevStep.click();
+    if (e.key === "ArrowRight") $nextStep.click();
+    if (e.key === "Escape")     clearScenario();
+  });
+
+  // Redraw arrows on resize / scroll
+  let resizeRaf;
+  window.addEventListener("resize", () => {
+    cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() => {
+      if (state.activeScenario) renderActive();
+    });
+  });
+
+  // Scroll handler — arrows are relative to canvas, not viewport
+  document.querySelector(".canvas-area").addEventListener("scroll", () => {
+    // No-op; arrows are positioned in canvas coordinates already
+  });
+
+  /* ════════════════════════════════════════════════════════════════
+     INIT
+     ════════════════════════════════════════════════════════════════ */
+  renderScenarios();
+  // Auto-select scenario 1 to make the interaction obvious on first load
+  setTimeout(() => selectScenario(1), 200);
+</script>
+
+</body>
+</html>
