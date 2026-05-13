@@ -29,10 +29,11 @@ import { z } from "zod";
 const GEMINI_API_KEY      = process.env.CARESYNC_GEMINI_KEY!;
 const SUPABASE_URL        = process.env.SUPABASE_URL!;
 const SUPABASE_ANON_KEY   = process.env.SUPABASE_ANON_KEY!;
+const APP_URL             = process.env.APP_URL!;
 const GEMINI_MODEL        = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 const DAILY_SCAN_LIMIT    = parseInt(process.env.AVS_DAILY_SCAN_LIMIT ?? "10", 10);
 
-if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY || !APP_URL) {
   throw new Error(
     "[process-avs] Missing required environment variables. " +
     "Check Netlify environment settings."
@@ -122,7 +123,7 @@ Rules:
 // Restrict to our app's domain in production.
 // ---------------------------------------------------------------------------
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin":  process.env.APP_URL || "*",
+  "Access-Control-Allow-Origin":  APP_URL,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };

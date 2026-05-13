@@ -18,17 +18,18 @@ import { createClient }               from "@supabase/supabase-js";
 const SUPABASE_URL              = process.env.SUPABASE_URL!;
 const SUPABASE_ANON_KEY         = process.env.SUPABASE_ANON_KEY!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const APP_URL                   = process.env.APP_URL!;
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY || !APP_URL) {
   throw new Error(
     "[delete-account] Missing required environment variables. " +
-    "Ensure SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY " +
-    "are set in the Netlify dashboard."
+    "Ensure SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, " +
+    "and APP_URL are set in the Netlify dashboard."
   );
 }
 
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin":  process.env.APP_URL ?? "*",
+  "Access-Control-Allow-Origin":  APP_URL,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
