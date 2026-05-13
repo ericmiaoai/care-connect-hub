@@ -1189,10 +1189,8 @@
     const ady  = Math.abs(ty - fy);
 
     if (ty === to.cy) {
-      // Entering a horizontal face (left or right side) — S-curve
-      const mx  = Math.max(adx * 0.4 + 20, 30);
-      const sx  = tx >= fx ? 1 : -1;
-      return `M ${fx} ${fy} C ${fx + sx*mx} ${fy}, ${tx - sx*mx} ${ty}, ${tx} ${ty}`;
+      // Entering a horizontal face — straight line (curves add no value here)
+      return `M ${fx} ${fy} L ${tx} ${ty}`;
     }
 
     // Entering a vertical face (top or bottom) — exit right, curve down/up
