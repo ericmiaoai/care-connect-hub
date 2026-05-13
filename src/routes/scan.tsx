@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   AlertTriangle, Check, X, CalendarDays, ClipboardList,
-  Stethoscope, CheckCircle2, ScanLine, Pencil, Save, ShieldOff,
+  Stethoscope, CheckCircle2, ScanLine, Pencil, Save, ShieldOff, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
@@ -38,6 +38,9 @@ interface EditableAppt {
 }
 
 const INPUT_SM = "w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring";
+
+// Display-only — must match AVS_DAILY_SCAN_LIMIT env var on the server (default: 10)
+const DISPLAY_DAILY_LIMIT = 10;
 
 function compressImage(file: File): Promise<{ base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp" }> {
   return new Promise((resolve, reject) => {
@@ -81,6 +84,8 @@ function ScanAVS() {
 
   const [phase,          setPhase]          = useState<Phase>("idle");
   const [scanError,      setScanError]      = useState<string | null>(null);
+  const [rateLimitError, setRateLimitError] = useState(false);
+  const [scansUsed,      setScansUsed]      = useState<number | null>(null);
   const [contract,       setContract]       = useState<AVSContract | null>(null);
   const [patientId,      setPatientId]      = useState<string | null>(null);
   const [patientName,    setPatientName]    = useState<string | null>(null);
@@ -88,6 +93,19 @@ function ScanAVS() {
   const [editableAppts,  setEditableAppts]  = useState<EditableAppt[]>([]);
   const [editingIndex,   setEditingIndex]   = useState<number | null>(null);
   const [editDraft,      setEditDraft]      = useState<EditableAppt>({ specialty_or_provider: "", date_time: "", location: "" });
+
+  const fetchScansUsed = useCallback(async () => {
+    if (!user?.id) return;
+    const window24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count, error } = await supabase
+      .from("avs_scan_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("scanned_at", window24h);
+    if (!error) setScansUsed(count ?? 0);
+  }, [user?.id]);
+
+  useEffect(() => { fetchScansUsed(); }, [fetchScansUsed]);
 
   useEffect(() => {
     if (!careCircleId) return;
@@ -130,11 +148,13 @@ function ScanAVS() {
       );
       setEditingIndex(null);
       setPhase("review");
+      fetchScansUsed();
     } catch (err: unknown) {
-      setScanError(
-        err instanceof Error ? err.message : "Failed to parse AVS. Please try again.",
-      );
+      const isRateLimit = err instanceof Error && (err as any).statusCode === 429;
+      setScanError(err instanceof Error ? err.message : "Failed to parse AVS. Please try again.");
+      setRateLimitError(isRateLimit);
       setPhase("error");
+      fetchScansUsed();
     }
   };
 
@@ -204,6 +224,7 @@ function ScanAVS() {
     setPhase("idle");
     setContract(null);
     setScanError(null);
+    setRateLimitError(false);
     setSummary(null);
     setEditableAppts([]);
     setEditingIndex(null);
@@ -217,7 +238,20 @@ function ScanAVS() {
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Human-in-the-loop
         </p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Scan AVS</h1>
+        <div className="mt-1 flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold tracking-tight">Scan AVS</h1>
+          {scansUsed !== null && (
+            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium tabular-nums ${
+              scansUsed >= DISPLAY_DAILY_LIMIT
+                ? "bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20"
+                : scansUsed >= Math.floor(DISPLAY_DAILY_LIMIT * 0.7)
+                ? "bg-amber-500/10 text-amber-400 ring-1 ring-inset ring-amber-500/20"
+                : "bg-muted text-muted-foreground"
+            }`}>
+              {scansUsed} / {DISPLAY_DAILY_LIMIT} scans today
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Scans an After Visit Summary and adds follow-up appointments to your Calendar.
           Medications and care instructions are shown during review for your reference —
@@ -270,20 +304,32 @@ function ScanAVS() {
           <Dropzone loading={phase === "scanning"} onFileSelect={handleFileSelect} />
 
           {phase === "error" && scanError && (
-            <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
-              <div>
-                <p className="text-sm font-medium text-red-400">Parsing failed</p>
-                <p className="mt-0.5 text-xs text-red-400/80">{scanError}</p>
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="mt-2 text-xs text-red-400 underline underline-offset-2"
-                >
-                  Try again
-                </button>
+            rateLimitError ? (
+              <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                <div>
+                  <p className="text-sm font-medium text-amber-400">Daily limit reached</p>
+                  <p className="mt-0.5 text-xs text-amber-400/80">
+                    You've used all {DISPLAY_DAILY_LIMIT} scans for today. Your limit resets on a rolling 24-hour basis.
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                <div>
+                  <p className="text-sm font-medium text-red-400">Parsing failed</p>
+                  <p className="mt-0.5 text-xs text-red-400/80">{scanError}</p>
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="mt-2 text-xs text-red-400 underline underline-offset-2"
+                  >
+                    Try again
+                  </button>
+                </div>
+              </div>
+            )
           )}
         </>
       )}

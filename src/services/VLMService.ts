@@ -120,9 +120,9 @@ async function processViaAPI(imageBase64: string, mimeType: string): Promise<AVS
 
   if (!response.ok) {
     const errBody = await response.json().catch(() => ({}));
-    throw new Error(
-      errBody.error ?? `Server error: ${response.status} ${response.statusText}`
-    );
+    const err = new Error(errBody.error ?? `Server error: ${response.status} ${response.statusText}`);
+    (err as any).statusCode = response.status;
+    throw err;
   }
 
   const rawPayload = await response.json();
