@@ -1,0 +1,2719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CareSync — Introduction</title>
+  <style>
+    /* ════════════════════════════════════════════════════════════════
+       TOKENS
+       ════════════════════════════════════════════════════════════════ */
+    :root {
+      --bg:        #ffffff;
+      --bg-soft:   #fafafa;
+      --bg-card:   #ffffff;
+      --line:      #ececec;
+      --line-soft: #f3f3f3;
+      --text:      #0a0a0b;
+      --text-2:    #4a4a52;
+      --text-3:    #8e8e96;
+      --text-4:    #b8b8c0;
+
+      --isla:      #2563eb;  /* blue — protagonist */
+      --remy:      #c9942a;  /* gold */
+      --evie:      #7e22ce;  /* purple */
+      --david:     #6b7280;  /* neutral gray */
+
+      /* Priority — matched to the actual app after the green→teal change */
+      --crit:      #dc2626;  /* red */
+      --high:      #ea580c;  /* amber-orange */
+      --med:       #0d9488;  /* teal — accessible for red-green colorblindness */
+      --low:       #64748b;  /* slate-gray */
+
+      --ai-glow:   #a855f7;
+      --ai-soft:   #faf5ff;
+      --green:     #16a34a;
+
+      --ease:      cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-out:  cubic-bezier(0.33, 1, 0.68, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 18px;
+      line-height: 1.6;
+      font-weight: 400;
+      overflow-x: hidden;
+    }
+
+    ::selection { background: #0a0a0b; color: #fff; }
+
+    /* ════════════════════════════════════════════════════════════════
+       LAYOUT
+       ════════════════════════════════════════════════════════════════ */
+    .scene {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 140px 40px;
+      max-width: 1100px;
+      margin: 0 auto;
+      position: relative;
+    }
+    .scene--narrow { max-width: 760px; }
+    .scene--wide   { max-width: 1240px; }
+
+    .eyebrow {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 28px;
+    }
+
+    h1.headline, h2.headline {
+      font-size: clamp(40px, 6.2vw, 76px);
+      font-weight: 700;
+      letter-spacing: -0.035em;
+      line-height: 1.02;
+      color: var(--text);
+      max-width: 940px;
+    }
+
+    .lead {
+      font-size: clamp(20px, 2.2vw, 26px);
+      line-height: 1.45;
+      color: var(--text-2);
+      max-width: 720px;
+      margin-top: 28px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+
+    .body {
+      font-size: 19px;
+      line-height: 1.7;
+      color: var(--text-2);
+      max-width: 620px;
+      margin-top: 32px;
+    }
+    .body + .body { margin-top: 18px; }
+
+    .pull {
+      font-size: clamp(22px, 2.6vw, 30px);
+      line-height: 1.35;
+      font-style: italic;
+      color: var(--text);
+      max-width: 720px;
+      margin: 56px 0;
+      padding-left: 24px;
+      border-left: 3px solid var(--text);
+      font-weight: 400;
+      letter-spacing: -0.015em;
+    }
+
+    .caption {
+      font-size: 14px;
+      color: var(--text-3);
+      max-width: 620px;
+      margin-top: 20px;
+      line-height: 1.55;
+    }
+
+    .divider {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .panel {
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 36px 40px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       REVEAL
+       ════════════════════════════════════════════════════════════════ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.9s var(--ease), transform 0.9s var(--ease);
+      transition-delay: var(--d, 0ms);
+    }
+    .reveal.is-in { opacity: 1; transform: translateY(0); }
+
+    /* ════════════════════════════════════════════════════════════════
+       STICKY HEADER — sized to match the PWA app (48px icon, text-xl)
+       ════════════════════════════════════════════════════════════════ */
+    .hero-bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: saturate(140%) blur(14px);
+      -webkit-backdrop-filter: saturate(140%) blur(14px);
+      border-bottom: 1px solid var(--line);
+    }
+    .hero-bar__inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 14px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .hero-bar__brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      font-size: 20px;          /* text-xl, matches PWA */
+    }
+    .hero-bar__brand img {
+      width: 48px; height: 48px;  /* h-12 w-12, matches PWA */
+      border-radius: 12px;
+      object-fit: cover;
+      filter: drop-shadow(0 1px 4px rgba(0,0,0,0.25));
+    }
+    .hero-bar__meta {
+      font-size: 13px;
+      color: var(--text-3);
+      letter-spacing: -0.01em;
+    }
+
+    .scroll-hint {
+      margin-top: 80px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text-3);
+      letter-spacing: 0.05em;
+    }
+    .scroll-hint__arrow { display: inline-block; animation: bob 2.4s ease-in-out infinite; }
+    @keyframes bob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(5px); }
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       PHONE
+       ════════════════════════════════════════════════════════════════ */
+    .phone {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow:
+        0 1px 2px rgba(0,0,0,0.04),
+        0 30px 60px -20px rgba(0,0,0,0.12),
+        0 8px 20px -8px rgba(0,0,0,0.08);
+      overflow: hidden;
+      width: 100%;
+      max-width: 340px;
+    }
+    .phone--mini  { max-width: 240px; }
+    .phone--tiny  { max-width: 180px; }
+    .phone__bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 22px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-2);
+    }
+    .phone__bar .dot {
+      width: 6px; height: 6px;
+      background: var(--text-2);
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+    }
+    .phone__title {
+      padding: 4px 22px 12px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .phone__sub {
+      padding: 0 22px 12px;
+      font-size: 11px;
+      color: var(--text-3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .phone__body {
+      padding: 4px 16px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .phone__home {
+      width: 90px; height: 4px;
+      background: #d8d8df;
+      border-radius: 2px;
+      margin: 4px auto 12px;
+    }
+
+    /* ────── Task card — matches actual TaskCard.tsx layout ────── */
+    .tcard {
+      display: grid;
+      grid-template-columns: 70px 1fr 24px;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--line);
+      border-left-width: 4px;
+      border-radius: 12px;
+      align-items: stretch;
+      overflow: hidden;
+      font-size: 13px;
+    }
+    .tcard--crit { border-left-color: var(--crit); }
+    .tcard--high { border-left-color: var(--high); }
+    .tcard--med  { border-left-color: var(--med); }
+    .tcard--low  { border-left-color: var(--low); }
+
+    .tcard__time {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 10px 8px 10px 12px;
+      border-right: 1px solid var(--line);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+    .tcard__main {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 4px;
+      min-width: 0;
+    }
+    .tcard__icon {
+      width: 30px; height: 30px;
+      background: var(--bg-soft);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 14px;
+      color: var(--text-3);
+    }
+    .tcard__txt {
+      min-width: 0;
+      flex: 1;
+    }
+    .tcard__title {
+      font-weight: 600;
+      color: var(--text);
+      font-size: 13.5px;
+      line-height: 1.3;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tcard__assignee {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 3px;
+      font-size: 11px;
+      color: var(--text-3);
+    }
+    .tcard__assignee .av { width: 14px; height: 14px; font-size: 8px; }
+    .tcard__check {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-right: 8px;
+    }
+    .tcard__check span {
+      width: 18px; height: 18px;
+      border: 2px solid var(--line);
+      border-radius: 50%;
+      display: block;
+    }
+
+    /* Notification */
+    .notif {
+      background: #f6f6f8;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: var(--text-2);
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .notif__from {
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--text);
+      display: flex;
+      justify-content: space-between;
+    }
+    .notif__time { font-weight: 400; color: var(--text-3); font-size: 11px; }
+    .stickynote {
+      background: #fef3c7;
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #78350f;
+      font-weight: 600;
+      transform: rotate(-2deg);
+      box-shadow: 0 4px 8px -2px rgba(0,0,0,0.12);
+      margin: 12px 0 4px;
+      letter-spacing: 0.01em;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       AVATAR
+       ════════════════════════════════════════════════════════════════ */
+    .av {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-weight: 700;
+      color: #fff;
+      font-size: 13px;
+      flex-shrink: 0;
+      letter-spacing: 0.02em;
+    }
+    .av--isla   { background: var(--isla); }
+    .av--remy   { background: var(--remy); }
+    .av--evie   { background: var(--evie); }
+    .av--david  { background: var(--david); }
+    .av--24 { width: 24px; height: 24px; font-size: 11px; }
+    .av--32 { width: 32px; height: 32px; font-size: 12px; }
+    .av--40 { width: 40px; height: 40px; font-size: 15px; }
+    .av--56 { width: 56px; height: 56px; font-size: 19px; }
+    .av--72 { width: 72px; height: 72px; font-size: 24px; }
+
+    /* ════════════════════════════════════════════════════════════════
+       CHARACTER STRIP (hero)
+       ════════════════════════════════════════════════════════════════ */
+    .cast {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 56px;
+      padding: 28px;
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+    }
+    .cast-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+    }
+    .cast-card__name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .cast-card__role {
+      font-size: 11px;
+      color: var(--text-3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .cast-card__desc {
+      font-size: 12px;
+      color: var(--text-2);
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       CARE CIRCLE DIAGRAM
+       ════════════════════════════════════════════════════════════════ */
+    .circle-stage {
+      position: relative;
+      width: 100%;
+      max-width: 560px;
+      aspect-ratio: 1;
+      margin: 40px auto 0;
+    }
+    .circle-ring {
+      position: absolute;
+      inset: 0;
+      border: 1px dashed var(--line);
+      border-radius: 50%;
+    }
+    .circle-ring--mid   { inset: 14%; }
+    .circle-ring--inner { inset: 30%; background: #fafafa; border-style: solid; }
+
+    .circle-center {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .circle-center .av { box-shadow: 0 0 0 6px #fff; }
+    .circle-center__label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .circle-node {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      transform: translate(-50%, -50%);
+    }
+    .circle-node__name { font-size: 12px; font-weight: 600; color: var(--text); }
+    .circle-node__role {
+      font-size: 10px;
+      color: var(--text-3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .circle-node--isla  { top: 14%; left: 50%; }
+    .circle-node--remy  { top: 50%; left: 90%; }
+    .circle-node--evie  { top: 90%; left: 25%; }
+
+    /* Invite card */
+    .invite-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 22px 24px;
+      box-shadow: 0 8px 22px -6px rgba(0,0,0,0.08);
+      max-width: 360px;
+    }
+    .invite-card__label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 8px;
+    }
+    .invite-card__link {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      color: var(--text);
+      background: var(--bg-soft);
+      border-radius: 8px;
+      padding: 8px 12px;
+      word-break: break-all;
+      margin-bottom: 12px;
+      border: 1px solid var(--line-soft);
+    }
+    .invite-card__pin {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 12px;
+    }
+    .invite-card__pin span {
+      width: 38px; height: 50px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .invite-card__expiry {
+      font-size: 11px;
+      color: var(--text-3);
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       MY DAY vs CALENDAR
+       ════════════════════════════════════════════════════════════════ */
+    .duo-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 14px;
+    }
+    .duo-caption {
+      font-size: 14px;
+      color: var(--text-2);
+      margin-top: 18px;
+      line-height: 1.55;
+      max-width: 360px;
+    }
+
+    .calendar-strip {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      padding: 6px 16px 18px;
+    }
+    .cal-day {
+      background: var(--bg-soft);
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      padding: 8px 4px;
+      text-align: center;
+      font-size: 10px;
+      color: var(--text-3);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 86px;
+    }
+    .cal-day__num { font-size: 12px; font-weight: 600; color: var(--text); }
+    .cal-day--today { background: #fff; border-color: var(--text); }
+    .cal-day__chip {
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      margin-top: 2px;
+    }
+
+    .priority-legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 24px;
+      margin-top: 64px;
+      padding: 40px;
+      background: var(--bg-soft);
+      border-radius: 20px;
+      border: 1px solid var(--line);
+    }
+    .priority-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .priority-dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .priority-dot--crit { background: var(--crit); }
+    .priority-dot--high { background: var(--high); }
+    .priority-dot--med  { background: var(--med); }
+    .priority-dot--low  { background: var(--low); }
+    .priority-name { font-weight: 700; color: var(--text); font-size: 14px; letter-spacing: -0.01em; }
+    .priority-desc { font-size: 13px; color: var(--text-2); line-height: 1.55; margin-top: 2px; }
+
+    /* ════════════════════════════════════════════════════════════════
+       ADD-TASK FORM MOCKUP (Scene 3)
+       ════════════════════════════════════════════════════════════════ */
+    .form-mock {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 24px;
+      max-width: 380px;
+      box-shadow: 0 22px 60px -20px rgba(0,0,0,0.16);
+    }
+    .form-mock__head {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .form-mock__title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 18px;
+      color: var(--text);
+    }
+    .form-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 14px;
+    }
+    .form-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .form-input {
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--text);
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .form-input--ghost { color: var(--text-3); font-style: italic; }
+    .form-input--accent {
+      border-color: var(--isla);
+      background: rgba(37, 99, 235, 0.04);
+    }
+    .form-chips {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .chip {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--text-2);
+      background: #fff;
+    }
+    .chip--active { background: var(--text); color: #fff; border-color: var(--text); }
+    .chip--crit-active { background: var(--crit); color: #fff; border-color: var(--crit); }
+    .form-cta {
+      background: var(--text);
+      color: #fff;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      margin-top: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       SYNC SCENE (two phones)
+       ════════════════════════════════════════════════════════════════ */
+    .sync-stage {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 32px;
+      align-items: center;
+      margin-top: 64px;
+    }
+    .sync-stage__phone { display: flex; justify-content: center; }
+    .sync-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-3);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .sync-arrow svg { width: 60px; }
+    .sync-label {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-3);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       BROADCAST
+       ════════════════════════════════════════════════════════════════ */
+    .broadcast-stage {
+      position: relative;
+      margin-top: 64px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+    }
+    .broadcast-card {
+      width: 100%;
+      max-width: 460px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--crit);
+      border-radius: 14px;
+      padding: 18px 22px;
+      box-shadow: 0 24px 48px -16px rgba(0,0,0,0.12);
+    }
+    .broadcast-card__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .broadcast-card__author {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .severity-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: #fef2f2;
+      color: var(--crit);
+      letter-spacing: 0.06em;
+    }
+    .broadcast-card__msg {
+      font-size: 15px;
+      color: var(--text);
+      line-height: 1.5;
+      letter-spacing: -0.01em;
+    }
+    .broadcast-recipients {
+      display: flex;
+      gap: 56px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .recipient {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--text-2);
+      text-align: center;
+      max-width: 200px;
+    }
+    .recipient strong { font-size: 13px; color: var(--text); font-weight: 600; }
+    .recipient em {
+      font-style: italic;
+      color: var(--text-3);
+      font-size: 12px;
+      line-height: 1.45;
+      margin-top: 2px;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       SCAN AVS — ELABORATE INTERACTIVE THEATER
+       ════════════════════════════════════════════════════════════════ */
+    .scan-theater {
+      margin-top: 56px;
+      padding: 0;
+      background: linear-gradient(180deg, #ffffff 0%, #faf5ff 50%, #ffffff 100%);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      overflow: hidden;
+    }
+
+    /* Top control bar */
+    .scan-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 32px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+    .scan-header__title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .scan-btn {
+      background: var(--text);
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: inherit;
+      transition: transform 0.2s var(--ease), background 0.2s;
+    }
+    .scan-btn:hover { transform: translateY(-1px); background: #1f1f24; }
+    .scan-btn[data-state="playing"] {
+      background: var(--ai-glow);
+      pointer-events: none;
+    }
+    .scan-btn[data-state="done"]    { background: var(--green); }
+
+    /* Stage progress bar */
+    .scan-stages {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 0;
+      border-bottom: 1px solid var(--line);
+      background: var(--bg-soft);
+    }
+    .stage-pill {
+      padding: 14px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-align: center;
+      letter-spacing: -0.01em;
+      border-right: 1px solid var(--line);
+      position: relative;
+      transition: all 0.4s var(--ease);
+    }
+    .stage-pill:last-child { border-right: none; }
+    .stage-pill[data-active="true"] {
+      color: var(--ai-glow);
+      background: #fff;
+      font-weight: 700;
+    }
+    .stage-pill[data-done="true"] {
+      color: var(--green);
+      background: #f0fdf4;
+    }
+    .stage-pill__num {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--text-4);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 18px;
+      margin-right: 6px;
+      vertical-align: middle;
+      transition: background 0.3s;
+    }
+    .stage-pill[data-active="true"] .stage-pill__num { background: var(--ai-glow); }
+    .stage-pill[data-done="true"]   .stage-pill__num { background: var(--green); }
+
+    /* Main canvas — fixed height, stage-driven content */
+    .scan-canvas {
+      position: relative;
+      min-height: 480px;
+      padding: 56px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+    }
+    .scan-frame {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 56px 40px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s var(--ease);
+    }
+    .scan-frame[data-visible="true"] {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* ── Stage 1: Capture + compress ─────────────────────────── */
+    .capture-scene {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 56px;
+      align-items: center;
+      width: 100%;
+      max-width: 760px;
+    }
+    .capture-phone {
+      width: 100%;
+      max-width: 280px;
+      margin: 0 auto;
+      background: #1a1a1f;
+      border-radius: 32px;
+      padding: 8px;
+      box-shadow: 0 40px 80px -20px rgba(0,0,0,0.35);
+    }
+    .capture-phone__screen {
+      background: #2a2a30;
+      border-radius: 24px;
+      aspect-ratio: 9 / 16;
+      position: relative;
+      overflow: hidden;
+    }
+    .viewfinder {
+      position: absolute;
+      inset: 14% 12%;
+      border: 2px dashed rgba(255,255,255,0.7);
+      border-radius: 8px;
+    }
+    .viewfinder__corner {
+      position: absolute;
+      width: 18px; height: 18px;
+      border: 3px solid #fff;
+    }
+    .viewfinder__corner--tl { top: -3px; left: -3px; border-right: none; border-bottom: none; }
+    .viewfinder__corner--tr { top: -3px; right: -3px; border-left: none; border-bottom: none; }
+    .viewfinder__corner--bl { bottom: -3px; left: -3px; border-right: none; border-top: none; }
+    .viewfinder__corner--br { bottom: -3px; right: -3px; border-left: none; border-top: none; }
+
+    .avs-doc-bg {
+      position: absolute;
+      inset: 18% 14%;
+      background: #f0f0f5;
+      border-radius: 6px;
+      opacity: 0.65;
+      padding: 12px 10px;
+      font-size: 7px;
+      line-height: 1.4;
+      color: #1a1a1f;
+      overflow: hidden;
+    }
+    .avs-doc-bg .doc-h {
+      font-weight: 700;
+      font-size: 8px;
+      margin-bottom: 4px;
+      color: #0d1b4b;
+    }
+    .avs-doc-bg .doc-line {
+      height: 3px;
+      background: #c4c4cf;
+      border-radius: 1px;
+      margin-bottom: 3px;
+    }
+    .avs-doc-bg .doc-line:nth-child(3) { width: 80%; }
+    .avs-doc-bg .doc-line:nth-child(4) { width: 70%; }
+    .avs-doc-bg .doc-line:nth-child(5) { width: 90%; }
+    .avs-doc-bg .doc-line:nth-child(6) { width: 60%; }
+    .capture-shutter {
+      position: absolute;
+      bottom: 18px; left: 50%;
+      transform: translateX(-50%);
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      background: rgba(255,255,255,0.2);
+      animation: tap 2s ease-in-out infinite;
+    }
+    @keyframes tap {
+      0%, 100% { transform: translateX(-50%) scale(1); }
+      50%      { transform: translateX(-50%) scale(0.88); }
+    }
+    .capture-flash {
+      position: absolute;
+      inset: 0;
+      background: #fff;
+      opacity: 0;
+      animation: flash 2.4s ease-in-out infinite;
+    }
+    @keyframes flash {
+      0%, 78%, 100% { opacity: 0; }
+      82%, 86%      { opacity: 0.9; }
+    }
+
+    .capture-meta {
+      max-width: 320px;
+    }
+    .capture-meta h4 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .capture-meta p {
+      font-size: 14px;
+      color: var(--text-2);
+      line-height: 1.6;
+    }
+    .compress-meter {
+      margin-top: 24px;
+      padding: 16px;
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .compress-meter__row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-3);
+      margin-bottom: 6px;
+    }
+    .compress-meter__row strong { color: var(--text); font-weight: 700; font-size: 13px; }
+    .compress-meter__bar {
+      height: 6px;
+      background: var(--line);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .compress-meter__fill {
+      width: 18%;
+      height: 100%;
+      background: var(--ai-glow);
+      transition: width 1.2s var(--ease);
+    }
+    .scan-frame[data-visible="true"] .compress-meter__fill { width: 88%; }
+
+    /* ── Stage 2: Encrypted upload ─────────────────────────────── */
+    .upload-scene {
+      width: 100%;
+      max-width: 720px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+    }
+    .upload-path {
+      position: relative;
+      width: 100%;
+      height: 240px;
+    }
+    .upload-doc {
+      position: absolute;
+      left: 8%;
+      top: 35%;
+      width: 70px; height: 92px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 8px 20px -6px rgba(0,0,0,0.15);
+      padding: 10px 8px;
+      animation: traveldoc 4s ease-in-out infinite;
+    }
+    .upload-doc .doc-line {
+      height: 2px;
+      background: #c4c4cf;
+      border-radius: 1px;
+      margin-bottom: 4px;
+    }
+    @keyframes traveldoc {
+      0%   { left: 8%;  opacity: 1; transform: scale(1); }
+      40%  { left: 50%; opacity: 1; transform: scale(0.5); }
+      60%  { left: 50%; opacity: 0;  transform: scale(0.3); }
+      100% { left: 8%;  opacity: 0;  transform: scale(0.3); }
+    }
+    .upload-lock {
+      position: absolute;
+      top: 4%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: #fff;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .upload-cloud {
+      position: absolute;
+      right: 8%;
+      top: 28%;
+      width: 100px; height: 70px;
+      background: linear-gradient(135deg, #f3e8ff, #ddd6fe);
+      border: 1px solid var(--ai-glow);
+      border-radius: 35px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      box-shadow: 0 20px 40px -10px rgba(168,85,247,0.3);
+    }
+    .upload-path svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .upload-meta {
+      text-align: center;
+      max-width: 460px;
+    }
+    .upload-meta h4 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    .upload-meta p {
+      font-size: 14px;
+      color: var(--text-2);
+      line-height: 1.55;
+    }
+
+    /* ── Stage 3: Gemini + patient verify ───────────────────── */
+    .gemini-scene {
+      width: 100%;
+      max-width: 800px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 56px;
+      align-items: center;
+    }
+    .gemini-brain {
+      position: relative;
+      width: 200px; height: 200px;
+      margin: 0 auto;
+    }
+    .gemini-brain__core {
+      position: absolute;
+      inset: 30%;
+      background: radial-gradient(circle, #c084fc, #a855f7);
+      border-radius: 50%;
+      animation: brainpulse 2.4s ease-in-out infinite;
+      box-shadow: 0 0 40px rgba(168,85,247,0.5), 0 0 80px rgba(168,85,247,0.3);
+    }
+    @keyframes brainpulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%      { transform: scale(1.15); opacity: 0.85; }
+    }
+    .gemini-brain__ring {
+      position: absolute;
+      border: 2px dashed var(--ai-glow);
+      border-radius: 50%;
+      opacity: 0.4;
+      animation: rotring 8s linear infinite;
+    }
+    .gemini-brain__ring:nth-child(2) { inset: 12%; animation-duration: 6s; }
+    .gemini-brain__ring:nth-child(3) { inset: 0;    animation-duration: 10s; animation-direction: reverse; }
+    @keyframes rotring {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    .gemini-brain__label {
+      position: absolute;
+      bottom: -32px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ai-glow);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .verify-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .verify-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+    .verify-card__label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 4px;
+    }
+    .verify-card__name { font-weight: 600; color: var(--text); font-size: 16px; letter-spacing: -0.01em; }
+    .verify-card.is-match {
+      background: #f0fdf4;
+      border-color: var(--green);
+    }
+    .verify-badge {
+      background: var(--green);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .gemini-meta {
+      grid-column: 1 / -1;
+      text-align: center;
+      margin-top: 20px;
+      font-size: 14px;
+      color: var(--text-2);
+      max-width: 540px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.55;
+    }
+
+    /* ── Stage 4: Extract appointment (non-PHI emphasis) ────── */
+    .extract-scene {
+      width: 100%;
+      max-width: 760px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+    .extract-appt {
+      background: #fff;
+      border: 2px solid var(--isla);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 20px 48px -16px rgba(37,99,235,0.25);
+    }
+    .extract-appt__type {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--isla);
+      margin-bottom: 8px;
+    }
+    .extract-appt__title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+    .extract-appt__field {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-top: 1px solid var(--line-soft);
+      font-size: 13px;
+    }
+    .extract-appt__field span:first-child {
+      color: var(--text-3);
+      font-weight: 600;
+    }
+    .extract-appt__field span:last-child {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .phi-guard {
+      background: var(--ai-soft);
+      border: 1px dashed var(--ai-glow);
+      border-radius: 14px;
+      padding: 20px 22px;
+    }
+    .phi-guard__title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ai-glow);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .phi-guard__item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      font-size: 13px;
+      color: var(--text-3);
+      text-decoration: line-through;
+    }
+    .phi-guard__item::before {
+      content: "🔒";
+      font-size: 12px;
+      text-decoration: none;
+    }
+    .phi-guard__caption {
+      font-size: 12px;
+      color: #581c87;
+      margin-top: 8px;
+      line-height: 1.5;
+      font-style: italic;
+    }
+
+    /* ── Stage 5: Isla reviews ────────────────────────────── */
+    .review-scene {
+      width: 100%;
+      max-width: 760px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+    .review-phone {
+      width: 100%;
+      max-width: 280px;
+    }
+    .review-meta {
+      max-width: 360px;
+    }
+    .review-meta h4 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    .review-meta p {
+      font-size: 14px;
+      color: var(--text-2);
+      line-height: 1.6;
+    }
+    .review-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 18px;
+    }
+    .review-btn {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text-2);
+    }
+    .review-btn--primary {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+    }
+
+    /* ── Stage 6: Calendar + sync ─────────────────────────── */
+    .sync-scene {
+      width: 100%;
+      max-width: 920px;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+    .mini-cal {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 20px 40px -16px rgba(0,0,0,0.12);
+    }
+    .mini-cal__header {
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 12px;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .mini-cal__grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+    }
+    .mini-cal__day {
+      aspect-ratio: 1;
+      background: var(--bg-soft);
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .mini-cal__day.has-event {
+      background: var(--isla);
+      color: #fff;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.2);
+    }
+    .mini-cal__day.weekday-h {
+      background: transparent;
+      color: var(--text-4);
+      font-size: 9px;
+    }
+    .mini-cal__event {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: rgba(37,99,235,0.06);
+      border-left: 3px solid var(--isla);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .mini-cal__event strong { color: var(--text); font-weight: 600; }
+    .mini-cal__event span { color: var(--text-3); display: block; margin-top: 2px; }
+
+    .family-phones {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      justify-content: center;
+    }
+    .family-phone {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      width: 140px;
+      box-shadow: 0 14px 30px -10px rgba(0,0,0,0.12);
+      position: relative;
+    }
+    .family-phone__head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line-soft);
+      margin-bottom: 10px;
+    }
+    .family-phone__head span {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .family-phone__notif {
+      background: rgba(37,99,235,0.06);
+      border: 1px solid rgba(37,99,235,0.2);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 10px;
+      line-height: 1.4;
+    }
+    .family-phone__notif strong {
+      display: block;
+      color: var(--text);
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .family-phone__notif em {
+      color: var(--isla);
+      font-style: normal;
+      font-weight: 600;
+      font-size: 9px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .sync-meta {
+      grid-column: 1 / -1;
+      text-align: center;
+      margin-top: 20px;
+      font-size: 14px;
+      color: var(--text-2);
+      max-width: 540px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.55;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       NARRATION (Scan)
+       ════════════════════════════════════════════════════════════════ */
+    .scan-narration {
+      padding: 24px 32px;
+      background: var(--bg-soft);
+      border-top: 1px solid var(--line);
+      text-align: center;
+      font-size: 15px;
+      color: var(--text-2);
+      line-height: 1.55;
+      letter-spacing: -0.01em;
+      min-height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .scan-narration__line {
+      max-width: 760px;
+      transition: opacity 0.4s var(--ease);
+    }
+    .scan-narration__line.is-hidden { opacity: 0; }
+
+    .scan-takeaway {
+      margin-top: 56px;
+      padding: 32px 36px;
+      background: #faf5ff;
+      border: 1px solid #e9d5ff;
+      border-radius: 16px;
+      font-size: 16px;
+      color: #581c87;
+      line-height: 1.6;
+      max-width: 760px;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: center;
+    }
+    .scan-takeaway strong { color: #3b0764; font-weight: 700; }
+
+    /* ════════════════════════════════════════════════════════════════
+       CLOSING
+       ════════════════════════════════════════════════════════════════ */
+    .closing {
+      text-align: center;
+      padding: 180px 40px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .closing__tag {
+      margin-top: 64px;
+      padding-top: 56px;
+      border-top: 1px solid var(--line);
+    }
+    .closing__tag-line {
+      font-size: clamp(28px, 3.6vw, 44px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      line-height: 1.1;
+    }
+    .closing__tag-sub {
+      font-size: 18px;
+      color: var(--text-2);
+      margin-top: 16px;
+      letter-spacing: -0.01em;
+    }
+    .closing__logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .closing__logo img {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.12));
+    }
+    .reply-bubble {
+      max-width: 380px;
+      margin: 24px auto 0;
+      background: #f0f0f2;
+      border-radius: 18px 18px 4px 18px;
+      padding: 14px 18px;
+      font-size: 15px;
+      color: var(--text);
+      line-height: 1.5;
+      text-align: left;
+    }
+    .reply-bubble__head {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       FOOTER
+       ════════════════════════════════════════════════════════════════ */
+    footer {
+      padding: 40px 40px 60px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-3);
+      border-top: 1px solid var(--line);
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    footer a { color: var(--text-2); text-decoration: none; }
+
+    /* ════════════════════════════════════════════════════════════════
+       RESPONSIVE
+       ════════════════════════════════════════════════════════════════ */
+    @media (max-width: 860px) {
+      .scene { padding: 96px 24px; }
+      .grid-2 { grid-template-columns: 1fr; gap: 40px; }
+      .sync-stage { grid-template-columns: 1fr; gap: 16px; }
+      .sync-arrow { transform: rotate(90deg); }
+      .capture-scene, .gemini-scene, .extract-scene, .review-scene, .sync-scene {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+      .scan-stages { grid-template-columns: repeat(3, 1fr); }
+      .stage-pill { font-size: 10px; padding: 10px 8px; }
+      .broadcast-recipients { gap: 24px; flex-direction: column; }
+      .cast { grid-template-columns: repeat(2, 1fr); }
+      .family-phones { flex-direction: column; }
+    }
+
+    /* ════════════════════════════════════════════════════════════════
+       PRINT & A11Y
+       ════════════════════════════════════════════════════════════════ */
+    @media (prefers-reduced-motion: reduce) {
+      .reveal, .scan-frame, .scan-narration__line {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+      }
+      .scroll-hint__arrow, .gemini-brain__core, .gemini-brain__ring,
+      .capture-shutter, .capture-flash, .upload-doc { animation: none !important; }
+    }
+
+    @media print {
+      .hero-bar, .scroll-hint, .no-print, .scan-btn { display: none !important; }
+      body { font-size: 12pt; }
+      .scene {
+        min-height: auto;
+        padding: 32pt 0;
+        page-break-after: always;
+        max-width: 100%;
+      }
+      .scene:last-of-type { page-break-after: auto; }
+      .reveal { opacity: 1 !important; transform: none !important; }
+      .phone { box-shadow: none; border: 1px solid #aaa; }
+      .scan-frame { position: relative; opacity: 1; pointer-events: auto; }
+      .scan-frame[data-print-show="true"] ~ .scan-frame { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════
+     STICKY HEADER (sized to match the PWA)
+════════════════════════════════════════════════════════════════════ -->
+<div class="hero-bar no-print">
+  <div class="hero-bar__inner">
+    <div class="hero-bar__brand">
+      <img src="../public/logo-icon.png" alt="" />
+      <span>CareSync</span>
+    </div>
+    <div class="hero-bar__meta">An introduction</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     HERO — fragmented coordination, not medication compliance
+════════════════════════════════════════════════════════════════════ -->
+<section class="scene scene--narrow">
+  <p class="eyebrow reveal">An introduction · for everyone</p>
+  <h1 class="headline reveal" style="--d: 80ms;">
+    Caring for someone you love shouldn't feel like running a small business.
+  </h1>
+  <p class="lead reveal" style="--d: 200ms;">
+    A follow-up appointment that lives on a sticky note. A pharmacy run nobody's sure
+    who's doing. A sister in Boston who keeps texting because she doesn't know what's
+    happening. CareSync gives a family one shared picture — so caring for the
+    person they love stops feeling like a logistics problem.
+  </p>
+
+  <div style="display:grid; grid-template-columns: 1fr 320px; gap: 64px; margin-top: 80px; align-items: center;">
+    <div class="reveal" style="--d: 320ms;">
+      <p class="body" style="margin-top: 0;">
+        David Chen had a heart attack three weeks ago. He's home now, recovering.
+        His daughter Isla moved back temporarily. She's the one keeping the
+        appointments straight, organizing pill boxes, reading the discharge papers.
+      </p>
+      <p class="body">
+        Her brother Remy lives twenty minutes away. He helps when asked. Her sister
+        Evie is in Boston with two kids. She calls every night, but she's never
+        sure she has the full picture.
+      </p>
+      <p class="caption" style="margin-top: 32px;">
+        Four people. One person they all love. Six different apps trying to keep
+        it together. Scroll down. ↓
+      </p>
+    </div>
+
+    <div class="reveal" style="--d: 480ms;">
+      <div class="phone">
+        <div class="phone__bar"><span><span class="dot"></span>9:14 PM</span><span>Messages</span></div>
+        <div class="phone__title">Today</div>
+        <div class="phone__body">
+          <div class="notif">
+            <div class="notif__from">Remy <span class="notif__time">7:02 PM</span></div>
+            <span>did dad eat dinner?</span>
+          </div>
+          <div class="notif">
+            <div class="notif__from">Evie <span class="notif__time">7:30 PM</span></div>
+            <span>when's his cardiology follow-up?</span>
+          </div>
+          <div class="notif">
+            <div class="notif__from">Remy <span class="notif__time">8:48 PM</span></div>
+            <span>i'm at the pharmacy — anything?</span>
+          </div>
+          <div class="stickynote">PT — Thursday? Friday??</div>
+        </div>
+        <div class="phone__home"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cast strip -->
+  <div class="cast reveal" style="--d: 640ms;">
+    <div class="cast-card">
+      <span class="av av--isla av--56">I</span>
+      <div class="cast-card__name">Isla Chen, 32</div>
+      <div class="cast-card__role">Primary caregiver · Admin</div>
+      <p class="cast-card__desc">Lives with Dad temporarily. Keeps the calendar straight.</p>
+    </div>
+    <div class="cast-card">
+      <span class="av av--remy av--56">R</span>
+      <div class="cast-card__name">Remy Chen, 28</div>
+      <div class="cast-card__role">Brother · Co-Caregiver</div>
+      <p class="cast-card__desc">Twenty minutes away. Means well. Wants to do more.</p>
+    </div>
+    <div class="cast-card">
+      <span class="av av--evie av--56">E</span>
+      <div class="cast-card__name">Evie Chen, 35</div>
+      <div class="cast-card__role">Sister, Boston · Viewer</div>
+      <p class="cast-card__desc">Calls every night at 7. Needs to know. Can't act from afar.</p>
+    </div>
+    <div class="cast-card">
+      <span class="av av--david av--56">D</span>
+      <div class="cast-card__name">David Chen, 58</div>
+      <div class="cast-card__role">Dad · The reason</div>
+      <p class="cast-card__desc">Recently retired engineer. Recovering. Hates being fussed over.</p>
+    </div>
+  </div>
+
+  <p class="scroll-hint reveal" style="--d: 800ms;">
+    Begin <span class="scroll-hint__arrow">↓</span>
+  </p>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     SCENE 1 — A CARE CIRCLE
+════════════════════════════════════════════════════════════════════ -->
+<div class="divider"></div>
+
+<section class="scene scene--narrow" id="s1">
+  <p class="eyebrow reveal">Act I · A private place</p>
+  <h2 class="headline reveal" style="--d: 80ms;">
+    Everyone who loves Dad. One sealed circle.
+  </h2>
+  <p class="lead reveal" style="--d: 200ms;">
+    A Care Circle is the private workspace for one family caring for one person.
+    Each member gets a role that fits their life.
+  </p>
+
+  <p class="body reveal" style="--d: 320ms;">
+    Isla creates a circle and names it <strong>Dad's Care Team</strong>. CareSync
+    generates a one-time invite link and a 4-digit PIN. She texts the link to Remy
+    and Evie. They tap it, sign in, and enter the PIN. They're in.
+  </p>
+
+  <div class="grid-2" style="margin-top: 56px; align-items: center;">
+
+    <div class="reveal" style="--d: 440ms;">
+      <div class="circle-stage">
+        <div class="circle-ring"></div>
+        <div class="circle-ring circle-ring--mid"></div>
+        <div class="circle-ring circle-ring--inner"></div>
+
+        <div class="circle-center">
+          <div class="av av--david av--72">D</div>
+          <span class="circle-center__label">Dad · David</span>
+        </div>
+
+        <div class="circle-node circle-node--isla">
+          <div class="av av--isla av--56">I</div>
+          <div class="circle-node__name">Isla</div>
+          <div class="circle-node__role">Admin</div>
+        </div>
+        <div class="circle-node circle-node--remy">
+          <div class="av av--remy av--56">R</div>
+          <div class="circle-node__name">Remy</div>
+          <div class="circle-node__role">Co-Caregiver</div>
+        </div>
+        <div class="circle-node circle-node--evie">
+          <div class="av av--evie av--56">E</div>
+          <div class="circle-node__name">Evie</div>
+          <div class="circle-node__role">Viewer</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="reveal" style="--d: 560ms;">
+      <div class="invite-card">
+        <div class="invite-card__label">Invite link</div>
+        <div class="invite-card__link">caresync.app/join/8k4j-x9zq-mn3p</div>
+        <div class="invite-card__label" style="margin-top: 14px;">4-digit PIN</div>
+        <div class="invite-card__pin">
+          <span>7</span><span>3</span><span>0</span><span>4</span>
+        </div>
+        <div class="invite-card__expiry">Expires in 24 hours · single use</div>
+      </div>
+      <p class="caption" style="margin-top: 18px;">
+        Both halves are required. A leaked link without the PIN won't open the door.
+      </p>
+    </div>
+
+  </div>
+
+  <blockquote class="pull reveal" style="--d: 700ms;">
+    Evie can see everything. Evie can't change anything. That's exactly what she wanted.
+  </blockquote>
+
+  <p class="caption reveal" style="--d: 820ms;">
+    Every Care Circle is sealed. Tasks, photos, broadcasts — they belong to one family
+    and only one family. The database itself refuses to mix them up.
+  </p>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     SCENE 2 — TWO VIEWS OF CARE
+════════════════════════════════════════════════════════════════════ -->
+<div class="divider"></div>
+
+<section class="scene" id="s2">
+  <p class="eyebrow reveal">Act II · A shared picture</p>
+  <h2 class="headline reveal" style="--d: 80ms;">
+    My&nbsp;Day knows what's yours. The Calendar knows what's everyone's.
+  </h2>
+  <p class="lead reveal" style="--d: 200ms;">
+    Two views into the same care. One personal. One shared. Both true.
+  </p>
+
+  <div class="grid-2" style="margin-top: 64px;">
+
+    <div class="reveal" style="--d: 320ms;">
+      <p class="duo-label">My Day · Isla's view</p>
+      <div class="phone" style="max-width: 100%;">
+        <div class="phone__bar"><span><span class="dot"></span>8:42 AM</span><span>Tuesday</span></div>
+        <div class="phone__title">My Day</div>
+        <div class="phone__sub">3 today · 1 overdue</div>
+        <div class="phone__body">
+          <div class="tcard tcard--crit">
+            <div class="tcard__time">7:30 AM</div>
+            <div class="tcard__main">
+              <div class="tcard__icon">💊</div>
+              <div class="tcard__txt">
+                <div class="tcard__title">Take morning medications</div>
+                <div class="tcard__assignee"><span class="av av--isla av--24">I</span><span>You</span></div>
+              </div>
+            </div>
+            <div class="tcard__check"><span></span></div>
+          </div>
+          <div class="tcard tcard--med">
+            <div class="tcard__time">2:00 PM</div>
+            <div class="tcard__main">
+              <div class="tcard__icon">🩺</div>
+              <div class="tcard__txt">
+                <div class="tcard__title">Cardiologist visit</div>
+                <div class="tcard__assignee"><span class="av av--isla av--24">I</span><span>You</span></div>
+              </div>
+            </div>
+            <div class="tcard__check"><span></span></div>
+          </div>
+          <div class="tcard tcard--low">
+            <div class="tcard__time">—</div>
+            <div class="tcard__main">
+              <div class="tcard__icon">📦</div>
+              <div class="tcard__txt">
+                <div class="tcard__title">Order grocery delivery</div>
+                <div class="tcard__assignee">Unassigned</div>
+              </div>
+            </div>
+            <div class="tcard__check"><span></span></div>
+          </div>
+        </div>
+        <div class="phone__home"></div>
+      </div>
+      <p class="duo-caption">
+        Isla sees her tasks for today and the appointments she's responsible for.
+        She does <em>not</em> see Remy's pharmacy run. That's his.
+      </p>
+    </div>
+
+    <div class="reveal" style="--d: 440ms;">
+      <p class="duo-label">The Calendar · everyone's view</p>
+      <div class="phone" style="max-width: 100%;">
+        <div class="phone__bar"><span><span class="dot"></span>8:42 AM</span><span>This Week</span></div>
+        <div class="phone__title">Calendar</div>
+        <div class="phone__sub">14 events · 3 caregivers</div>
+        <div class="calendar-strip">
+          <div class="cal-day"><span class="cal-day__num">M</span><span class="cal-day__chip" style="background:var(--isla)"></span></div>
+          <div class="cal-day cal-day--today"><span class="cal-day__num">T</span><span class="cal-day__chip" style="background:var(--crit)"></span><span class="cal-day__chip" style="background:var(--isla)"></span></div>
+          <div class="cal-day"><span class="cal-day__num">W</span><span class="cal-day__chip" style="background:var(--remy)"></span></div>
+          <div class="cal-day"><span class="cal-day__num">T</span><span class="cal-day__chip" style="background:var(--remy)"></span></div>
+          <div class="cal-day"><span class="cal-day__num">F</span></div>
+          <div class="cal-day"><span class="cal-day__num">S</span><span class="cal-day__chip" style="background:var(--isla)"></span></div>
+          <div class="cal-day"><span class="cal-day__num">S</span></div>
+        </div>
+        <div class="phone__body" style="padding-top: 0;">
+          <div class="tcard tcard--med">
+            <div class="tcard__time">Thu<br/>10 AM</div>
+            <div class="tcard__main">
+              <div class="tcard__icon">🚗</div>
+              <div class="tcard__txt">
+                <div class="tcard__title">Drive Dad to PT</div>
+                <div class="tcard__assignee"><span class="av av--remy av--24">R</span><span>Remy</span></div>
+              </div>
+            </div>
+            <div class="tcard__check"><span></span></div>
+          </div>
+        </div>
+        <div class="phone__home"></div>
+      </div>
+      <p class="duo-caption">
+        Remy drives Dad to physical therapy on Thursdays. Isla doesn't go. The
+        Calendar makes sure neither of them forgets.
+      </p>
+    </div>
+
+  </div>
+
+  <div class="priority-legend reveal" style="--d: 600ms;">
+    <div class="priority-item">
+      <span class="priority-dot priority-dot--crit"></span>
+      <div>
+        <div class="priority-name">Critical</div>
+        <p class="priority-desc">An appointment, dose, or task that cannot slip — at all.</p>
+      </div>
+    </div>
+    <div class="priority-item">
+      <span class="priority-dot priority-dot--high"></span>
+      <div>
+        <div class="priority-name">High</div>
+        <p class="priority-desc">Important this week. A small slip is recoverable; a big one isn't.</p>
+      </div>
+    </div>
+    <div class="priority-item">
+      <span class="priority-dot priority-dot--med"></span>
+      <div>
+        <div class="priority-name">Medium</div>
+        <p class="priority-desc">The everyday things that keep life moving.</p>
+      </div>
+    </div>
+    <div class="priority-item">
+      <span class="priority-dot priority-dot--low"></span>
+      <div>
+        <div class="priority-name">Low</div>
+        <p class="priority-desc">Nice to do. Fine to wait.</p>
+      </div>
+    </div>
+  </div>
+  <p class="caption reveal" style="--d: 720ms; margin-top: 18px;">
+    Medium is intentionally <strong style="color: var(--med);">teal</strong>, not green — so red and green are never paired together for color-blind caregivers.
+  </p>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     SCENE 3 — TASKS & APPOINTMENTS
+════════════════════════════════════════════════════════════════════ -->
+<div class="divider"></div>
+
+<section class="scene" id="s3">
+  <p class="eyebrow reveal">Act III · Tasks &amp; Appointments</p>
+  <h2 class="headline reveal" style="--d: 80ms;">
+    Add what matters. The right people see it. The right day, the right time.
+  </h2>
+  <p class="lead reveal" style="--d: 200ms;">
+    Two kinds of items power most of CareSync. <strong>Tasks</strong> are what
+    needs to happen. <strong>Appointments</strong> are when they need to happen.
+  </p>
+
+  <div class="grid-2" style="margin-top: 64px; align-items: start;">
+
+    <div class="reveal" style="--d: 320ms;">
+      <p class="duo-label">Adding a task</p>
+      <div class="form-mock">
+        <div class="form-mock__head">New task · in Dad's Care Team</div>
+        <div class="form-mock__title">Pick up Lisinopril refill</div>
+
+        <div class="form-row">
+          <div class="form-label">When</div>
+          <div class="form-input">📅 Today · no specific time</div>
+        </div>
+        <div class="form-row">
+          <div class="form-label">Priority</div>
+          <div class="form-chips">
+            <span class="chip chip--crit-active">Critical</span>
+            <span class="chip">High</span>
+            <span class="chip">Medium</span>
+            <span class="chip">Low</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-label">Assign to</div>
+          <div class="form-input">
+            <span class="av av--remy av--24">R</span>
+            <span>Remy</span>
+          </div>
+        </div>
+        <div class="form-cta">Save task</div>
+      </div>
+      <p class="caption" style="margin-top: 20px;">
+        Want to track whether Dad took his evening dose? Add a recurring task. It
+        shows up in My Day for whoever's on duty that night — no separate
+        compliance app needed.
+      </p>
+    </div>
+
+    <div class="reveal" style="--d: 440ms;">
+      <p class="duo-label">Adding an appointment</p>
+      <div class="form-mock">
+        <div class="form-mock__head">New appointment · in Dad's Care Team</div>
+        <div class="form-mock__title">Cardiology follow-up</div>
+
+        <div class="form-row">
+          <div class="form-label">When</div>
+          <div class="form-input form-input--accent">📅 March 15 · 2:00 PM</div>
+        </div>
+        <div class="form-row">
+          <div class="form-label">Where</div>
+          <div class="form-input">📍 St. Mary's · Suite 304</div>
+        </div>
+        <div class="form-row">
+          <div class="form-label">Who's going</div>
+          <div class="form-input">
+            <span class="av av--isla av--24">I</span>
+            <span>Isla driving · Dad seeing Dr. Patel</span>
+          </div>
+        </div>
+        <div class="form-cta">Save appointment</div>
+      </div>
+      <p class="caption" style="margin-top: 20px;">
+        Appointments show on the day they happen — on every member's Calendar.
+        Mark them complete when they're done; the timestamp and who did it are
+        saved for the family record.
+      </p>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     SCENE 4 — IN SYNC
+════════════════════════════════════════════════════════════════════ -->
+<div class="divider"></div>
+
+<section class="scene" id="s4">
+  <p class="eyebrow reveal">Act III · In sync, in seconds</p>
+  <h2 class="headline reveal" style="--d: 80ms;">
+    He was already at the pharmacy. Now he knows what to get.
+  </h2>
+  <p class="lead reveal" style="--d: 200ms;">
+    The task is shared the moment it's saved. Within a second. To every phone in
+    the circle. No group chats. No "hey when you get a chance" messages that
+    might get missed.
+  </p>
+
+  <div class="sync-stage reveal" style="--d: 320ms;">
+
+    <div class="sync-stage__phone">
+      <div>
+        <p class="sync-label">Isla · 8:47 AM</p>
+        <div class="phone phone--mini">
+          <div class="phone__bar"><span><span class="dot"></span>8:47 AM</span><span>+</span></div>
+          <div class="phone__title">Saving…</div>
+          <div class="phone__body">
+            <div class="tcard tcard--crit">
+              <div class="tcard__time">Today</div>
+              <div class="tcard__main">
+                <div class="tcard__icon">💊</div>
+                <div class="tcard__txt">
+                  <div class="tcard__title">Lisinopril refill</div>
+                  <div class="tcard__assignee"><span class="av av--remy av--24">R</span><span>Remy</span></div>
+                </div>
+              </div>
+              <div class="tcard__check"><span></span></div>
+            </div>
+            <p class="caption" style="margin-top: 8px; text-align: center;">Tap save</p>
+          </div>
+          <div class="phone__home"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sync-arrow">
+      <svg viewBox="0 0 60 24" fill="none">
+        <path d="M2 12 L54 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 3"/>
+        <path d="M48 6 L56 12 L48 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <span>real time</span>
+    </div>
+
+    <div class="sync-stage__phone">
+      <div>
+        <p class="sync-label">Remy · 8:47 AM</p>
+        <div class="phone phone--mini">
+          <div class="phone__bar"><span><span class="dot"></span>8:47 AM</span><span>📍 Walgreens</span></div>
+          <div class="phone__title">My Day</div>
+          <div class="phone__sub">New · just now</div>
+          <div class="phone__body">
+            <div class="tcard tcard--crit" style="box-shadow: 0 0 0 3px rgba(220,38,38,0.18);">
+              <div class="tcard__time">Today</div>
+              <div class="tcard__main">
+                <div class="tcard__icon">💊</div>
+                <div class="tcard__txt">
+                  <div class="tcard__title">Lisinopril refill</div>
+                  <div class="tcard__assignee"><span class="av av--remy av--24">R</span><span>You</span></div>
+                </div>
+              </div>
+              <div class="tcard__check"><span></span></div>
+            </div>
+            <p class="caption" style="margin-top: 8px; text-align: center;">Synced · 0.4s ago</p>
+          </div>
+          <div class="phone__home"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="caption reveal" style="--d: 480ms; max-width: 600px; margin-top: 56px;">
+    Every task, appointment, edit, and completion syncs the same way — through
+    a live database connection that stays open while the app is open.
+  </p>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     SCENE 5 — BROADCAST
+════════════════════════════════════════════════════════════════════ -->
+<div class="divider"></div>
+
+<section class="scene scene--narrow" id="s5">
+  <p class="eyebrow reveal">Act IV · The voice in the room</p>
+  <h2 class="headline reveal" style="--d: 80ms;">
+    When something matters, everyone hears it at once.
+  </h2>
+  <p class="lead reveal" style="--d: 200ms;">
+    A broadcast is the one place in CareSync where the Admin's voice reaches
+    the whole circle simultaneously.
+  </p>
+
+  <p class="body reveal" style="--d: 320ms;">
+    It's Saturday. Dad's chest hurts. Isla calls 911. On the way to St. Mary's,
+    she opens CareSync and posts:
+  </p>
+
+  <div class="broadcast-stage reveal" style="--d: 440ms;">
+    <div class="broadcast-card">
+      <div class="broadcast-card__head">
+        <div class="broadcast-card__author">
+          <span class="av av--isla av--40">I</span>
+          <div>
+            <div>Isla</div>
+            <div style="font-size: 11px; color: var(--text-3); font-weight: 400;">Admin · just now</div>
+          </div>
+        </div>
+        <span class="severity-badge">Critical</span>
+      </div>
+      <p class="broadcast-card__msg">
+        Dad is at the ER. St. Mary's. Room 4. He's okay — they're running tests.
+        I'll update you when we know more.
+      </p>
+    </div>
+
+    <div class="broadcast-recipients">
+      <div class="recipient">
+        <span class="av av--remy av--40">R</span>
+        <strong>Remy</strong>
+        <em>Sees it on his lunch break. Drives over.</em>
+      </div>
+      <div class="recipient">
+        <span class="av av--evie av--40">E</span>
+        <strong>Evie · Boston</strong>
+        <em>Putting her kids to bed. Reads it. Exhales. She doesn't have to call.</em>
+      </div>
+    </div>
+  </div>
+
+  <p class="caption reveal" style="--d: 600ms; margin-top: 56px;">
+    Only the <strong style="color: var(--text);">Admin</strong> can broadcast.
+    Tasks and appointments are collaborative; broadcasts stay focused — so when
+    one arrives, everyone trusts it.
+  </p>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     SCENE 6 — SCAN AVS (ELABORATE INTERACTIVE THEATER)
+════════════════════════════════════════════════════════════════════ -->
+<div class="divider"></div>
+
+<section class="scene scene--wide" id="s6">
+  <p class="eyebrow reveal">Act V · The quiet power</p>
+  <h2 class="headline reveal" style="--d: 80ms;">
+    A photo of a discharge paper. Thirty seconds. A real appointment on the calendar.
+  </h2>
+  <p class="lead reveal" style="--d: 200ms;">
+    Scan AVS is CareSync's AI feature. It captures the <em>next follow-up appointment</em>
+    from any photographed medical paperwork — and only that — then drops it on the
+    family calendar after a human confirms it's right.
+  </p>
+
+  <p class="body reveal" style="--d: 320ms; max-width: 760px;">
+    Remy is at the hospital discharge desk. The nurse hands him three pages of
+    paperwork. The follow-up cardiology date is on page two. He's tired. He doesn't
+    want to type any of it. So he doesn't.
+  </p>
+
+  <!-- ── INTERACTIVE THEATER ──────────────────────────── -->
+  <div class="scan-theater reveal" style="--d: 440ms;">
+
+    <div class="scan-header">
+      <div class="scan-header__title">Scan AVS · live walkthrough</div>
+      <button class="scan-btn" id="scanBtn" type="button" aria-label="Play the Scan AVS animation">
+        <span id="scanBtnText">Watch it work</span>
+        <span aria-hidden="true">→</span>
+      </button>
+    </div>
+
+    <!-- Stage progress -->
+    <div class="scan-stages" id="scanStages">
+      <div class="stage-pill" data-stage="1"><span class="stage-pill__num">1</span>Capture</div>
+      <div class="stage-pill" data-stage="2"><span class="stage-pill__num">2</span>Upload</div>
+      <div class="stage-pill" data-stage="3"><span class="stage-pill__num">3</span>Read &amp; verify</div>
+      <div class="stage-pill" data-stage="4"><span class="stage-pill__num">4</span>Appointment only</div>
+      <div class="stage-pill" data-stage="5"><span class="stage-pill__num">5</span>Isla approves</div>
+      <div class="stage-pill" data-stage="6"><span class="stage-pill__num">6</span>Family synced</div>
+    </div>
+
+    <!-- Canvas — stages overlap, controlled by data-visible -->
+    <div class="scan-canvas">
+
+      <!-- STAGE 0: idle placeholder -->
+      <div class="scan-frame" id="frame-idle" data-visible="true">
+        <div style="text-align: center; color: var(--text-3); max-width: 480px;">
+          <div style="font-size: 64px; margin-bottom: 16px;">📄 📷</div>
+          <p style="font-size: 16px; line-height: 1.55;">
+            Tap <strong style="color: var(--text);">Watch it work</strong> to see the full
+            pipeline — from Remy's phone, through the cloud, to Isla's approval, to the
+            family calendar.
+          </p>
+        </div>
+      </div>
+
+      <!-- STAGE 1: Capture + compress -->
+      <div class="scan-frame" id="frame-1" data-visible="false">
+        <div class="capture-scene">
+          <div class="capture-phone">
+            <div class="capture-phone__screen">
+              <div class="avs-doc-bg">
+                <div class="doc-h">After-Visit Summary</div>
+                <div class="doc-h" style="font-size:6px; margin-bottom:6px;">St. Mary's · 03/01/2026</div>
+                <div class="doc-line"></div>
+                <div class="doc-line"></div>
+                <div class="doc-line"></div>
+                <div class="doc-line"></div>
+                <div class="doc-line"></div>
+              </div>
+              <div class="viewfinder">
+                <div class="viewfinder__corner viewfinder__corner--tl"></div>
+                <div class="viewfinder__corner viewfinder__corner--tr"></div>
+                <div class="viewfinder__corner viewfinder__corner--bl"></div>
+                <div class="viewfinder__corner viewfinder__corner--br"></div>
+              </div>
+              <div class="capture-shutter"></div>
+              <div class="capture-flash"></div>
+            </div>
+          </div>
+          <div class="capture-meta">
+            <h4>1 · Remy takes a photo.</h4>
+            <p>
+              He frames the discharge paper in his phone's camera. The CareSync app
+              detects the corners, snaps the picture, and instantly starts shrinking
+              the file on his device.
+            </p>
+            <div class="compress-meter">
+              <div class="compress-meter__row">
+                <span>Original</span><strong>3.2 MB</strong>
+              </div>
+              <div class="compress-meter__row">
+                <span>Compressed (on phone)</span><strong>247 KB</strong>
+              </div>
+              <div class="compress-meter__bar">
+                <div class="compress-meter__fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAGE 2: Encrypted upload -->
+      <div class="scan-frame" id="frame-2" data-visible="false">
+        <div class="upload-scene">
+          <div class="upload-path">
+            <svg viewBox="0 0 720 240" preserveAspectRatio="none">
+              <path d="M 80 165 Q 360 -30 640 90" stroke="#a855f7" stroke-width="2" stroke-dasharray="6 6" fill="none">
+                <animate attributeName="stroke-dashoffset" from="0" to="-24" dur="0.8s" repeatCount="indefinite"/>
+              </path>
+            </svg>
+            <div class="upload-doc">
+              <div class="doc-line"></div>
+              <div class="doc-line"></div>
+              <div class="doc-line"></div>
+              <div class="doc-line"></div>
+              <div class="doc-line"></div>
+            </div>
+            <div class="upload-lock">
+              <span>🔒</span> Encrypted in transit
+            </div>
+            <div class="upload-cloud">☁️</div>
+          </div>
+          <div class="upload-meta">
+            <h4>2 · The photo travels over an encrypted connection.</h4>
+            <p>
+              The compressed image is sent to CareSync's secure cloud function with the
+              user's authentication token attached. Nothing leaves the device unencrypted.
+              Nothing is stored along the way.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAGE 3: Gemini + verify patient -->
+      <div class="scan-frame" id="frame-3" data-visible="false">
+        <div class="gemini-scene">
+          <div class="gemini-brain">
+            <div class="gemini-brain__ring"></div>
+            <div class="gemini-brain__ring"></div>
+            <div class="gemini-brain__ring"></div>
+            <div class="gemini-brain__core"></div>
+            <div class="gemini-brain__label">Gemini · reading</div>
+          </div>
+          <div class="verify-cards">
+            <div class="verify-card">
+              <div>
+                <div class="verify-card__label">From the document</div>
+                <div class="verify-card__name">David Chen</div>
+              </div>
+            </div>
+            <div class="verify-card is-match">
+              <div>
+                <div class="verify-card__label">Care Circle patient</div>
+                <div class="verify-card__name">David Chen</div>
+              </div>
+              <span class="verify-badge">✓ Match</span>
+            </div>
+          </div>
+          <p class="gemini-meta">
+            3 · Google Gemini 2.5 Flash reads the photo. The first thing it checks is the
+            patient name — and only the patient name. If it doesn't match the Care Circle's
+            patient, the whole scan is rejected before anything else happens.
+          </p>
+        </div>
+      </div>
+
+      <!-- STAGE 4: Non-PHI extraction -->
+      <div class="scan-frame" id="frame-4" data-visible="false">
+        <div class="extract-scene">
+          <div class="extract-appt">
+            <div class="extract-appt__type">Follow-up appointment</div>
+            <div class="extract-appt__title">Cardiology · Dr. Patel</div>
+            <div class="extract-appt__field"><span>Date</span><span>March 15, 2026</span></div>
+            <div class="extract-appt__field"><span>Time</span><span>2:00 PM</span></div>
+            <div class="extract-appt__field"><span>Location</span><span>St. Mary's, Suite 304</span></div>
+            <div class="extract-appt__field"><span>Reason</span><span>Post-discharge check</span></div>
+          </div>
+          <div class="phi-guard">
+            <div class="phi-guard__title">🔒 Stayed encrypted</div>
+            <div class="phi-guard__item">Medication names &amp; dosages</div>
+            <div class="phi-guard__item">Care instructions</div>
+            <div class="phi-guard__item">Clinical notes</div>
+            <div class="phi-guard__item">Diagnosis codes</div>
+            <p class="phi-guard__caption">
+              4 · Gemini extracts only the next appointment. Sensitive medical
+              details are never decoded into the database — they stay on paper, where
+              the family already manages them.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAGE 5: Isla reviews -->
+      <div class="scan-frame" id="frame-5" data-visible="false">
+        <div class="review-scene">
+          <div class="review-phone">
+            <div class="phone" style="max-width: 280px;">
+              <div class="phone__bar"><span><span class="dot"></span>3:47 PM</span><span>Review</span></div>
+              <div class="phone__title">New from Scan AVS</div>
+              <div class="phone__sub">Submitted by Remy · just now</div>
+              <div class="phone__body">
+                <div class="extract-appt" style="border: 1px solid var(--line); box-shadow: none; padding: 14px; border-left: 4px solid var(--isla);">
+                  <div class="extract-appt__type">Follow-up</div>
+                  <div class="extract-appt__title" style="font-size: 15px; margin-bottom: 8px;">Cardiology · Dr. Patel</div>
+                  <div class="extract-appt__field" style="font-size: 11px;"><span>Date</span><span>Mar 15 · 2:00 PM</span></div>
+                  <div class="extract-appt__field" style="font-size: 11px;"><span>Where</span><span>St. Mary's</span></div>
+                </div>
+                <div class="review-actions">
+                  <span class="review-btn">Reject</span>
+                  <span class="review-btn review-btn--primary">Approve →</span>
+                </div>
+              </div>
+              <div class="phone__home"></div>
+            </div>
+          </div>
+          <div class="review-meta">
+            <h4>5 · Isla reviews on her phone.</h4>
+            <p>
+              Remy submitted the scan. Isla — the Admin — sees the extracted
+              appointment and approves it. If Gemini got a field wrong (a typo, a
+              wrong date), Isla can edit before approving. The AI does the typing.
+              Isla does the trusting.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAGE 6: Calendar + family synced -->
+      <div class="scan-frame" id="frame-6" data-visible="false">
+        <div class="sync-scene">
+          <div class="mini-cal">
+            <div class="mini-cal__header">March 2026</div>
+            <div class="mini-cal__grid">
+              <div class="mini-cal__day weekday-h">S</div>
+              <div class="mini-cal__day weekday-h">M</div>
+              <div class="mini-cal__day weekday-h">T</div>
+              <div class="mini-cal__day weekday-h">W</div>
+              <div class="mini-cal__day weekday-h">T</div>
+              <div class="mini-cal__day weekday-h">F</div>
+              <div class="mini-cal__day weekday-h">S</div>
+              <div class="mini-cal__day">1</div><div class="mini-cal__day">2</div><div class="mini-cal__day">3</div><div class="mini-cal__day">4</div><div class="mini-cal__day">5</div><div class="mini-cal__day">6</div><div class="mini-cal__day">7</div>
+              <div class="mini-cal__day">8</div><div class="mini-cal__day">9</div><div class="mini-cal__day">10</div><div class="mini-cal__day">11</div><div class="mini-cal__day">12</div><div class="mini-cal__day">13</div><div class="mini-cal__day">14</div>
+              <div class="mini-cal__day has-event">15</div><div class="mini-cal__day">16</div><div class="mini-cal__day">17</div><div class="mini-cal__day">18</div><div class="mini-cal__day">19</div><div class="mini-cal__day">20</div><div class="mini-cal__day">21</div>
+            </div>
+            <div class="mini-cal__event">
+              <strong>Cardiology · Dr. Patel</strong>
+              <span>Mar 15 · 2:00 PM · St. Mary's</span>
+            </div>
+          </div>
+          <div class="family-phones">
+            <div class="family-phone">
+              <div class="family-phone__head">
+                <span class="av av--remy av--24">R</span>
+                <span>Remy</span>
+              </div>
+              <div class="family-phone__notif">
+                <em>New on calendar</em>
+                <strong>Cardiology · Dr. Patel</strong>
+                Mar 15 · 2 PM
+              </div>
+            </div>
+            <div class="family-phone">
+              <div class="family-phone__head">
+                <span class="av av--evie av--24">E</span>
+                <span>Evie</span>
+              </div>
+              <div class="family-phone__notif">
+                <em>New on calendar</em>
+                <strong>Cardiology · Dr. Patel</strong>
+                Mar 15 · 2 PM
+              </div>
+            </div>
+          </div>
+          <p class="sync-meta">
+            6 · The appointment lands on the Care Circle calendar. Within a second,
+            it's on Remy's phone in the car, and on Evie's phone in Boston — without
+            anyone needing to text it around.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Narration bar -->
+    <div class="scan-narration">
+      <div class="scan-narration__line" id="scanNarration">
+        Press <strong style="color: var(--text);">Watch it work</strong> to begin.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="scan-takeaway reveal" style="--d: 580ms;">
+    <strong>Gemini is fast. Gemini is not perfect.</strong> That's why every Scan AVS
+    pipeline ends with a human review. The AI does the typing. The Admin does the
+    trusting. Sensitive medical details never enter the database — only the next
+    appointment does.
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
+     CLOSING
+════════════════════════════════════════════════════════════════════ -->
+<div class="divider"></div>
+
+<section class="closing">
+  <p class="eyebrow reveal">After</p>
+  <h2 class="headline reveal" style="--d: 80ms;">
+    It's Tuesday again.
+  </h2>
+  <p class="lead reveal" style="--d: 200ms; margin-left: auto; margin-right: auto;">
+    Isla's phone shows one calendar instead of six chat threads. The next
+    appointment is on it. The pharmacy run is checked off. Evie texts from Boston:
+    <em>"How is he?"</em>
+  </p>
+
+  <p class="body reveal" style="--d: 320ms; margin-left: auto; margin-right: auto;">
+    She can answer it in one line.
+  </p>
+
+  <div class="reveal" style="--d: 440ms;">
+    <div class="reply-bubble">
+      <div class="reply-bubble__head">To Evie · 7:14 PM</div>
+      Cardiologist is Mar 15, 2 PM. Remy's got the refill. Dad's settled in.
+      You'll see it all in the circle. He's okay.
+    </div>
+  </div>
+
+  <p class="body reveal" style="--d: 560ms; margin-left: auto; margin-right: auto; font-style: italic;">
+    She doesn't need three notebooks to send it.
+  </p>
+
+  <div class="closing__tag reveal" style="--d: 700ms;">
+    <div class="closing__logo">
+      <img src="../public/logo-icon.png" alt="" />
+      <span>CareSync</span>
+    </div>
+    <p class="closing__tag-line">So care doesn't have to feel like work.</p>
+    <p class="closing__tag-sub">Coordinated care for the people you love.</p>
+  </div>
+</section>
+
+<footer>
+  CareSync · An introduction · CIMA 130 — Introduction to AI · May 2026 ·
+  <a href="https://github.com/ericmiaoai/caresync">github.com/ericmiaoai/caresync</a>
+</footer>
+
+<script>
+  /* ════════════════════════════════════════════════════════════════
+     SCROLL REVEAL
+     ════════════════════════════════════════════════════════════════ */
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) {
+        e.target.classList.add('is-in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+  /* ════════════════════════════════════════════════════════════════
+     SCAN AVS — STAGED THEATER
+     ════════════════════════════════════════════════════════════════ */
+  const btn      = document.getElementById('scanBtn');
+  const btnText  = document.getElementById('scanBtnText');
+  const stages   = document.querySelectorAll('#scanStages .stage-pill');
+  const frameIdle = document.getElementById('frame-idle');
+  const frames   = [
+    document.getElementById('frame-1'),
+    document.getElementById('frame-2'),
+    document.getElementById('frame-3'),
+    document.getElementById('frame-4'),
+    document.getElementById('frame-5'),
+    document.getElementById('frame-6'),
+  ];
+  const narration = document.getElementById('scanNarration');
+
+  const STORY = [
+    "Remy lines up the camera. CareSync catches the document corners and compresses the photo on his phone — 3.2 MB shrinks to 247 KB in under a second.",
+    "The compressed photo is sent to the cloud over an encrypted connection. Nothing is stored along the way.",
+    "Gemini reads the document — but the first check is the name. David Chen on the paper, David Chen in the Care Circle. Match. Continue.",
+    "Gemini extracts only the next appointment. Medications, dosages, and clinical instructions stay encrypted and are never written to the database.",
+    "Isla — the Admin — gets the extracted appointment on her phone for review. She can edit any field before approving. Nothing saves until she does.",
+    "She taps approve. The appointment lands on the Care Circle calendar. Within a second, Remy and Evie see it on their phones too. Done.",
+  ];
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function showFrame(idx) {
+    frameIdle.dataset.visible = "false";
+    frames.forEach((f, i) => f.dataset.visible = (i === idx) ? "true" : "false");
+  }
+  function setNarration(text) {
+    narration.classList.add('is-hidden');
+    setTimeout(() => {
+      narration.innerHTML = text;
+      narration.classList.remove('is-hidden');
+    }, 280);
+  }
+  function setStage(i, state) {
+    // state: 'active' | 'done' | null
+    const pill = stages[i];
+    pill.removeAttribute('data-active');
+    pill.removeAttribute('data-done');
+    if (state) pill.setAttribute('data-' + state, 'true');
+  }
+
+  async function playScan() {
+    btn.dataset.state = 'playing';
+    btnText.textContent = 'Playing…';
+
+    // Reset
+    stages.forEach((p) => { p.removeAttribute('data-active'); p.removeAttribute('data-done'); });
+
+    for (let i = 0; i < 6; i++) {
+      setStage(i, 'active');
+      showFrame(i);
+      setNarration(STORY[i]);
+      const dur = (i === 0 || i === 3) ? 4200 : 3400;  // capture + extract stages get a bit longer
+      await wait(dur);
+      setStage(i, 'done');
+    }
+
+    setNarration("Done. A photo became a calendar entry in about thirty seconds. Tap <strong>Play again</strong> to replay.");
+    btn.dataset.state = 'done';
+    btnText.textContent = 'Play again';
+  }
+
+  btn.addEventListener('click', () => {
+    if (btn.dataset.state === 'playing') return;
+    playScan();
+  });
+</script>
+
+</body>
+</html>

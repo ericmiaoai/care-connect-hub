@@ -151,9 +151,7 @@ function OnboardingPage() {
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex flex-col items-center gap-3 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--user-mom)] to-[var(--user-nurse)] shadow-lg">
-              <Users className="h-7 w-7 text-white" />
-            </div>
+            <img src="/logo-icon.png" alt="CareSync" className="h-14 w-14 rounded-2xl object-cover" style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.25))" }} />
             <div>
               <h1 className="text-xl font-semibold tracking-tight">
                 Welcome, {firstName}
@@ -383,9 +381,7 @@ function OnboardingPage() {
         </p>
 
         <div className="mb-8 flex flex-col gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--user-mom)] to-[var(--user-nurse)] shadow-md">
-            <Heart className="h-5 w-5 text-white" />
-          </div>
+          <img src="/logo-icon.png" alt="CareSync" className="h-12 w-12 rounded-2xl object-cover" style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.25))" }} />
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Who are you caring for?</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">

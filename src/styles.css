@@ -93,7 +93,7 @@
   /* User color tokens — Cozi-style assignment palette */
   --user-mom: oklch(0.66 0.18 255);               /* blue-500 */
   --user-dad: oklch(0.78 0.16 75);                /* amber-500 */
-  --user-nurse: oklch(0.72 0.17 152);             /* emerald-500 */
+  --user-nurse: oklch(0.68 0.13 210);             /* teal — accessible for red-green colorblindness */
   --user-sister: oklch(0.62 0.21 295);            /* violet-500 */
   --user-admin: oklch(0.7 0.15 200);              /* sky/teal */
 }
@@ -397,7 +397,7 @@
 }
 [data-theme="granite"] [data-priority="medium"] {
   box-shadow:
-    inset 8px 0 28px oklch(0.72 0.17 152 / 0.26),
+    inset 8px 0 28px oklch(0.68 0.13 210 / 0.30),
     0 10px 30px -4px rgba(0,0,0,0.75),
     0 4px 8px rgba(0,0,0,0.50),
     inset 0 1px 0 rgba(255,255,255,0.13) !important;

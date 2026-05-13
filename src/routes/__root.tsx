@@ -96,7 +96,7 @@ function AppHeader() {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/80 px-4 py-3 backdrop-blur md:hidden">
       <div className="flex items-center gap-2">
-        <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-[var(--user-mom)] to-[var(--user-nurse)]" />
+        <img src="/logo-icon.png" alt="CareSync" className="h-7 w-7 rounded-lg object-cover" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.2))" }} />
         <span className="text-base font-semibold tracking-tight">CareSync</span>
       </div>
       <button
