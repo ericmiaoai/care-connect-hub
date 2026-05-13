@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { useEffect } from "react";
 import { WifiOff } from "lucide-react";
 import { BottomTabBar, SideNav } from "@/components/AppNav";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -192,7 +193,9 @@ function RootComponent() {
   if (isShellFree) {
     return (
       <>
-        <Outlet />
+        <AppErrorBoundary>
+          <Outlet />
+        </AppErrorBoundary>
         <Toaster theme="dark" position="bottom-center" offset={16} />
       </>
     );
@@ -216,7 +219,9 @@ function RootComponent() {
               transition={{ duration: 0.12, ease: "easeInOut" }}
             >
               <main className="pb-24 md:pb-12">
-                <Outlet />
+                <AppErrorBoundary>
+                  <Outlet />
+                </AppErrorBoundary>
               </main>
               <footer className="border-t border-border">
                 <Disclaimer />
