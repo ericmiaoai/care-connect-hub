@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useNewMemberAlert } from "@/hooks/useNewMemberAlert";
+import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { applyTheme, getStoredTheme } from "@/lib/theme";
 
 import appCss from "../styles.css?url";
@@ -147,6 +148,10 @@ function RootComponent() {
   useEffect(() => {
     applyTheme(getStoredTheme());
   }, []);
+
+  // Track the visual viewport so sheets shrink correctly when the mobile
+  // soft keyboard opens (writes window-height in px to --vvh on <html>)
+  useVisualViewport();
 
   const { user, isLoading: authLoading } = useAuth();
   const { careCircleId, role, isLoading: circleLoading } = useCareCircle(user?.id);
