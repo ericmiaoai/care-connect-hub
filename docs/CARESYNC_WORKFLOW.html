@@ -1114,63 +1114,192 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-     ARROW DRAWING
+     ARROW DRAWING — with active-card collision avoidance
      ════════════════════════════════════════════════════════════════ */
   function drawArrows(path) {
-    // Clear existing arrows
-    $arrows.querySelectorAll(".arrow, .arrow-group").forEach((a) => a.remove());
-
-    if (path.length < 2) {
-      sizeArrowOverlay();
-      return;
-    }
-
+    $arrows.querySelectorAll(".arrow").forEach((a) => a.remove());
     sizeArrowOverlay();
+    if (path.length < 2) return;
+
     const canvasRect = $canvas.getBoundingClientRect();
 
+    // Cache rects of every active card (relative to canvas)
+    const rects = {};
+    path.forEach((id) => {
+      const el = document.querySelector(`.card[data-id="${id}"]`);
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      rects[id] = {
+        left:   r.left   - canvasRect.left,
+        right:  r.right  - canvasRect.left,
+        top:    r.top    - canvasRect.top,
+        bottom: r.bottom - canvasRect.top,
+        width:  r.width,
+        height: r.height,
+        cx:     r.left + r.width / 2 - canvasRect.left,
+        cy:     r.top  + r.height / 2 - canvasRect.top,
+      };
+    });
+
     for (let i = 0; i < path.length - 1; i++) {
-      const fromEl = document.querySelector(`.card[data-id="${path[i]}"]`);
-      const toEl   = document.querySelector(`.card[data-id="${path[i+1]}"]`);
-      if (!fromEl || !toEl) continue;
+      const from = rects[path[i]];
+      const to   = rects[path[i + 1]];
+      if (!from || !to) continue;
 
-      const f = fromEl.getBoundingClientRect();
-      const t = toEl.getBoundingClientRect();
+      const obstacles = path
+        .filter((_, idx) => idx !== i && idx !== i + 1)
+        .map((id) => rects[id])
+        .filter(Boolean);
 
-      // Calculate connection points relative to canvas
-      const fx = f.right  - canvasRect.left;
-      const fy = f.top + f.height / 2 - canvasRect.top;
-      const tx = t.left   - canvasRect.left;
-      const ty = t.top + t.height / 2 - canvasRect.top;
+      const d = routeArrow(from, to, obstacles);
 
-      // Detect if cards are in same column (vertical flow)
-      const sameColumn = Math.abs(fx - tx) < 50 && fx > tx;
-      let pathStr;
-      if (sameColumn) {
-        // Use bottom-to-top vertical curve
-        const fxMid = f.left + f.width / 2 - canvasRect.left;
-        const fyBot = f.bottom - canvasRect.top;
-        const tyTop = t.top - canvasRect.top;
-        const midY = (fyBot + tyTop) / 2;
-        pathStr = `M ${fxMid} ${fyBot} C ${fxMid} ${midY}, ${fxMid} ${midY}, ${fxMid} ${tyTop}`;
-      } else if (tx < fx) {
-        // Going backwards (col N → earlier col) — arc above
-        const midY = Math.min(fy, ty) - 80;
-        pathStr = `M ${fx} ${fy} C ${fx + 60} ${midY}, ${tx - 60} ${midY}, ${tx} ${ty}`;
-      } else {
-        // Forward flow — bezier with horizontal control points
-        const dx = (tx - fx) / 2;
-        pathStr = `M ${fx} ${fy} C ${fx + dx} ${fy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
-      }
-
-      const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path1.setAttribute("d", pathStr);
-      path1.setAttribute("class", "arrow is-on");
-      path1.setAttribute("marker-end", "url(#arrowhead)");
-      $arrows.appendChild(path1);
+      const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      el.setAttribute("d", d);
+      el.setAttribute("class", "arrow is-on");
+      el.setAttribute("marker-end", "url(#arrowhead)");
+      $arrows.appendChild(el);
     }
 
-    // Ensure arrowhead marker is updated
     document.querySelectorAll(".arrow-head").forEach((ah) => ah.classList.add("is-on"));
+  }
+
+  /**
+   * Compute the SVG path for an arrow between two card rects, routing
+   * around any active-card obstacles. Three-phase strategy:
+   *   1. Compute the natural bezier between the cards
+   *   2. If it collides with any obstacle, route ABOVE all obstacles
+   *   3. If even the above route collides, route BELOW
+   */
+  function routeArrow(from, to, obstacles) {
+    const PAD = 4;
+    const isForward    = to.cx >  from.right;
+    const isBackward   = to.cx <  from.left;
+    const isSameColumn = !isForward && !isBackward;
+
+    // Pick connection edges based on relative position
+    let fx, fy, tx, ty;
+    if (isSameColumn) {
+      if (to.cy > from.cy) {
+        fx = from.cx; fy = from.bottom + PAD;
+        tx = to.cx;   ty = to.top - PAD;
+      } else {
+        fx = from.cx; fy = from.top - PAD;
+        tx = to.cx;   ty = to.bottom + PAD;
+      }
+    } else if (isBackward) {
+      fx = from.left - PAD;  fy = from.cy;
+      tx = to.right + PAD;   ty = to.cy;
+    } else {
+      fx = from.right + PAD; fy = from.cy;
+      tx = to.left - PAD;    ty = to.cy;
+    }
+
+    // 1. Try the natural curve
+    const natural = naturalPath(fx, fy, tx, ty, isSameColumn, isBackward);
+    if (!pathCollides(natural, obstacles)) return natural;
+
+    // 2. Try routing above the obstacles
+    const above = bypassPath(fx, fy, tx, ty, obstacles, "above");
+    if (!pathCollides(above, obstacles)) return above;
+
+    // 3. Last resort — route below
+    return bypassPath(fx, fy, tx, ty, obstacles, "below");
+  }
+
+  function naturalPath(fx, fy, tx, ty, isSameColumn, isBackward) {
+    if (isSameColumn) {
+      // Vertical flow — curve gently to the side
+      const offset = 18;
+      const midY = (fy + ty) / 2;
+      return `M ${fx} ${fy} C ${fx + offset} ${midY}, ${tx + offset} ${midY}, ${tx} ${ty}`;
+    }
+    if (isBackward) {
+      // Backward — arc above the source/target
+      const arcY = Math.min(fy, ty) - 60;
+      return `M ${fx} ${fy} C ${fx - 40} ${arcY}, ${tx + 40} ${arcY}, ${tx} ${ty}`;
+    }
+    // Forward — standard horizontal bezier
+    const dx = (tx - fx) / 2;
+    return `M ${fx} ${fy} C ${fx + dx} ${fy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+  }
+
+  /**
+   * Route around obstacles by leaving the source card, traversing to a
+   * clear Y above (or below) all active cards, then coming down (up) into
+   * the target. Three cubic segments joined together.
+   */
+  function bypassPath(fx, fy, tx, ty, obstacles, direction) {
+    const buffer = 28;
+    let safeY;
+    if (direction === "above") {
+      const topMost = Math.min(
+        ...obstacles.map((o) => o.top),
+        Math.min(fy, ty)
+      );
+      safeY = Math.max(8, topMost - buffer);
+    } else {
+      const bottomMost = Math.max(
+        ...obstacles.map((o) => o.bottom),
+        Math.max(fy, ty)
+      );
+      safeY = bottomMost + buffer;
+    }
+
+    // Three cubic segments: exit → traverse → enter
+    const lift = direction === "above"
+      ? (Math.min(fy, ty) - safeY) * 0.6
+      : (safeY - Math.max(fy, ty)) * 0.6;
+
+    const fyLift = direction === "above" ? fy - lift : fy + lift;
+    const tyLift = direction === "above" ? ty - lift : ty + lift;
+    const midX   = (fx + tx) / 2;
+
+    return `M ${fx} ${fy}
+            C ${fx} ${fyLift}, ${fx} ${safeY}, ${midX} ${safeY}
+            C ${tx} ${safeY}, ${tx} ${tyLift}, ${tx} ${ty}`;
+  }
+
+  /**
+   * Sample points along the path and test whether any sample falls inside
+   * an obstacle's padded bounding box.
+   */
+  function pathCollides(pathStr, obstacles) {
+    if (obstacles.length === 0) return false;
+
+    // Build a throwaway SVG path element so we can use getPointAtLength
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.style.cssText = "position:absolute;left:-9999px;width:1px;height:1px;";
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("d", pathStr);
+    svg.appendChild(path);
+    document.body.appendChild(svg);
+
+    const length = path.getTotalLength();
+    const PAD = 6;
+    const SAMPLES = 40;
+    let hit = false;
+
+    for (let i = 1; i < SAMPLES; i++) {
+      const t = (i / SAMPLES) * length;
+      const p = path.getPointAtLength(t);
+      for (const obs of obstacles) {
+        if (
+          p.x > obs.left   - PAD &&
+          p.x < obs.right  + PAD &&
+          p.y > obs.top    - PAD &&
+          p.y < obs.bottom + PAD
+        ) {
+          hit = true;
+          break;
+        }
+      }
+      if (hit) break;
+    }
+
+    document.body.removeChild(svg);
+    return hit;
+  }
   }
 
   function sizeArrowOverlay() {
