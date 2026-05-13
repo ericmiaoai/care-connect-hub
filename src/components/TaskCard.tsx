@@ -39,14 +39,14 @@ export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps, 
       data-kind={task.kind}
       style={{ boxShadow: "var(--card-shadow)" }}
     >
-      {/* Time column */}
-      <div className="flex w-24 shrink-0 flex-col items-end justify-center border-r border-border py-3 px-3">
+      {/* Time column — narrower on mobile to leave room for action buttons */}
+      <div className="flex w-20 shrink-0 flex-col items-end justify-center border-r border-border py-3 px-2 sm:w-24 sm:px-3">
         <span className="whitespace-nowrap text-sm font-semibold tabular-nums">{task.time}</span>
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 items-center gap-3 py-3 pr-2">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent">
+      <div className="flex min-w-0 flex-1 items-center gap-2 py-3 pr-1 sm:gap-3 sm:pr-2">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent sm:h-9 sm:w-9">
           <Icon className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="min-w-0 flex-1">
@@ -69,13 +69,13 @@ export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps, 
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-0.5 pr-2">
+      {/* Actions — compact on mobile (36px), full touch-target (44px) on tablet+ */}
+      <div className="flex items-center gap-0 pr-1 sm:gap-0.5 sm:pr-2">
         {dragHandleProps && (
           <button
             {...dragHandleProps}
             title="Drag to reorder"
-            className="cursor-grab touch-target flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
+            className="cursor-grab flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing sm:h-11 sm:w-11"
           >
             <GripVertical className="h-4 w-4" />
           </button>
@@ -85,7 +85,7 @@ export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps, 
             type="button"
             aria-label={`Edit ${task.title}`}
             onClick={() => onEdit(task.id)}
-            className="touch-target flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:h-11 sm:w-11"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -95,7 +95,7 @@ export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps, 
             type="button"
             aria-label={`Delete ${task.title}`}
             onClick={() => onDelete(task.id)}
-            className="touch-target flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive sm:h-11 sm:w-11"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -104,7 +104,7 @@ export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps, 
           type="button"
           aria-label={`Complete ${task.title}`}
           onClick={() => onComplete(task.id)}
-          className="touch-target group flex items-center justify-center pl-1"
+          className="touch-target group flex shrink-0 items-center justify-center pl-1"
         >
           <span className="grid h-7 w-7 place-items-center rounded-full border-2 border-border-strong transition-colors group-hover:border-[var(--success)] group-active:bg-[var(--success)]/20" />
         </button>

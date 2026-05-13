@@ -136,7 +136,7 @@ function SectionCard({
     <div className="rounded-2xl border border-border/60 bg-card/90 backdrop-blur-xl overflow-hidden" style={{ boxShadow: "var(--card-shadow-lg)" }}>
 
       {/* ── Card header ── */}
-      <div className="flex items-center gap-2 px-4 py-3.5">
+      <div className="flex items-center gap-2 px-3 py-3.5 sm:px-4">
 
         {/* Drag grip (section-level reorder) */}
         {dragHandleProps && (
@@ -188,18 +188,18 @@ function SectionCard({
       </div>
 
       {/* ── Divider ── */}
-      <div className="mx-4 h-px bg-border/40" />
+      <div className="mx-3 h-px bg-border/40 sm:mx-4" />
 
       {/* ── Content ── */}
       {!collapsed && (
-        <div className="px-4 pt-4 pb-5 flex flex-col gap-2.5">
+        <div className="px-3 pt-4 pb-5 flex flex-col gap-2.5 sm:px-4">
           {children}
         </div>
       )}
 
       {/* ── Collapsed footer with snooze option ── */}
       {collapsed && (
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center justify-between gap-2 px-3 py-3 sm:px-4">
           <span className="text-sm text-muted-foreground">
             {badge} {noun}{badge === 1 ? "" : "s"} hidden
           </span>
@@ -207,10 +207,11 @@ function SectionCard({
             <button
               type="button"
               onClick={onSnooze}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               <BellOff className="h-3.5 w-3.5" />
-              Snooze until tomorrow
+              <span className="hidden sm:inline">Snooze until tomorrow</span>
+              <span className="sm:hidden">Snooze</span>
             </button>
           )}
         </div>
@@ -930,7 +931,7 @@ function MyDay() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6">
+    <div className="mx-auto w-full max-w-2xl px-3 py-6 sm:px-4">
 
       {/* Page header */}
       <header className="mb-8 flex items-start justify-between gap-4">
