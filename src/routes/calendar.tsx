@@ -730,11 +730,11 @@ function CalendarView() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6">
+    <div className="mx-auto w-full max-w-5xl px-3 py-6 sm:px-4">
 
-      {/* ── Header ── */}
-      <header className="mb-8 flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
+      {/* ── Header — stacks vertically on mobile, side-by-side on tablet+ ── */}
+      <header className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex min-w-0 flex-col gap-1">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Calendar
           </p>
@@ -746,7 +746,7 @@ function CalendarView() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-[200px] text-center text-xl font-semibold tracking-tight">
+            <span className="min-w-[140px] flex-1 text-center text-xl font-semibold tracking-tight sm:min-w-[200px] sm:flex-none">
               {periodLabel}
             </span>
             <button
@@ -789,14 +789,14 @@ function CalendarView() {
           </div>
         </div>
 
-        {/* View toggle */}
-        <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
+        {/* View toggle — right-aligned on mobile (own row), inline on tablet+ */}
+        <div className="inline-flex shrink-0 self-end rounded-lg border border-border bg-card p-0.5 sm:self-auto">
           {(["day", "week", "month"] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
               className={cn(
-                "touch-target rounded-md px-3 text-sm capitalize transition-colors",
+                "rounded-md px-3 py-1.5 text-sm capitalize transition-colors sm:touch-target",
                 view === v
                   ? "bg-accent text-foreground"
                   : "text-muted-foreground hover:text-foreground",
