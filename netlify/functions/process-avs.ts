@@ -26,10 +26,11 @@ import { z } from "zod";
 // 1. ENVIRONMENT VALIDATION
 // Fail fast at cold-start if secrets are missing. Never expose these to client.
 // ---------------------------------------------------------------------------
-const GEMINI_API_KEY     = process.env.CARESYNC_GEMINI_KEY!;
-const SUPABASE_URL       = process.env.SUPABASE_URL!;
-const SUPABASE_ANON_KEY  = process.env.SUPABASE_ANON_KEY!;
-const GEMINI_MODEL       = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+const GEMINI_API_KEY      = process.env.CARESYNC_GEMINI_KEY!;
+const SUPABASE_URL        = process.env.SUPABASE_URL!;
+const SUPABASE_ANON_KEY   = process.env.SUPABASE_ANON_KEY!;
+const GEMINI_MODEL        = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
+const DAILY_SCAN_LIMIT    = parseInt(process.env.AVS_DAILY_SCAN_LIMIT ?? "10", 10);
 
 if (!GEMINI_API_KEY || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error(
@@ -202,6 +203,51 @@ export const handler: Handler = async (event: HandlerEvent) => {
     };
   }
   // ── END ROLE CHECK ────────────────────────────────────────────────────────
+
+  // ── RATE LIMIT ────────────────────────────────────────────────────────────
+  // Count this user's scans in the past 24 hours. Insert the log entry before
+  // calling Gemini so that concurrent requests also count against the limit.
+  const window24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { count, error: countError } = await authedClient
+    .from("avs_scan_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .gte("scanned_at", window24h);
+
+  if (countError) {
+    console.error("[process-avs] Rate limit check failed:", countError.message);
+    return {
+      statusCode: 500,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ error: "Unable to verify usage limits. Please try again." }),
+    };
+  }
+
+  if ((count ?? 0) >= DAILY_SCAN_LIMIT) {
+    return {
+      statusCode: 429,
+      headers: { ...CORS_HEADERS, "Retry-After": "3600" },
+      body: JSON.stringify({
+        error: `Daily scan limit reached. You can scan up to ${DAILY_SCAN_LIMIT} documents per 24 hours.`,
+      }),
+    };
+  }
+
+  // Reserve the slot before the API call — prevents concurrent bypass
+  const { error: logError } = await authedClient
+    .from("avs_scan_logs")
+    .insert({ user_id: user.id });
+
+  if (logError) {
+    console.error("[process-avs] Failed to log scan:", logError.message);
+    return {
+      statusCode: 500,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ error: "Unable to record usage. Please try again." }),
+    };
+  }
+  // ── END RATE LIMIT ────────────────────────────────────────────────────────
   // ── END SECURITY GATE ──────────────────────────────────────────────────────
 
   // Parse and validate the request body
