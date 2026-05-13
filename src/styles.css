@@ -101,6 +101,7 @@
 @layer base {
   html {
     color-scheme: dark;
+    overflow-x: hidden;
   }
   * {
     border-color: var(--color-border);
@@ -111,6 +112,7 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    overflow-x: hidden;
   }
 }
 

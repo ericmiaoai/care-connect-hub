@@ -934,11 +934,11 @@ function MyDay() {
 
       {/* Page header */}
       <header className="mb-8 flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {formatToday()}
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+          <h1 className="mt-1 break-words text-2xl font-semibold tracking-tight">
             {profile ? contextualGreeting(profile.first_name) : "My Day"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
