@@ -361,6 +361,7 @@
     /* Card */
     .card {
       position: relative;
+      z-index: 1;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -462,13 +463,13 @@
     .col-db    .card__icon { background: var(--col-db-bg);   color: var(--col-db); }
     .col-ai    .card__icon { background: var(--col-ai-bg);   color: var(--col-ai); }
 
-    /* Arrow overlay */
+    /* Arrow overlay — z-index 0 so cards (z-index 1) always paint on top */
     .arrows {
       position: absolute;
       top: 0; left: 0;
       width: 100%; height: 100%;
       pointer-events: none;
-      z-index: 1;
+      z-index: 0;
     }
     .arrow {
       stroke: var(--accent-line);
@@ -1147,12 +1148,7 @@
       const to   = rects[path[i + 1]];
       if (!from || !to) continue;
 
-      const obstacles = path
-        .filter((_, idx) => idx !== i && idx !== i + 1)
-        .map((id) => rects[id])
-        .filter(Boolean);
-
-      const d = routeArrow(from, to, obstacles);
+      const d = routeArrow(from, to);
 
       const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
       el.setAttribute("d", d);
@@ -1165,126 +1161,65 @@
   }
 
   /**
-   * Routing rules:
-   *   • Same column, clear path  → straight vertical line
-   *   • Same column, blocked     → detour right around the obstacle
-   *   • Cross-column forward     → exit right, bezier to target's left
-   *   • Cross-column backward    → exit right, arc above to target's top
-   *   • Any cross-column blocked → bypass above all obstacles
-   * Every cross-column arrow exits from the source's RIGHT side.
+   * Routing rules (arrows always exit the source from its RIGHT side):
+   *   • Same-column           → straight vertical line; renders behind cards via z-index
+   *   • Forward (target right)→ nearestEntry picks left/top/bottom of target by direction
+   *   • Backward (target left)→ enter nearest vertical face (top/bottom) to avoid loops
+   *
+   * No collision bypass — cards sit above the SVG via z-index so any crossing
+   * arrow simply slides behind the card it crosses.
    */
-  function routeArrow(from, to, obstacles) {
-    const isForward    = to.cx >  from.right;
+  function routeArrow(from, to) {
     const isBackward   = to.cx <  from.left;
+    const isForward    = to.cx >  from.right;
     const isSameColumn = !isForward && !isBackward;
 
-    // ── SAME COLUMN — prefer straight vertical line ─────────────────────
+    // ── SAME COLUMN: straight vertical ──────────────────────────────────
     if (isSameColumn) {
       const goingDown = to.cy > from.cy;
-      const fx0 = from.cx;
-      const fy0 = goingDown ? from.bottom : from.top;
-      const tx0 = to.cx;
-      const ty0 = goingDown ? to.top : to.bottom;
-      const straight = `M ${fx0} ${fy0} L ${tx0} ${ty0}`;
-      if (!pathCollides(straight, obstacles)) return straight;
-      // Blocked — detour around the right side of the column
-      const fx = from.right;
-      const fy = from.cy;
-      const tx = to.cx;
-      const ty = goingDown ? to.top : to.bottom;
-      const detourX = Math.max(from.right, to.right) + 40;
-      return `M ${fx} ${fy} C ${detourX} ${fy}, ${detourX} ${ty}, ${tx} ${ty}`;
+      return `M ${from.cx} ${goingDown ? from.bottom : from.top} L ${to.cx} ${goingDown ? to.top : to.bottom}`;
     }
 
-    // ── CROSS-COLUMN — always exit from source's right side ─────────────
+    // ── CROSS-COLUMN: exit right, choose nearest entry face ─────────────
     const fx = from.right;
     const fy = from.cy;
+    const { tx, ty } = nearestEntry(fx, fy, to, isBackward);
 
-    if (isForward) {
-      const tx = to.left;
-      const ty = to.cy;
-      const dx = (tx - fx) / 2;
-      const natural = `M ${fx} ${fy} C ${fx + dx} ${fy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
-      if (!pathCollides(natural, obstacles)) return natural;
-      return crossColumnBypass(fx, fy, tx, ty, obstacles, "forward");
+    const adx  = Math.abs(tx - fx);
+    const ady  = Math.abs(ty - fy);
+
+    if (ty === to.cy) {
+      // Entering a horizontal face (left or right side) — S-curve
+      const mx  = Math.max(adx * 0.4 + 20, 30);
+      const sx  = tx >= fx ? 1 : -1;
+      return `M ${fx} ${fy} C ${fx + sx*mx} ${fy}, ${tx - sx*mx} ${ty}, ${tx} ${ty}`;
     }
 
-    // Backward — enter target from its TOP
-    const tx = to.cx;
-    const ty = to.top;
-    const arcY = Math.min(fy, ty) - 60;
-    const natural = `M ${fx} ${fy} C ${fx + 60} ${fy}, ${tx} ${arcY}, ${tx} ${ty}`;
-    if (!pathCollides(natural, obstacles)) return natural;
-    return crossColumnBypass(fx, fy, tx, ty, obstacles, "backward");
+    // Entering a vertical face (top or bottom) — exit right, curve down/up
+    const xOff = Math.min(adx * 0.45 + 30, 90);
+    const yOff = Math.min(ady * 0.40 + 25, 75);
+    const sy   = ty >= fy ? 1 : -1;
+    return `M ${fx} ${fy} C ${fx + xOff} ${fy}, ${tx} ${ty - sy*yOff}, ${tx} ${ty}`;
   }
 
   /**
-   * Two-segment cubic that exits source horizontally to the right, climbs
-   * to a safe Y above every obstacle, traverses, and descends into the
-   * target — either horizontally (forward) or vertically (backward).
+   * Pick the face of `to` that is most directly reachable from (fx, fy).
+   * Backward arrows skip horizontal faces to avoid looping paths.
    */
-  function crossColumnBypass(fx, fy, tx, ty, obstacles, direction) {
-    const buffer  = 28;
-    const topMost = Math.min(
-      ...obstacles.map((o) => o.top),
-      Math.min(fy, ty)
-    );
-    const safeY  = Math.max(8, topMost - buffer);
-    const offset = 50;
-    const midX   = (fx + tx) / 2;
-
-    if (direction === "forward") {
-      // Enter target from its left side
-      return `M ${fx} ${fy}
-              C ${fx + offset} ${fy}, ${fx + offset} ${safeY}, ${midX} ${safeY}
-              C ${tx - offset} ${safeY}, ${tx - offset} ${ty}, ${tx} ${ty}`;
+  function nearestEntry(fx, fy, to, isBackward) {
+    if (isBackward) {
+      // Entering a side face from a right-side exit going leftward would
+      // require a U-turn loop. Use the nearest vertical face instead.
+      return fy <= to.cy
+        ? { tx: to.cx, ty: to.top    }
+        : { tx: to.cx, ty: to.bottom };
     }
-    // Backward — descend vertically into target's top
-    return `M ${fx} ${fy}
-            C ${fx + offset} ${fy}, ${fx + offset} ${safeY}, ${midX} ${safeY}
-            C ${tx} ${safeY}, ${tx} ${ty - offset}, ${tx} ${ty}`;
-  }
-
-  /**
-   * Sample points along the path and test whether any sample falls inside
-   * an obstacle's padded bounding box.
-   */
-  function pathCollides(pathStr, obstacles) {
-    if (obstacles.length === 0) return false;
-
-    // Build a throwaway SVG path element so we can use getPointAtLength
-    const ns = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(ns, "svg");
-    svg.style.cssText = "position:absolute;left:-9999px;width:1px;height:1px;";
-    const path = document.createElementNS(ns, "path");
-    path.setAttribute("d", pathStr);
-    svg.appendChild(path);
-    document.body.appendChild(svg);
-
-    const length = path.getTotalLength();
-    const PAD = 6;
-    const SAMPLES = 40;
-    let hit = false;
-
-    for (let i = 1; i < SAMPLES; i++) {
-      const t = (i / SAMPLES) * length;
-      const p = path.getPointAtLength(t);
-      for (const obs of obstacles) {
-        if (
-          p.x > obs.left   - PAD &&
-          p.x < obs.right  + PAD &&
-          p.y > obs.top    - PAD &&
-          p.y < obs.bottom + PAD
-        ) {
-          hit = true;
-          break;
-        }
-      }
-      if (hit) break;
-    }
-
-    document.body.removeChild(svg);
-    return hit;
+    const dx = to.cx - fx;   // positive for forward arrows
+    const dy = to.cy - fy;
+    if (Math.abs(dx) >= Math.abs(dy)) return { tx: to.left, ty: to.cy };
+    return dy >= 0
+      ? { tx: to.cx, ty: to.top    }
+      : { tx: to.cx, ty: to.bottom };
   }
 
   function sizeArrowOverlay() {
