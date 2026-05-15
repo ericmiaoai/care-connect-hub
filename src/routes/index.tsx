@@ -408,7 +408,7 @@ function contextualGreeting(firstName: string): string {
   if (h >= 5  && h < 12) return `Good morning, ${firstName}`;
   if (h >= 12 && h < 17) return `Good afternoon, ${firstName}`;
   if (h >= 17 && h < 21) return `Good evening, ${firstName}`;
-  return `Good night, ${firstName}`;
+  return `Good evening, ${firstName}`;
 }
 
 function MyDay() {
