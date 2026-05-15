@@ -1,20 +1,27 @@
 /**
  * PatientHeroCard.tsx
  * ===================
- * Displays the Care Recipient as a warm, framed-photo-style hero card on
- * My Day. Visually distinct from task/section cards: soft golden wash,
- * heart-icon "Caring for" header, larger photo with warm halo, italicized
- * about blurb.
+ * Editorial-style display of the Care Recipient at the top of My Day.
+ * Intentionally NOT a card: no border, no fill, no shadow — just typography,
+ * a softly-glowing photo, and a small "Caring for" label that disambiguates
+ * "this is the patient, not you."
+ *
+ * Visual design notes:
+ *   - Photo has a soft golden glow (boxShadow) instead of a ring or card edge,
+ *     so it reads as a "framed family photo on a desk" rather than a UI tile
+ *   - Name uses display-weight typography (text-2xl, tracking-tight)
+ *   - About blurb is italic with curly quotes — reads as personality
+ *   - Generous bottom margin separates from the task sections below
  *
  * Display modes (controlled by parent via `patientDisplay` preference):
- *   - "prominent": this card is rendered
- *   - "minimal" / "hidden": this card is NOT rendered
+ *   - "prominent": this hero is rendered
+ *   - "minimal" / "hidden": this hero is NOT rendered (sidebar handles it)
  */
 
 import { Pencil, ChevronUp, Heart } from "lucide-react";
 import type { Patient } from "@/lib/database.types";
 
-// Same gold accent used across CareSync section headers.
+// Same gold accent used across CareSync section headers and the sidebar strip.
 const GOLD = "oklch(0.62 0.13 74)";
 
 interface PatientHeroCardProps {
@@ -50,16 +57,9 @@ export function PatientHeroCard({ patient, canEdit, onEdit, onMinimize }: Patien
     patient.avatar_url;
 
   return (
-    <div
-      className="relative mb-6 overflow-hidden rounded-2xl p-4 backdrop-blur-xl sm:p-5"
-      style={{
-        background:  "linear-gradient(135deg, oklch(0.62 0.13 74 / 0.10) 0%, var(--card) 65%)",
-        border:      "1px solid oklch(0.62 0.13 74 / 0.28)",
-        boxShadow:   "0 10px 28px -10px oklch(0.62 0.13 74 / 0.22), var(--card-shadow)",
-      }}
-    >
-      {/* ── Header strip: "Caring for" label + action buttons ───────────── */}
-      <div className="mb-3 flex items-center justify-between">
+    <section className="mb-8 pt-1" aria-label="Care recipient">
+      {/* ── Header strip: "Caring for" label + action buttons ──────────── */}
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Heart className="h-3 w-3" fill={GOLD} style={{ color: GOLD }} />
           <span
@@ -86,7 +86,7 @@ export function PatientHeroCard({ patient, canEdit, onEdit, onMinimize }: Patien
             type="button"
             onClick={onMinimize}
             title="Minimize"
-            aria-label="Minimize care recipient card"
+            aria-label="Minimize care recipient"
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <ChevronUp className="h-4 w-4" />
@@ -94,25 +94,21 @@ export function PatientHeroCard({ patient, canEdit, onEdit, onMinimize }: Patien
         </div>
       </div>
 
-      {/* ── Main content: photo + person info ──────────────────────────── */}
+      {/* ── Person: photo + name + relationship + about ────────────────── */}
       <div className="flex items-start gap-4">
-        {/* Photo with warm halo (background-coloured separator ring, then gold) */}
+        {/* Photo with a soft gold glow — no ring, no card edge */}
         <div className="shrink-0">
           {patient.avatar_url ? (
             <img
               src={patient.avatar_url}
               alt={displayName}
               className="h-20 w-20 rounded-full object-cover"
-              style={{
-                boxShadow: "0 0 0 2px var(--background), 0 0 0 4px oklch(0.62 0.13 74 / 0.45)",
-              }}
+              style={{ boxShadow: "0 0 22px -2px oklch(0.62 0.13 74 / 0.35)" }}
             />
           ) : (
             <div
               className="flex h-20 w-20 items-center justify-center rounded-full bg-accent text-xl font-semibold text-foreground"
-              style={{
-                boxShadow: "0 0 0 2px var(--background), 0 0 0 4px oklch(0.62 0.13 74 / 0.45)",
-              }}
+              style={{ boxShadow: "0 0 22px -2px oklch(0.62 0.13 74 / 0.35)" }}
             >
               {initials}
             </div>
@@ -120,13 +116,13 @@ export function PatientHeroCard({ patient, canEdit, onEdit, onMinimize }: Patien
         </div>
 
         {/* Text content */}
-        <div className="min-w-0 flex-1 pt-0.5">
-          <p className="truncate text-xl font-semibold tracking-tight text-foreground">
+        <div className="min-w-0 flex-1 pt-1">
+          <h2 className="truncate text-2xl font-semibold tracking-tight text-foreground">
             {displayName}
-          </p>
+          </h2>
 
           {(patient.relationship?.trim() || age !== null) && (
-            <p className="mt-0.5 truncate text-sm text-muted-foreground">
+            <p className="mt-1 truncate text-sm text-muted-foreground">
               {patient.relationship?.trim() && <span>{patient.relationship}</span>}
               {patient.relationship?.trim() && age !== null && <span className="opacity-50"> · </span>}
               {age !== null && <span>{age} years young</span>}
@@ -134,18 +130,18 @@ export function PatientHeroCard({ patient, canEdit, onEdit, onMinimize }: Patien
           )}
 
           {patient.about?.trim() && (
-            <p className="mt-2 text-sm italic leading-relaxed text-foreground/75 line-clamp-3">
+            <p className="mt-3 text-sm italic leading-relaxed text-foreground/70 line-clamp-3">
               &ldquo;{patient.about}&rdquo;
             </p>
           )}
 
           {!hasAnyDetail && canEdit && (
-            <p className="mt-1.5 text-xs text-muted-foreground/70">
+            <p className="mt-2 text-xs text-muted-foreground/70">
               Tap the pencil to add a photo and a few warm details.
             </p>
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
