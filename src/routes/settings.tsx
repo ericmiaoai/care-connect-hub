@@ -664,7 +664,7 @@ function SettingsPage() {
       </div>
 
       <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground/60">
-        Theme preference is saved to this device.
+        Your preferences are saved to your account and follow you across devices.
       </p>
 
       {/* ── Delete Account confirmation dialog ── */}
