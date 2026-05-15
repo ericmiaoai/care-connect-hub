@@ -953,8 +953,10 @@ function MyDay() {
   return (
     <div className="mx-auto w-full max-w-2xl px-3 py-6 sm:px-4">
 
-      {/* Page header */}
-      <header className="mb-8 flex items-start justify-between gap-4">
+      {/* Page header — intentionally minimal: date, greeting, and add button.
+          Task counts are conveyed by the section badges and progress ring;
+          the My/All filter has moved down beside the task sections. */}
+      <header className="mb-10 flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {formatToday()}
@@ -962,38 +964,6 @@ function MyDay() {
           <h1 className="mt-1 break-words text-2xl font-semibold tracking-tight">
             {profile ? contextualGreeting(profile.first_name) : "My Day"}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isLoading
-              ? "Loading your day…"
-              : !hasAnything
-              ? "All clear — nothing on the schedule."
-              : [
-                  appointments.length > 0
-                    ? `${appointments.length} appointment${appointments.length === 1 ? "" : "s"}`
-                    : null,
-                  totalTasks > 0
-                    ? `${totalTasks} task${totalTasks === 1 ? "" : "s"} remaining`
-                    : null,
-                ].filter(Boolean).join(" · ")}
-          </p>
-          {/* My Tasks / All Tasks toggle */}
-          <div className="mt-3 inline-flex rounded-lg border border-border bg-card p-0.5">
-            {(["mine", "all"] as const).map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => handleSetFilter(f)}
-                className={cn(
-                  "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                  myDayFilter === f
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {f === "mine" ? "My Tasks" : "All Tasks"}
-              </button>
-            ))}
-          </div>
         </div>
         {canManage && (
           <AddButton
@@ -1026,6 +996,29 @@ function MyDay() {
         <div className="flex flex-col gap-5">
           {[1, 2, 3].map((n) => (
             <div key={n} className="h-32 animate-pulse rounded-2xl bg-card/70" />
+          ))}
+        </div>
+      )}
+
+      {/* My / All filter — sits as the gateway into the task content, aligned
+          with the left edge of the section cards. Hidden during loading and
+          when the page is empty (no scope to filter). */}
+      {!isLoading && hasAnything && (
+        <div className="mb-5 inline-flex rounded-lg border border-border bg-card p-0.5">
+          {(["mine", "all"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => handleSetFilter(f)}
+              className={cn(
+                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                myDayFilter === f
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {f === "mine" ? "My Tasks" : "All Tasks"}
+            </button>
           ))}
         </div>
       )}

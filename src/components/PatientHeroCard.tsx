@@ -57,13 +57,13 @@ export function PatientHeroCard({ patient, canEdit, onEdit, onMinimize }: Patien
     patient.avatar_url;
 
   return (
-    <section className="mb-8 pt-1" aria-label="Care recipient">
+    <section className="mb-12 pt-4 sm:mb-14 sm:pt-6" aria-label="Care recipient">
       {/* ── Header strip: "Caring for" label + action buttons ──────────── */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <Heart className="h-3 w-3" fill={GOLD} style={{ color: GOLD }} />
+      <div className="mb-5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Heart className="h-4 w-4" fill={GOLD} style={{ color: GOLD }} />
           <span
-            className="text-[10px] font-semibold uppercase tracking-[0.18em]"
+            className="text-xs font-semibold uppercase tracking-[0.18em]"
             style={{ color: GOLD }}
           >
             Caring for
@@ -119,8 +119,8 @@ export function PatientHeroCard({ patient, canEdit, onEdit, onMinimize }: Patien
             greeting above ("Good morning, Eric"). The greeting uses
             text-2xl + font-semibold + tracking-tight; this uses smaller size,
             lighter weight, and default tracking to establish hierarchy. */}
-        <div className="min-w-0 flex-1 pt-1.5">
-          <h2 className="truncate text-xl font-medium text-foreground">
+        <div className="min-w-0 flex-1 pt-2">
+          <h2 className="truncate text-lg font-medium text-foreground">
             {displayName}
           </h2>
 
