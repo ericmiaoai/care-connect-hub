@@ -29,8 +29,9 @@ export function useCalendarEvents(
 
   const fetchEvents = useCallback(async (silent = false) => {
     if (!careCircleId) {
-      setEvents([]);
-      setIsLoading(false);
+      // Keep isLoading=true while careCircleId resolves. Setting it to false
+      // here causes a brief flash of the empty state during route mount,
+      // before the real fetch runs with a valid circleId.
       return;
     }
 

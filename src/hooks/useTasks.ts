@@ -24,9 +24,9 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
 
   const fetchTasks = useCallback(async (silent = false) => {
     if (!careCircleId) {
-      setTasks([]);
-      setCompletedUnscheduledTasks([]);
-      setIsLoading(false);
+      // Keep isLoading=true while careCircleId resolves. Setting it to false
+      // here causes a brief flash of the "no tasks" empty state during route
+      // mount, before the real fetch runs with a valid circleId.
       return;
     }
 

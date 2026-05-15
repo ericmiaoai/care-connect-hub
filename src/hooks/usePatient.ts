@@ -41,8 +41,9 @@ export function usePatient(careCircleId: string | null | undefined): UsePatientR
 
   const fetchPatient = useCallback(async (silent = false) => {
     if (!careCircleId) {
-      setPatient(null);
-      setIsLoading(false);
+      // Keep isLoading=true while careCircleId resolves. Setting it to false
+      // here causes a brief flash of the empty state during route mount,
+      // before the real fetch runs with a valid circleId.
       return;
     }
     if (!silent) setIsLoading(true);

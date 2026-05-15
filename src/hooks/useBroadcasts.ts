@@ -20,8 +20,10 @@ export function useBroadcasts(
 
   const fetchBroadcasts = useCallback(async () => {
     if (!careCircleId) {
-      setBroadcasts([]);
-      setIsLoading(false);
+      // Keep isLoading=true while the parent's useCareCircle hook is still
+      // resolving. Setting it to false here would briefly flash the "No
+      // updates yet" empty state during route mount, before careCircleId
+      // arrives and the real fetch runs.
       return;
     }
 
