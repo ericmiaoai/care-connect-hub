@@ -336,6 +336,78 @@ Netlify redeploy. The old URL will stop working for Scan AVS immediately.
 
 ---
 
+## 6.5 Switching Netlify Accounts
+
+### When to switch
+- Free tier credits exhausted on the current Netlify account
+- Account ownership transfer (handing the project to another developer)
+- Security incident requiring account isolation
+
+### Why this is non-trivial
+The Netlify subdomain changes (e.g. `caresync-ericmiao.netlify.app` → `caresync-ericmiao2.netlify.app`), which has three cascading effects:
+
+1. **Every environment variable** in the new Netlify dashboard must be re-entered — there is no automatic copy from the old account.
+2. **`VITE_AVS_ENDPOINT` is baked into the Cloudflare build at compile time** — the live frontend will keep calling the old Netlify URL until rebuilt and redeployed.
+3. **`APP_URL` (CORS origin) must point to the Cloudflare Workers URL, NOT the new Netlify URL** — getting this wrong silently rejects every Scan AVS request with a "Failed to fetch" error, even though the function itself is healthy.
+
+### Step-by-step procedure
+
+**1. Create the new Netlify site + link the GitHub repo**
+- Sign up or log into the new Netlify account
+- Add new site → Import from Git → authorize GitHub → select the `caresync` repo
+- Netlify auto-deploys the functions from the `main` branch — no build settings change needed (Netlify only runs the functions, not the frontend)
+
+**2. Set all environment variables in the new Netlify dashboard** (Site Settings → Environment Variables):
+
+| Variable | Value source |
+|---|---|
+| `SUPABASE_URL` | Same as old account (Supabase dashboard → Settings → API) |
+| `SUPABASE_ANON_KEY` | Same as old account |
+| `SUPABASE_SERVICE_ROLE_KEY` | Same as old account |
+| `CARESYNC_GEMINI_KEY` | Same as old account |
+| `GEMINI_MODEL` | Same as old account (e.g. `gemini-2.5-flash`) |
+| `APP_URL` | **Your Cloudflare Workers URL, no trailing slash** (NOT the new Netlify URL) |
+| `AVS_DAILY_SCAN_LIMIT` | Same as old account (optional — defaults to `10`) |
+
+**3. Update `VITE_AVS_ENDPOINT` in the local `.env`** to the new Netlify functions URL:
+```
+VITE_AVS_ENDPOINT=https://[new-netlify-subdomain].netlify.app/.netlify/functions/process-avs
+```
+
+**4. Rebuild and redeploy the Cloudflare frontend**:
+```bash
+npm run build
+npx wrangler deploy
+```
+
+**5. Verify the migration**:
+- Hit the health endpoint of the new Netlify site:
+  ```
+  https://[new-netlify-subdomain].netlify.app/.netlify/functions/health
+  ```
+  Should return `{"status":"ok","service":"caresync-netlify",...}`
+- Open the live app, log in, and run a Scan AVS end-to-end against a real patient
+- If Scan AVS fails with "Failed to fetch" but the health endpoint returns OK → see troubleshooting below
+
+**6. Decommission the old Netlify site** (only after the new one is verified end-to-end)
+
+### Troubleshooting
+
+**Symptom: Scan AVS returns "Failed to fetch" after migration**
+
+1. Hit the health endpoint of the new Netlify site. If it returns `{"status":"ok"}`, the functions themselves are running fine — the problem is almost always CORS-related.
+2. Inspect `APP_URL` in the new Netlify dashboard. Three common mistakes:
+   - Set to the **new Netlify URL** (e.g. `https://caresync-xxx.netlify.app`) instead of the Cloudflare Workers URL — Netlify sometimes pre-fills this. **Wrong.**
+   - **Has a trailing slash** — must be removed (the CORS origin check compares strings exactly)
+   - Left as `http://localhost:8888` from local-dev — never updated to production
+3. Set `APP_URL` to the **Cloudflare Workers URL** with **no trailing slash**, then trigger a Netlify redeploy (Deploys → Trigger deploy → Deploy site). Test Scan AVS again.
+
+**Symptom: app still calls the old Netlify URL after migration**
+
+`VITE_AVS_ENDPOINT` is baked into the Cloudflare build at compile time. If you updated `.env` but didn't rebuild and redeploy, the live app keeps pointing at the old URL. Run `npm run build && npx wrangler deploy` and the new URL takes effect within seconds.
+
+---
+
 ## 7. Local Development Setup (New Developer Onboarding)
 
 ```bash
@@ -442,7 +514,7 @@ CareSync displays two status banners at the top of the screen to keep users info
 | Supabase rotates anon key | Update `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` in `.env` and Netlify dashboard |
 | Supabase rotates service role key | Update `SUPABASE_SERVICE_ROLE_KEY` in Netlify dashboard only |
 | New developer joins team | Follow Section 7 onboarding |
-| Netlify free tier limit approached | Both `process-avs` and `delete-account` run on Netlify — consider a new free account (see SOP note on env var migration) |
+| Netlify free tier limit approached / new account needed | Both `process-avs` and `delete-account` run on Netlify. Migrate by following **Section 6.5 — Switching Netlify Accounts** |
 | Scan AVS daily limit needs adjusting | Update `AVS_DAILY_SCAN_LIMIT` in Netlify dashboard — takes effect immediately, no redeploy needed |
 | Users receiving unexpected 429 on Scan AVS | Check `avs_scan_logs` table in Supabase for the user's recent rows; verify RLS policies from `avs_scan_rate_limit.sql` are applied |
 | Viewer can access Scan AVS | Verify `can(role, "scan_avs")` in `src/lib/permissions.ts` and role check in `netlify/functions/process-avs.ts` |
@@ -460,4 +532,55 @@ CareSync displays two status banners at the top of the screen to keep users info
 
 ---
 
-*Last updated: May 2026 — CareSync v1.5*
+## 10. Rollback / Savepoint Strategy
+
+CareSync's deployment pipeline is single-environment (no staging tier), so any bold experiment ships directly to the live app. To keep that safe, create a Git savepoint **before** any non-trivial feature work or refactor.
+
+### Creating a savepoint
+
+```bash
+git tag -a vX.Y-pre-<feature-name> -m "Savepoint before <feature description>"
+git push origin vX.Y-pre-<feature-name>
+```
+
+**Example used in this project:**
+```bash
+git tag -a v1.5-pre-patient-profile -m "Savepoint before Care Recipient feature"
+git push origin v1.5-pre-patient-profile
+```
+
+Tags are immutable references and live both locally and on GitHub — they remain available as restore points indefinitely. You can list all savepoints with `git tag -l "v*-pre-*"`.
+
+### Rolling back to a savepoint
+
+```bash
+git reset --hard <tag-name>
+git push origin main --force-with-lease
+npm run build
+npx wrangler deploy
+```
+
+This returns code, Git history, and the deployed app to exactly the saved state.
+
+### Notes and caveats
+
+- **`--force-with-lease` over `--force`**: refuses to push if someone else has pushed to `main` since you last fetched — protects against silently overwriting a collaborator's work
+- **Code-only rollback**: this procedure rolls back the codebase only. It does NOT undo:
+  - Supabase schema changes (run a reverse migration SQL if needed)
+  - Storage bucket uploads (manually delete from Supabase Storage if needed)
+  - Netlify dashboard environment-variable changes (manually revert in the dashboard)
+- **Schema/code coherence**: if the rolled-back code is incompatible with the current Supabase schema (e.g., references a column that has since been dropped), the app will error. Always pair a code rollback with the corresponding schema reversal.
+
+### When to create a savepoint
+
+| Trigger | Why |
+|---|---|
+| Before adding a new feature touching multiple files | Easy escape hatch if the design doesn't pan out |
+| Before a SQL migration | Lets you revert the code half while you write a reverse SQL migration |
+| Before a major package update (e.g., React, Tanstack Router) | Library upgrades can break in subtle ways |
+| Before refactoring a hot path (realtime hooks, auth flow) | These touch every page; failures are highly visible |
+| Before a public demo or stakeholder review | Guarantees a known-good fallback if a last-minute change misfires |
+
+---
+
+*Last updated: May 2026 — CareSync v1.5 (operational additions: Netlify migration procedure + rollback strategy)*
