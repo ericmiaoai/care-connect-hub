@@ -976,13 +976,6 @@ function MyDay() {
         />
       )}
 
-      {/* Progress ring — only when today has tasks */}
-      {!isLoading && todayTotal > 0 && (
-        <div className="mb-6 flex justify-center">
-          <ProgressRing completed={completedToday} total={todayTotal} celebrate={celebrate} />
-        </div>
-      )}
-
       {/* Loading skeleton */}
       {isLoading && (
         <div className="flex flex-col gap-5">
@@ -1057,6 +1050,15 @@ function MyDay() {
       {!isLoading && !hasAnything && (
         <div className="mt-10 rounded-2xl border border-dashed border-border bg-card/40 p-10 text-center">
           <p className="text-sm text-muted-foreground">No tasks or appointments today. Well done.</p>
+        </div>
+      )}
+
+      {/* Progress ring — bottom of page, centered, sitting just above the
+          global footer disclaimer in __root.tsx. Renders only when today
+          has tasks. Trial placement — flagged for follow-up review. */}
+      {!isLoading && todayTotal > 0 && (
+        <div className="mt-12 mb-4 flex justify-center">
+          <ProgressRing completed={completedToday} total={todayTotal} celebrate={celebrate} />
         </div>
       )}
 
