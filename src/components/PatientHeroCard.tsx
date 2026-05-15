@@ -115,9 +115,12 @@ export function PatientHeroCard({ patient, canEdit, onEdit, onMinimize }: Patien
           )}
         </div>
 
-        {/* Text content */}
-        <div className="min-w-0 flex-1 pt-1">
-          <h2 className="truncate text-2xl font-semibold tracking-tight text-foreground">
+        {/* Text content — typography is intentionally subordinate to the page
+            greeting above ("Good morning, Eric"). The greeting uses
+            text-2xl + font-semibold + tracking-tight; this uses smaller size,
+            lighter weight, and default tracking to establish hierarchy. */}
+        <div className="min-w-0 flex-1 pt-1.5">
+          <h2 className="truncate text-xl font-medium text-foreground">
             {displayName}
           </h2>
 
