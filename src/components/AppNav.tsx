@@ -1,9 +1,16 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Calendar, Megaphone, ScanLine, Sun, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { can } from "@/lib/permissions";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 const NAV = [
   { to: "/",        label: "My Day",   icon: Sun      },
@@ -48,6 +55,7 @@ export function BottomTabBar() {
 
 export function SideNav() {
   const { profile, signOut } = useAuth();
+  const navigate             = useNavigate();
   const { role }             = useCareCircle(profile?.id);
   // Show while role is loading (null) — only hide once confirmed as viewer
   const canScan              = role === null || can(role, "scan_avs");
@@ -106,30 +114,37 @@ export function SideNav() {
         <span>Settings</span>
       </Link>
 
-      {/* User profile + Sign out */}
+      {/* User profile + dropdown menu */}
       <div className="border-t border-border pt-3 mt-2">
-        <div className="mb-1 flex items-center gap-2.5 rounded-lg px-2 py-2">
-          {profile?.avatar_url ? (
-            <img
-              src={profile.avatar_url}
-              alt={fullName}
-              className="h-7 w-7 shrink-0 rounded-full object-cover"
-            />
-          ) : (
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-foreground">
-              {initials}
-            </div>
-          )}
-          <span className="truncate text-xs text-muted-foreground">{fullName}</span>
-        </div>
-        <button
-          id="sidenav-sign-out"
-          onClick={signOut}
-          className="touch-target flex w-full items-center gap-3 rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Sign out</span>
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="touch-target mb-1 flex w-full items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-accent">
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={fullName}
+                  className="h-7 w-7 shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-foreground">
+                  {initials}
+                </div>
+              )}
+              <span className="truncate text-xs text-muted-foreground">{fullName}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
+              <Settings className="h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={signOut} className="text-destructive">
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );

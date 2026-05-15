@@ -10,6 +10,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useMembers } from "@/hooks/useMembers";
+import { usePreferences } from "@/hooks/usePreferences";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
@@ -67,8 +68,8 @@ const SWATCH_STYLE: Record<Theme, React.CSSProperties> = {
   gray:             { background: "radial-gradient(ellipse at 22% 20%, #3a3d47 0%, #22242c 50%, #111318 100%)" },
   light:            { background: "#f5f5f6" },
   blue:             { background: "linear-gradient(175deg, #3d6dd0 0%, #1e3a9e 45%, #0d1462 100%)" },
-  stone:            { background: "radial-gradient(ellipse at 90% 5%, #5a4e3a 0%, #2e2820 40%, #141210 100%)" },
-  prototypeLovable: { background: "radial-gradient(ellipse at 20% 0%, #3d1f6e 0%, #1a0d3a 50%, #0a0514 100%)" },
+  sandstone:        { background: "radial-gradient(ellipse at 90% 5%, #5a4e3a 0%, #2e2820 40%, #141210 100%)" },
+  indigo:           { background: "radial-gradient(ellipse at 20% 0%, #3d1f6e 0%, #1a0d3a 50%, #0a0514 100%)" },
   granite:          { background: "radial-gradient(ellipse at 96% 0%, #4a5a6e 0%, #252e38 20%, #151c24 50%, #080c10 100%)" },
 };
 
@@ -186,6 +187,7 @@ function SettingsPage() {
   const { user, profile, signOut, updateProfile, refreshProfile } = useAuth();
   const { careCircleId, careCircleName, role } = useCareCircle(user?.id);
   const { theme, setTheme }              = useTheme();
+  const { updatePrefs }                  = usePreferences(user?.id);
   const {
     members, pendingInvites, isLoading: membersLoading,
     generateInvite, revokeInvite, removeMember, updateMemberRole,
@@ -744,7 +746,7 @@ function SettingsPage() {
             </p>
             <div className="grid grid-cols-3 gap-2">
               {THEMES.map(({ id, label }) => (
-                <ThemeSwatch key={id} id={id} label={label} theme={theme} setTheme={setTheme} />
+                <ThemeSwatch key={id} id={id} label={label} theme={theme} setTheme={(t) => { setTheme(t); updatePrefs({ theme: t }); }} />
               ))}
             </div>
           </div>

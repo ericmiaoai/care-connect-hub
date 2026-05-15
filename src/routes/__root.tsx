@@ -2,7 +2,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts, useNavigate, useRo
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "sonner";
 import { useEffect } from "react";
-import { WifiOff } from "lucide-react";
+import { WifiOff, RefreshCw, Settings, LogOut } from "lucide-react";
 import { BottomTabBar, SideNav } from "@/components/AppNav";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,7 +10,16 @@ import { useCareCircle } from "@/hooks/useCareCircle";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useNewMemberAlert } from "@/hooks/useNewMemberAlert";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
+import { useRealtimeSyncHealth } from "@/lib/realtimeSyncStore";
 import { applyTheme, getStoredTheme } from "@/lib/theme";
+import { usePreferences } from "@/hooks/usePreferences";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 import appCss from "../styles.css?url";
 
@@ -91,6 +100,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function AppHeader() {
   const { profile, signOut } = useAuth();
+  const navigate = useNavigate();
   const initials = profile
     ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()
     : "…";
@@ -101,24 +111,37 @@ function AppHeader() {
         <img src="/logo-icon.png" alt="CareSync" className="h-7 w-7 rounded-lg object-cover" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.2))" }} />
         <span className="text-base font-semibold tracking-tight">CareSync</span>
       </div>
-      <button
-        id="header-user-menu"
-        onClick={signOut}
-        title="Sign out"
-        className="h-7 w-7 overflow-hidden rounded-full ring-2 ring-background transition-opacity hover:opacity-80"
-      >
-        {profile?.avatar_url ? (
-          <img
-            src={profile.avatar_url}
-            alt="Profile"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <span className="flex h-full w-full items-center justify-center bg-accent text-xs font-semibold text-foreground">
-            {initials}
-          </span>
-        )}
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            id="header-user-menu"
+            className="h-7 w-7 overflow-hidden rounded-full ring-2 ring-background transition-opacity hover:opacity-80"
+          >
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt="Profile"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center bg-accent text-xs font-semibold text-foreground">
+                {initials}
+              </span>
+            )}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
+            <Settings className="h-4 w-4" />
+            Settings
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={signOut} className="text-destructive">
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   );
 }
@@ -143,8 +166,20 @@ function OfflineBanner() {
   );
 }
 
+function SyncErrorBanner() {
+  const { hasError } = useRealtimeSyncHealth();
+  if (!hasError) return null;
+  return (
+    <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-400">
+      <RefreshCw className="h-4 w-4 shrink-0" />
+      <span>Live sync interrupted — data may be delayed. Refresh the page to reconnect.</span>
+    </div>
+  );
+}
+
+
 function RootComponent() {
-  // Apply persisted theme as early as possible on client mount
+  // Apply localStorage theme immediately on mount to avoid a flash
   useEffect(() => {
     applyTheme(getStoredTheme());
   }, []);
@@ -155,6 +190,13 @@ function RootComponent() {
 
   const { user, isLoading: authLoading } = useAuth();
   const { careCircleId, role, isLoading: circleLoading } = useCareCircle(user?.id);
+
+  // Once prefs load from Supabase, apply the saved theme — this is what
+  // keeps the theme consistent across devices
+  const { prefs, isLoaded: prefsLoaded } = usePreferences(user?.id);
+  useEffect(() => {
+    if (prefsLoaded && prefs.theme) applyTheme(prefs.theme);
+  }, [prefsLoaded, prefs.theme]);
   useNewMemberAlert(careCircleId, role);
   const navigate    = useNavigate();
   const routerState = useRouterState();
@@ -208,46 +250,57 @@ function RootComponent() {
 
   // Full authenticated app shell
   return (
-    <div data-app-shell className="flex min-h-screen w-full overflow-x-hidden bg-background text-foreground md:h-screen md:overflow-hidden">
-      <SideNav />
-      {/* Right column: on desktop, constrained to screen height so only this pane scrolls */}
-      <div className="flex min-w-0 flex-1 flex-col md:min-h-0">
-        <AppHeader />
-        <OfflineBanner />
-        <div className="flex-1 overflow-y-auto">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={currentPath}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.12, ease: "easeInOut" }}
-            >
-              <main className="pb-24 md:pb-12">
-                <AppErrorBoundary>
-                  <Outlet />
-                </AppErrorBoundary>
-              </main>
-              <footer className="border-t border-border">
-                <Disclaimer />
-              </footer>
-            </motion.div>
-          </AnimatePresence>
+    <>
+      <div data-app-shell className="flex min-h-screen w-full overflow-x-hidden bg-background text-foreground md:h-screen md:overflow-hidden">
+        <SideNav />
+        {/* Right column: on desktop, constrained to screen height so only this pane scrolls */}
+        <div className="flex min-w-0 flex-1 flex-col md:min-h-0">
+          <AppHeader />
+          <OfflineBanner />
+          <SyncErrorBanner />
+          <div className="flex-1 overflow-y-auto">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={currentPath}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12, ease: "easeInOut" }}
+              >
+                <main className="pb-24 md:pb-12">
+                  <AppErrorBoundary>
+                    <Outlet />
+                  </AppErrorBoundary>
+                </main>
+                <footer className="border-t border-border">
+                  <Disclaimer />
+                </footer>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
+        <BottomTabBar />
       </div>
-      <BottomTabBar />
       <Toaster
         theme="dark"
         position="bottom-center"
         offset={80}
         toastOptions={{
           classNames: {
-            toast:
-              "!bg-card !border-border !text-foreground !rounded-xl !shadow-lg",
-            actionButton: "!bg-foreground !text-background !rounded-md !px-3 !py-1.5",
+            toast: "!bg-card !border-border !text-foreground !rounded-xl !shadow-lg",
+          },
+          actionButtonStyle: {
+            background: "var(--primary)",
+            color: "var(--primary-foreground)",
+            borderRadius: "6px",
+            padding: "3px 10px",
+            fontSize: "12px",
+            fontWeight: "600",
+            cursor: "pointer",
+            border: "none",
           },
         }}
       />
-    </div>
+    </>
   );
 }

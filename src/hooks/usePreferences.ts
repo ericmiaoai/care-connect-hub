@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import type { Theme } from "@/lib/theme";
 
 export interface MyDayPrefs {
   sectionOrder?:  string[];
   collapsed?:     Record<string, boolean>;
   snoozedUntil?:  string | null;
   myDayFilter?:   "mine" | "all";
+  theme?:         Theme;
 }
 
 interface UsePreferencesReturn {

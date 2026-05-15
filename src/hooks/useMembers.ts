@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { setChannelStatus } from "@/lib/realtimeSyncStore";
 
 export interface Member {
   id:        string;
@@ -108,14 +109,25 @@ export function useMembers(careCircleId: string | null | undefined): UseMembersR
 
   useEffect(() => {
     if (!careCircleId) return;
+    const channelKey = `members_rt_${careCircleId}`;
     const channel = supabase
-      .channel(`members_rt_${careCircleId}`)
+      .channel(channelKey)
       .on("postgres_changes", {
         event: "*", schema: "public", table: "care_circle_members",
         filter: `care_circle_id=eq.${careCircleId}`,
       }, () => { fetchAll(); })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+      .subscribe((status, err) => {
+        if (status === "SUBSCRIBED") {
+          setChannelStatus(channelKey, true);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setChannelStatus(channelKey, false);
+          console.error(`[useMembers] Realtime channel error (${status}):`, err);
+        }
+      });
+    return () => {
+      setChannelStatus(channelKey, true);
+      supabase.removeChannel(channel);
+    };
   }, [careCircleId, fetchAll]);
 
   const generateInvite = useCallback(async (

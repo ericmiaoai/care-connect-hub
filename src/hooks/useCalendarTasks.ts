@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { adaptTask, type UITask, type DBTaskWithAssignee } from "@/lib/adapters";
+import { setChannelStatus } from "@/lib/realtimeSyncStore";
 
 interface UseCalendarTasksReturn {
   tasks:                       UITask[];
@@ -9,8 +10,8 @@ interface UseCalendarTasksReturn {
   error:                       string | null;
   toggleTask:                  (id: string, currentStatus: UITask["status"]) => Promise<void>;
   restoreUnscheduledTask:      (id: string) => Promise<void>;
-  addCalendarTask:             (title: string, dueDate: string | null, priority: UITask["priority"], createdBy: string, assignedTo?: string | null) => Promise<{ error: string | null }>;
-  updateCalendarTask:          (id: string, title: string, dueDate: string | null, priority: UITask["priority"], assignedTo?: string | null) => Promise<{ error: string | null }>;
+  addCalendarTask:             (title: string, dueDate: string | null, priority: UITask["priority"], createdBy: string, assignedTo?: string | null, notes?: string | null) => Promise<{ error: string | null }>;
+  updateCalendarTask:          (id: string, title: string, dueDate: string | null, priority: UITask["priority"], assignedTo?: string | null, notes?: string | null) => Promise<{ error: string | null }>;
   deleteCalendarTask:          (id: string) => Promise<void>;
   reorderTasks:                (orderedIds: string[]) => Promise<void>;
 }
@@ -95,11 +96,22 @@ export function useCalendarTasks(
 
   useEffect(() => {
     if (!careCircleId) return;
+    const channelKey = `cal_tasks_rt_${careCircleId}`;
     const channel = supabase
-      .channel(`cal_tasks_rt_${careCircleId}`)
+      .channel(channelKey)
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `care_circle_id=eq.${careCircleId}` }, () => { fetchTasks(true); })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+      .subscribe((status, err) => {
+        if (status === "SUBSCRIBED") {
+          setChannelStatus(channelKey, true);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setChannelStatus(channelKey, false);
+          console.error(`[useCalendarTasks] Realtime channel error (${status}):`, err);
+        }
+      });
+    return () => {
+      setChannelStatus(channelKey, true);
+      supabase.removeChannel(channel);
+    };
   }, [careCircleId, fetchTasks]);
 
   useEffect(() => {
@@ -150,6 +162,7 @@ export function useCalendarTasks(
     priority: UITask["priority"],
     createdBy: string,
     assignedTo?: string | null,
+    notes?: string | null,
   ): Promise<{ error: string | null }> => {
     if (!careCircleId) return { error: "No care circle" };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -162,6 +175,7 @@ export function useCalendarTasks(
         due_date: dueDate,
         created_by: createdBy,
         assigned_to: assignedTo ?? null,
+        notes: notes ?? null,
       })
       .select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
       .single();
@@ -176,10 +190,11 @@ export function useCalendarTasks(
     dueDate: string | null,
     priority: UITask["priority"],
     assignedTo?: string | null,
+    notes?: string | null,
   ): Promise<{ error: string | null }> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: sbError } = await (supabase.from("tasks") as any)
-      .update({ title, due_date: dueDate, priority, assigned_to: assignedTo ?? null })
+      .update({ title, due_date: dueDate, priority, assigned_to: assignedTo ?? null, notes: notes ?? null })
       .eq("id", id);
     if (!sbError) await fetchTasks(true);
     return { error: sbError?.message ?? null };

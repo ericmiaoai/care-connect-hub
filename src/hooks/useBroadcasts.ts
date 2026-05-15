@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { adaptBroadcast, type UIBroadcast, type DBBroadcastWithAuthor } from "@/lib/adapters";
+import { setChannelStatus } from "@/lib/realtimeSyncStore";
 
 interface UseBroadcastsReturn {
   broadcasts:      UIBroadcast[];
@@ -58,11 +59,22 @@ export function useBroadcasts(
 
   useEffect(() => {
     if (!careCircleId) return;
+    const channelKey = `broadcasts_rt_${careCircleId}`;
     const channel = supabase
-      .channel(`broadcasts_rt_${careCircleId}`)
+      .channel(channelKey)
       .on("postgres_changes", { event: "*", schema: "public", table: "broadcast_updates", filter: `care_circle_id=eq.${careCircleId}` }, () => { fetchBroadcasts(); })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+      .subscribe((status, err) => {
+        if (status === "SUBSCRIBED") {
+          setChannelStatus(channelKey, true);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setChannelStatus(channelKey, false);
+          console.error(`[useBroadcasts] Realtime channel error (${status}):`, err);
+        }
+      });
+    return () => {
+      setChannelStatus(channelKey, true);
+      supabase.removeChannel(channel);
+    };
   }, [careCircleId, fetchBroadcasts]);
 
   const postBroadcast = useCallback(async (

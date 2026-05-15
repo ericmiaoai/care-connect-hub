@@ -343,11 +343,12 @@
     <li><a href="#s5">Scan AVS — AI-Powered Document Processing</a></li>
     <li><a href="#s6">Broadcast Updates</a></li>
     <li><a href="#s7">Settings &amp; Profile Management</a></li>
-    <li><a href="#s8">Technical Architecture</a></li>
-    <li><a href="#s9">Security &amp; Privacy Design</a></li>
-    <li><a href="#s10">Deployment Infrastructure</a></li>
-    <li><a href="#s11">Workflow &amp; Multimodal Design</a></li>
-    <li><a href="#s12">Project Timeline</a></li>
+    <li><a href="#s8">Status Indicators &amp; User Notifications</a></li>
+    <li><a href="#s9">Technical Architecture</a></li>
+    <li><a href="#s10">Security &amp; Privacy Design</a></li>
+    <li><a href="#s11">Deployment Infrastructure</a></li>
+    <li><a href="#s12">Workflow &amp; Multimodal Design</a></li>
+    <li><a href="#s13">Project Timeline</a></li>
   </ol>
 </div>
 
@@ -784,7 +785,50 @@
 <!-- ══════════════════════════════════════════════════════════════════
      8. TECHNICAL ARCHITECTURE
 ══════════════════════════════════════════════════════════════════ -->
-<h2 id="s8">8. Technical Architecture</h2>
+<h2 id="s8">8. Status Indicators &amp; User Notifications</h2>
+
+<p>
+  CareSync displays two amber status banners at the top of the app to inform
+  users about connectivity and synchronization state:
+</p>
+
+<h3>📡 "You're offline" Banner</h3>
+<p>
+  Appears when the browser detects no network connection (uses the browser's
+  <code>navigator.onLine</code> API and <code>online</code>/<code>offline</code> events).
+</p>
+<div class="card">
+  <strong>When:</strong> User loses internet connectivity<br/>
+  <strong>Icon:</strong> WiFi Off (lucide-react)<br/>
+  <strong>Message:</strong> "You're offline — changes are paused until connectivity is restored."<br/>
+  <strong>Behavior:</strong> New tasks, edits, and real-time sync are paused. The app displays cached data but doesn't send any changes to the server.<br/>
+  <strong>Recovery:</strong> Disappears automatically when connectivity returns.
+</div>
+
+<h3>🔄 "Live sync interrupted" Banner</h3>
+<p>
+  Appears when one or more Supabase realtime WebSocket subscriptions fail to
+  connect or time out. This is a server-level issue, distinct from browser offline.
+</p>
+<div class="card">
+  <strong>When:</strong> Supabase realtime subscription enters CHANNEL_ERROR or TIMED_OUT state (happens ~40–45 seconds after a network disruption or Supabase service issue)<br/>
+  <strong>Icon:</strong> Refresh Circular (lucide-react)<br/>
+  <strong>Message:</strong> "Live sync interrupted — data may be delayed. Refresh the page to reconnect."<br/>
+  <strong>Behavior:</strong> Other users' real-time changes (new tasks, appointments, broadcasts, member updates) are not synced to this user's view until the subscription recovers.<br/>
+  <strong>Recovery:</strong> Subscriptions auto-reconnect within 5–7 seconds in most cases, or user can manually refresh the page.<br/>
+  <strong>Technical note:</strong> Each of 7 realtime channels is independently monitored (tasks, calendar events, broadcasts, members, care circle state, membership changes, new member alerts). If any single channel fails, the banner appears.
+</div>
+
+<div class="callout amber">
+  <div class="callout-title">⚠️ Two types of connectivity</div>
+  <strong>Browser offline</strong> (no internet) is different from <strong>realtime sync interrupted</strong> (server unreachable via WebSocket). Both are shown to help users understand what went wrong and what action to take.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════
+     9. TECHNICAL ARCHITECTURE
+══════════════════════════════════════════════════════════════════ -->
+<h2 id="s9">9. Technical Architecture</h2>
 
 <div class="arch-diagram">
 
@@ -881,7 +925,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      9. SECURITY & PRIVACY
 ══════════════════════════════════════════════════════════════════ -->
-<h2 id="s9">9. Security &amp; Privacy Design</h2>
+<h2 id="s10">10. Security &amp; Privacy Design</h2>
 
 <h3>Row Level Security (RLS)</h3>
 <p>
@@ -975,7 +1019,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      10. DEPLOYMENT INFRASTRUCTURE
 ══════════════════════════════════════════════════════════════════ -->
-<h2 id="s10">10. Deployment Infrastructure</h2>
+<h2 id="s11">11. Deployment Infrastructure</h2>
 
 <table>
   <tr><th>Component</th><th>Platform</th><th>URL</th><th>Deploy command</th></tr>
@@ -1023,7 +1067,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      11. WORKFLOW & MULTIMODAL DESIGN
 ══════════════════════════════════════════════════════════════════ -->
-<h2 id="s11">11. Workflow &amp; Multimodal Design</h2>
+<h2 id="s12">12. Workflow &amp; Multimodal Design</h2>
 
 <p>
   The diagrams below trace the end-to-end flow for each CareSync capability —
@@ -1170,7 +1214,7 @@
 <!-- ══════════════════════════════════════════════════════════════════
      12. PROJECT TIMELINE
 ══════════════════════════════════════════════════════════════════ -->
-<h2 id="s12">12. Project Timeline</h2>
+<h2 id="s13">13. Project Timeline</h2>
 
 <p>
   CareSync was built over approximately three weeks (April 20 – May 8, 2026),

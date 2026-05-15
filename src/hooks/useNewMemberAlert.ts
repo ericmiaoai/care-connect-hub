@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
+import { setChannelStatus } from "@/lib/realtimeSyncStore";
 
 /**
  * Fires a toast whenever a new member joins the care circle.
@@ -13,8 +14,9 @@ export function useNewMemberAlert(
   useEffect(() => {
     if (!careCircleId || role !== "admin") return;
 
+    const channelKey = `new_member_alert_${careCircleId}`;
     const channel = supabase
-      .channel(`new_member_alert_${careCircleId}`)
+      .channel(channelKey)
       .on(
         "postgres_changes",
         {
@@ -40,8 +42,18 @@ export function useNewMemberAlert(
           toast.success(`${name} joined your care circle`);
         },
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === "SUBSCRIBED") {
+          setChannelStatus(channelKey, true);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setChannelStatus(channelKey, false);
+          console.error(`[useNewMemberAlert] Realtime channel error (${status}):`, err);
+        }
+      });
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      setChannelStatus(channelKey, true);
+      supabase.removeChannel(channel);
+    };
   }, [careCircleId, role]);
 }

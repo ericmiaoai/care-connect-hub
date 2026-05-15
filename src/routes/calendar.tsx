@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -415,6 +415,7 @@ function CalendarView() {
   const [taskTime,         setTaskTime]         = useState("");
   const [taskPriority,     setTaskPriority]     = useState<UITask["priority"]>("medium");
   const [taskAssignedTo,   setTaskAssignedTo]   = useState<string>("");
+  const [taskNotes,        setTaskNotes]        = useState("");
 
   const [submitting,      setSubmitting]      = useState(false);
   const [actionSheetOpen,   setActionSheetOpen]   = useState(false);
@@ -509,6 +510,31 @@ function CalendarView() {
 
   const { members } = useMembers(careCircleId);
 
+  const handleToggleTask = useCallback((task: UITask) => {
+    const completing = task.status !== "completed";
+    toggleTask(task.id, task.status);
+    if (completing) {
+      toast.success("Task completed", {
+        description: task.title,
+        duration: 5000,
+        action: {
+          label: "Undo",
+          onClick: () => toggleTask(task.id, "completed"),
+        },
+        actionButtonStyle: {
+          background: "var(--primary)",
+          color: "var(--primary-foreground)",
+          borderRadius: "6px",
+          padding: "3px 10px",
+          fontSize: "12px",
+          fontWeight: "600",
+          cursor: "pointer",
+          border: "none",
+        },
+      });
+    }
+  }, [toggleTask]);
+
   const [showCompleted,          setShowCompleted]          = useState(false);
   const [showScheduledCompleted, setShowScheduledCompleted] = useState(false);
 
@@ -602,6 +628,7 @@ function CalendarView() {
     setTaskTime(task.hasTime && task.rawDueDate ? isoToFormTime(task.rawDueDate) : "");
     setTaskPriority(task.priority);
     setTaskAssignedTo(task.assigneeId ?? "");
+    setTaskNotes(task.detail ?? "");
     setTaskSheetOpen(true);
   };
 
@@ -667,7 +694,7 @@ function CalendarView() {
 
     if (editingTaskId) {
       const originalTask = tasks.find((t) => t.id === editingTaskId) ?? null;
-      const { error } = await updateCalendarTask(editingTaskId, taskTitle.trim(), dueDateValue, taskPriority, taskAssignedTo || null);
+      const { error } = await updateCalendarTask(editingTaskId, taskTitle.trim(), dueDateValue, taskPriority, taskAssignedTo || null, taskNotes.trim() || null);
       setSubmitting(false);
       if (error) toast.error("Failed to update task", { description: error });
       else {
@@ -678,13 +705,13 @@ function CalendarView() {
             label: "Undo",
             onClick: () => {
               if (!originalTask) return;
-              updateCalendarTask(originalTask.id, originalTask.title, originalTask.rawDueDate, originalTask.priority, originalTask.assigneeId);
+              updateCalendarTask(originalTask.id, originalTask.title, originalTask.rawDueDate, originalTask.priority, originalTask.assigneeId, originalTask.detail);
             },
           },
         });
       }
     } else {
-      const { error } = await addCalendarTask(taskTitle.trim(), dueDateValue, taskPriority, user?.id ?? "", taskAssignedTo || null);
+      const { error } = await addCalendarTask(taskTitle.trim(), dueDateValue, taskPriority, user?.id ?? "", taskAssignedTo || null, taskNotes.trim() || null);
       setSubmitting(false);
       if (error) toast.error("Failed to add task", { description: error });
       else { setTaskSheetOpen(false); toast.success("Task added"); }
@@ -835,7 +862,7 @@ function CalendarView() {
                 </p>
               </div>
               <div className="mx-4 h-px bg-border/40" />
-              <div className="flex flex-col gap-3 p-4">
+              <div className="flex flex-col gap-4 p-4">
                 {dayEvents.length === 0 ? (
                   <p className="py-3 text-center text-sm text-muted-foreground">
                     No appointments scheduled.
@@ -877,12 +904,12 @@ function CalendarView() {
                   <>
                     {/* Active tasks */}
                     {(timedDayTasks.length > 0 || untimedDayTasks.length > 0) && (
-                      <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-4">
                         {timedDayTasks.map((t) => (
                           <TaskDayCard
                             key={t.id}
                             task={t}
-                            onToggle={() => toggleTask(t.id, t.status)}
+                            onToggle={() => handleToggleTask(t)}
                             onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
                             onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
                           />
@@ -905,12 +932,12 @@ function CalendarView() {
                             items={untimedDayTasks.map((t) => t.id)}
                             strategy={verticalListSortingStrategy}
                           >
-                            <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-4">
                               {untimedDayTasks.map((t) => (
                                 <SortableTaskItem
                                   key={t.id}
                                   task={t}
-                                  onToggle={() => toggleTask(t.id, t.status)}
+                                  onToggle={() => handleToggleTask(t)}
                                   onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
                                   onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
                                 />
@@ -988,12 +1015,12 @@ function CalendarView() {
                           items={unscheduledTasks.map((t) => t.id)}
                           strategy={verticalListSortingStrategy}
                         >
-                          <div className="flex flex-col gap-3">
+                          <div className="flex flex-col gap-4">
                             {unscheduledTasks.map((t) => (
                               <SortableTaskItem
                                 key={t.id}
                                 task={t}
-                                onToggle={() => toggleTask(t.id, t.status)}
+                                onToggle={() => handleToggleTask(t)}
                                 onEdit={canManage ? () => openEditTaskSheet(t) : undefined}
                                 onDelete={canManage ? () => handleDeleteTask(t.id) : undefined}
                               />
@@ -1142,8 +1169,8 @@ function CalendarView() {
         defaultDate={addTaskDefaultDate}
         isOnline={isOnline}
         members={members}
-        onSave={async (title, dueDate, priority, assignedTo) =>
-          addCalendarTask(title, dueDate, priority, user?.id ?? "", assignedTo)
+        onSave={async (title, dueDate, priority, assignedTo, notes) =>
+          addCalendarTask(title, dueDate, priority, user?.id ?? "", assignedTo, notes)
         }
       />
 
@@ -1486,12 +1513,24 @@ function CalendarView() {
                   <option value="">Unassigned</option>
                   {members.map((m) => (
                     <option key={m.userId} value={m.userId}>
-                      {m.firstName} {m.lastName}
+                      {m.firstName} {m.lastName}{m.userId === user?.id ? " (me)" : ""}
                     </option>
                   ))}
                 </select>
               </div>
             )}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Notes <span className="text-muted-foreground font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={taskNotes}
+                onChange={(e) => setTaskNotes(e.target.value)}
+                placeholder="Any relevant details…"
+                rows={3}
+                className={`${INPUT} resize-none`}
+              />
+            </div>
           </div>
           <SheetFooter className="mt-6">
             <Button variant="outline" onClick={() => { setTaskSheetOpen(false); setEditingTaskId(null); }}>

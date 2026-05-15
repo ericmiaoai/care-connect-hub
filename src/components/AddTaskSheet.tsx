@@ -17,22 +17,24 @@ export interface TaskMember {
 }
 
 interface AddTaskSheetProps {
-  open:         boolean;
-  onOpenChange: (open: boolean) => void;
-  defaultDate?: string;
-  isOnline?:    boolean;
-  members?:     TaskMember[];
-  onSave:       (title: string, dueDate: string | null, priority: UITask["priority"], assignedTo: string | null) => Promise<{ error: string | null }>;
+  open:           boolean;
+  onOpenChange:   (open: boolean) => void;
+  defaultDate?:   string;
+  isOnline?:      boolean;
+  members?:       TaskMember[];
+  currentUserId?: string;
+  onSave:         (title: string, dueDate: string | null, priority: UITask["priority"], assignedTo: string | null, notes: string | null) => Promise<{ error: string | null }>;
 }
 
 export function AddTaskSheet({
-  open, onOpenChange, defaultDate = "", isOnline = true, members = [], onSave,
+  open, onOpenChange, defaultDate = "", isOnline = true, members = [], currentUserId, onSave,
 }: AddTaskSheetProps) {
   const [title,      setTitle]      = useState("");
   const [date,       setDate]       = useState(defaultDate);
   const [time,       setTime]       = useState("");
   const [priority,   setPriority]   = useState<UITask["priority"]>("medium");
   const [assignedTo, setAssignedTo] = useState<string>("");
+  const [notes,      setNotes]      = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -42,6 +44,7 @@ export function AddTaskSheet({
       setTime("");
       setPriority("medium");
       setAssignedTo("");
+      setNotes("");
     }
   }, [open, defaultDate]);
 
@@ -52,7 +55,7 @@ export function AddTaskSheet({
     const dueDate: string | null = date
       ? (time ? new Date(`${date}T${time}:00`).toISOString() : date)
       : null;
-    const { error } = await onSave(title.trim(), dueDate, priority, assignedTo || null);
+    const { error } = await onSave(title.trim(), dueDate, priority, assignedTo || null, notes.trim() || null);
     setSubmitting(false);
     if (error) toast.error("Failed to add task", { description: error });
     else { onOpenChange(false); toast.success("Task added"); }
@@ -132,12 +135,24 @@ export function AddTaskSheet({
                 <option value="">Unassigned</option>
                 {members.map((m) => (
                   <option key={m.userId} value={m.userId}>
-                    {m.firstName} {m.lastName}
+                    {m.firstName} {m.lastName}{m.userId === currentUserId ? " (me)" : ""}
                   </option>
                 ))}
               </select>
             </div>
           )}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Notes <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Any relevant details…"
+              rows={3}
+              className={`${INPUT} resize-none`}
+            />
+          </div>
         </div>
         <SheetFooter className="mt-6">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

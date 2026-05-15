@@ -40,7 +40,10 @@ export function TaskCard({ task, onComplete, onEdit, onDelete, dragHandleProps, 
       style={{ boxShadow: "var(--card-shadow)" }}
     >
       {/* Time column — narrower on mobile to leave room for action buttons */}
-      <div className="flex w-20 shrink-0 flex-col items-end justify-center border-r border-border py-3 px-2 sm:w-24 sm:px-3">
+      <div className={cn(
+        "flex w-20 shrink-0 flex-col justify-center border-r border-border py-3 px-2 sm:w-24 sm:px-3",
+        task.hasTime ? "items-end" : "items-center",
+      )}>
         <span className="whitespace-nowrap text-sm font-semibold tabular-nums">{task.time}</span>
       </div>
 

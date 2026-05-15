@@ -5,6 +5,7 @@ import {
   type UICalendarEvent,
   type DBCalendarEventWithCompleter,
 } from "@/lib/adapters";
+import { setChannelStatus } from "@/lib/realtimeSyncStore";
 
 interface UseCalendarEventsReturn {
   events:         UICalendarEvent[];
@@ -60,11 +61,22 @@ export function useCalendarEvents(
 
   useEffect(() => {
     if (!careCircleId) return;
+    const channelKey = `cal_events_rt_${careCircleId}`;
     const channel = supabase
-      .channel(`cal_events_rt_${careCircleId}`)
+      .channel(channelKey)
       .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events", filter: `care_circle_id=eq.${careCircleId}` }, () => { fetchEvents(true); })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+      .subscribe((status, err) => {
+        if (status === "SUBSCRIBED") {
+          setChannelStatus(channelKey, true);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setChannelStatus(channelKey, false);
+          console.error(`[useCalendarEvents] Realtime channel error (${status}):`, err);
+        }
+      });
+    return () => {
+      setChannelStatus(channelKey, true);
+      supabase.removeChannel(channel);
+    };
   }, [careCircleId, fetchEvents]);
 
   useEffect(() => {

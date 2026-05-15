@@ -192,7 +192,7 @@ function SectionCard({
 
       {/* ── Content ── */}
       {!collapsed && (
-        <div className="px-3 pt-4 pb-5 flex flex-col gap-2.5 sm:px-4">
+        <div className="px-3 pt-4 pb-5 flex flex-col gap-4 sm:px-4">
           {children}
         </div>
       )}
@@ -496,6 +496,7 @@ function MyDay() {
   const [editTime,        setEditTime]        = useState("");
   const [editPriority,    setEditPriority]    = useState<UITask["priority"]>("medium");
   const [editAssignedTo,  setEditAssignedTo]  = useState<string>("");
+  const [editNotes,       setEditNotes]       = useState("");
   const [editSubmitting,  setEditSubmitting]  = useState(false);
 
   const openEditSheet = (task: UITask) => {
@@ -510,6 +511,7 @@ function MyDay() {
     }
     setEditPriority(task.priority);
     setEditAssignedTo(task.assigneeId ?? "");
+    setEditNotes(task.detail ?? "");
     setEditSheetOpen(true);
   };
 
@@ -521,11 +523,12 @@ function MyDay() {
       id: editingTask.id, title: editingTask.title,
       dueDate: editingTask.rawDueDate, priority: editingTask.priority,
       assigneeId: editingTask.assigneeId,
+      notes: editingTask.detail,
     };
     const dueDate: string | null = editDate
       ? (editTime ? new Date(`${editDate}T${editTime}:00`).toISOString() : editDate)
       : null;
-    const { error } = await updateTask(editingTask.id, editTitle.trim(), dueDate, editPriority, editAssignedTo || null);
+    const { error } = await updateTask(editingTask.id, editTitle.trim(), dueDate, editPriority, editAssignedTo || null, editNotes.trim() || null);
     setEditSubmitting(false);
     if (error) toast.error("Failed to update task", { description: error });
     else {
@@ -534,7 +537,7 @@ function MyDay() {
         duration: 5000,
         action: {
           label: "Undo",
-          onClick: () => updateTask(snap.id, snap.title, snap.dueDate, snap.priority, snap.assigneeId),
+          onClick: () => updateTask(snap.id, snap.title, snap.dueDate, snap.priority, snap.assigneeId, snap.notes),
         },
       });
     }
@@ -657,6 +660,16 @@ function MyDay() {
           restoreTask(id);
           if (isToday) setCompletedToday((n) => Math.max(0, n - 1));
         },
+      },
+      actionButtonStyle: {
+        background: "var(--primary)",
+        color: "var(--primary-foreground)",
+        borderRadius: "6px",
+        padding: "3px 10px",
+        fontSize: "12px",
+        fontWeight: "600",
+        cursor: "pointer",
+        border: "none",
       },
     });
   };
@@ -907,7 +920,7 @@ function MyDay() {
                 items={unscheduledTasks.map((t) => t.id)}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-4">
                   {unscheduledTasks.map((task) => (
                     <SortableTaskCard
                       key={task.id}
@@ -1008,7 +1021,7 @@ function MyDay() {
           onDragEnd={handleSectionDragEnd}
         >
           <SortableContext items={visibleSections} strategy={verticalListSortingStrategy}>
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-6">
               {visibleSections.map((id) => (
                 <SortableSection key={id} id={id}>
                   {(dragHandleProps) => renderSection(id, dragHandleProps)}
@@ -1179,12 +1192,24 @@ function MyDay() {
                   <option value="">Unassigned</option>
                   {members.map((m) => (
                     <option key={m.userId} value={m.userId}>
-                      {m.firstName} {m.lastName}
+                      {m.firstName} {m.lastName}{m.userId === user?.id ? " (me)" : ""}
                     </option>
                   ))}
                 </select>
               </div>
             )}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Notes <span className="text-muted-foreground font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                placeholder="Any relevant details…"
+                rows={3}
+                className={`${INPUT} resize-none`}
+              />
+            </div>
           </div>
           <SheetFooter className="mt-6">
             <Button variant="outline" onClick={() => setEditSheetOpen(false)}>Cancel</Button>
@@ -1202,8 +1227,9 @@ function MyDay() {
         defaultDate=""
         isOnline={isOnline}
         members={members}
-        onSave={async (title, dueDate, priority, assignedTo) =>
-          addTask(title, dueDate, priority, user?.id ?? "", assignedTo)
+        currentUserId={user?.id}
+        onSave={async (title, dueDate, priority, assignedTo, notes) =>
+          addTask(title, dueDate, priority, user?.id ?? "", assignedTo, notes)
         }
       />
 

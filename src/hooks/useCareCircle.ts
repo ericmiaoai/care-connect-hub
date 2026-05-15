@@ -11,6 +11,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CareCircleRole } from "@/lib/database.types";
+import { setChannelStatus } from "@/lib/realtimeSyncStore";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,8 +88,9 @@ export function useCareCircle(userId: string | null | undefined): CareCircleCont
   // reflects the new role immediately without requiring a page refresh.
   useEffect(() => {
     if (!userId) return;
+    const channelKey = `my_membership_rt_${userId}_${instanceId.current}`;
     const channel = supabase
-      .channel(`my_membership_rt_${userId}_${instanceId.current}`)
+      .channel(channelKey)
       .on("postgres_changes", {
         event: "UPDATE",
         schema: "public",
@@ -97,8 +99,18 @@ export function useCareCircle(userId: string | null | undefined): CareCircleCont
       }, () => {
         fetchCareCircle();
       })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+      .subscribe((status, err) => {
+        if (status === "SUBSCRIBED") {
+          setChannelStatus(channelKey, true);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setChannelStatus(channelKey, false);
+          console.error(`[useCareCircle] Realtime channel error (${status}):`, err);
+        }
+      });
+    return () => {
+      setChannelStatus(channelKey, true);
+      supabase.removeChannel(channel);
+    };
   }, [userId, fetchCareCircle]);
 
   return { careCircleId, careCircleName, role, isLoading, refetch: fetchCareCircle };

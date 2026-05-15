@@ -377,7 +377,63 @@ If setting up against a brand-new Supabase project:
 
 ---
 
-## 8. Known Maintenance Triggers
+## 8. Status Indicators & User Notifications
+
+CareSync displays two status banners at the top of the screen to keep users informed about connectivity and sync issues:
+
+### "You're offline" Banner (Amber)
+**Appearance:** Amber banner with WiFi Off icon
+**Message:** "You're offline — changes are paused until connectivity is restored."
+
+**When it appears:**
+- Browser detects loss of network connectivity (via `navigator.onLine` or network events)
+
+**User experience:**
+- All data-mutating operations (create, update, delete) are blocked with a toast message
+- Read operations continue from cached data
+- Banner disappears automatically when network is restored
+
+**What users should do:**
+- Check their internet connection (WiFi, mobile data)
+- No action needed once connectivity is restored — the app continues automatically
+
+**Implementation:** `src/hooks/useOnlineStatus.ts` and `src/routes/__root.tsx` (`OfflineBanner` component)
+
+---
+
+### "Live sync interrupted" Banner (Amber)
+**Appearance:** Amber banner with Refresh icon
+**Message:** "Live sync interrupted — data may be delayed. Refresh the page to reconnect."
+
+**When it appears:**
+- At least one Supabase realtime subscription fails to connect or times out (after ~40-45 seconds)
+- Common triggers: extended network failure, Supabase service unavailability, firewall blocking WebSocket connections
+
+**User experience:**
+- Data is **not** lost — REST queries (create, update, delete) continue to work
+- **Real-time updates are paused** — changes made by other users in the care circle may not appear until the banner clears
+- The banner appears ~40-45 seconds after network loss (longer than the offline banner because Supabase waits for subscription timeout)
+- Banner automatically disappears when realtime subscriptions successfully reconnect (~5-7 seconds after network restored)
+
+**What users should do:**
+- If banner persists > 2 minutes: refresh the page or restart the app
+- Check network connectivity (same as offline scenario)
+- If issue persists after refresh: check the browser console (F12 → Console tab) for error messages and contact support
+
+**Implementation:**
+- `src/lib/realtimeSyncStore.ts` — module-level store tracking subscription health
+- All 7 realtime subscription hooks report status via `setChannelStatus()`
+- `src/routes/__root.tsx` (`SyncErrorBanner` component)
+- Console errors logged with format: `[hookName] Realtime channel error (STATUS): ...`
+
+**Why two separate banners?**
+- **Offline banner:** Catches immediate network loss (browser-level)
+- **Sync banner:** Catches server-side issues and slow reconnections (Supabase-level)
+- Together they give users complete visibility into connectivity at both layers
+
+---
+
+## 9. Known Maintenance Triggers
 
 | Event | Action required |
 |---|---|

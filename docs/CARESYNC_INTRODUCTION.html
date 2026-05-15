@@ -2585,6 +2585,74 @@
 
 
 <!-- ════════════════════════════════════════════════════════════════════
+     ALWAYS CONNECTED
+════════════════════════════════════════════════════════════════════ -->
+<div class="divider"></div>
+
+<section class="scene scene--narrow" id="s6-connectivity">
+  <p class="eyebrow reveal">Behind the scenes · Always in sync</p>
+  <h2 class="headline reveal" style="--d: 80ms;">
+    One family, one source of truth.
+  </h2>
+  <p class="lead reveal" style="--d: 200ms;">
+    When Isla completes a task or updates the calendar, Remy and Evie see it
+    instantly — no refresh, no delay. CareSync watches the connection and tells
+    you if something goes wrong.
+  </p>
+
+  <div class="grid-2" style="margin-top: 56px; align-items: start;">
+    <div class="reveal" style="--d: 320ms;">
+      <h3 style="font-size: 19px; font-weight: 600; color: var(--text); margin-bottom: 16px;">
+        Real-time Sync
+      </h3>
+      <p class="body" style="margin-top: 0;">
+        Every change — a completed task, a new appointment, a broadcast message — syncs
+        to all circle members in real time via a live WebSocket connection. No one has
+        to refresh. No one misses an update.
+      </p>
+      <p class="body">
+        If a member's device goes offline or the connection times out, CareSync shows
+        a helpful status banner:
+      </p>
+      <ul style="margin-top: 12px; margin-left: 20px; color: var(--text-2);">
+        <li style="margin-bottom: 10px;"><strong>📡 "You're offline"</strong> — Browser has no internet. Changes are paused.</li>
+        <li><strong>🔄 "Live sync interrupted"</strong> — Server connection lost. Data may be delayed. Auto-reconnects in seconds.</li>
+      </ul>
+      <p class="caption" style="margin-top: 18px;">
+        Two banners keep the family informed. No surprises, no silent failures.
+      </p>
+    </div>
+
+    <div class="reveal" style="--d: 440ms;">
+      <div class="panel">
+        <h4 style="font-size: 13px; font-weight: 600; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 16px;">
+          Status Indicators
+        </h4>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="padding: 12px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; border-left: 4px solid #f59e0b;">
+            <div style="font-weight: 600; font-size: 13px; color: #78350f; margin-bottom: 4px;">
+              📡 You're offline
+            </div>
+            <div style="font-size: 12px; color: #92400e;">
+              Browser detected no internet. All changes paused until connectivity returns.
+            </div>
+          </div>
+          <div style="padding: 12px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; border-left: 4px solid #f59e0b;">
+            <div style="font-weight: 600; font-size: 13px; color: #78350f; margin-bottom: 4px;">
+              🔄 Live sync interrupted
+            </div>
+            <div style="font-size: 12px; color: #92400e;">
+              Real-time connection lost. Other members' changes may be delayed. Usually recovers in 5–7 seconds.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════════════════
      CLOSING
 ════════════════════════════════════════════════════════════════════ -->
 <div class="divider"></div>
