@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Calendar, Megaphone, ScanLine, Sun, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +14,11 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 
+// CareSync's brand gold — same accent used in section labels and the
+// Care Recipient hero. Reused here to mark the active nav destination so
+// the current view is obvious at a glance.
+const GOLD = "oklch(0.62 0.13 74)";
+
 const NAV = [
   { to: "/",        label: "My Day",   icon: Sun      },
   { to: "/calendar",label: "Calendar", icon: Calendar },
@@ -25,11 +30,16 @@ const NAV = [
 const MAIN_NAV = NAV.filter((n) => n.to !== "/settings");
 
 export function BottomTabBar() {
-  const { user }   = useAuth();
-  const { role }   = useCareCircle(user?.id);
+  const { user }     = useAuth();
+  const { role }     = useCareCircle(user?.id);
+  // Track the current route so we can paint the active tab gold inline,
+  // rather than relying on the muted-foreground / foreground contrast which
+  // is hard to read at 10px on dark themes.
+  const { location } = useRouterState();
+  const currentPath  = location.pathname;
   // Show while role is loading (null) — only hide once confirmed as viewer
-  const canScan    = role === null || can(role, "scan_avs");
-  const visibleNav = NAV.filter((n) => !("requiresScan" in n && n.requiresScan) || canScan);
+  const canScan      = role === null || can(role, "scan_avs");
+  const visibleNav   = NAV.filter((n) => !("requiresScan" in n && n.requiresScan) || canScan);
 
   return (
     <nav
@@ -38,18 +48,28 @@ export function BottomTabBar() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="flex items-stretch justify-around">
-        {visibleNav.map(({ to, label, icon: Icon }) => (
-          <li key={to} className="flex-1">
-            <Link
-              to={to}
-              activeOptions={{ exact: to === "/" }}
-              className="touch-target flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] text-muted-foreground transition-colors data-[status=active]:text-foreground"
-            >
-              <Icon className="h-5 w-5" />
-              <span>{label}</span>
-            </Link>
-          </li>
-        ))}
+        {visibleNav.map(({ to, label, icon: Icon }) => {
+          // "/" is exact-match only so it doesn't always look active.
+          // Every other route uses prefix match so e.g. "/calendar/2026" still highlights Calendar.
+          const isActive = to === "/" ? currentPath === "/" : currentPath.startsWith(to);
+          return (
+            <li key={to} className="flex-1">
+              <Link
+                to={to}
+                activeOptions={{ exact: to === "/" }}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "touch-target flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] transition-colors",
+                  isActive ? "font-semibold" : "text-muted-foreground hover:text-foreground",
+                )}
+                style={isActive ? { color: GOLD } : undefined}
+              >
+                <Icon className="h-5 w-5" />
+                <span>{label}</span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );
