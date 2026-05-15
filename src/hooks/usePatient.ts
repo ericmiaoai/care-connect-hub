@@ -9,7 +9,7 @@
  * patient rows for any reason, this hook returns the earliest-created one.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useId } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { setChannelStatus } from "@/lib/realtimeSyncStore";
 import type { Patient } from "@/lib/database.types";
@@ -30,6 +30,11 @@ interface UsePatientReturn {
 }
 
 export function usePatient(careCircleId: string | null | undefined): UsePatientReturn {
+  // Per-instance unique ID so that multiple consumers (SideNav + a route page)
+  // each get their own Supabase realtime channel. Without this, the second
+  // hook to mount throws "cannot add postgres_changes callbacks after subscribe"
+  // because supabase.channel(key) returns the same channel for the same key.
+  const instanceId = useId();
   const [patient,   setPatient]   = useState<Patient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error,     setError]     = useState<string | null>(null);
@@ -65,7 +70,9 @@ export function usePatient(careCircleId: string | null | undefined): UsePatientR
   // Realtime subscription — keeps every circle member in sync after an admin edit.
   useEffect(() => {
     if (!careCircleId) return;
-    const channelKey = `patient_rt_${careCircleId}`;
+    // Channel key includes instanceId so SideNav and route pages don't share
+    // the same Supabase channel (which would throw on the second .on() call).
+    const channelKey = `patient_rt_${careCircleId}_${instanceId}`;
     const channel = supabase
       .channel(channelKey)
       .on("postgres_changes", {
@@ -86,7 +93,7 @@ export function usePatient(careCircleId: string | null | undefined): UsePatientR
       setChannelStatus(channelKey, true);
       supabase.removeChannel(channel);
     };
-  }, [careCircleId, fetchPatient]);
+  }, [careCircleId, instanceId, fetchPatient]);
 
   // Refetch when the tab regains focus — covers cases where the user edits on
   // another device and returns to this one.
