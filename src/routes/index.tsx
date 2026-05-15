@@ -953,25 +953,17 @@ function MyDay() {
   return (
     <div className="mx-auto w-full max-w-2xl px-3 py-6 sm:px-4">
 
-      {/* Page header — intentionally minimal: date, greeting, and add button.
-          Task counts are conveyed by the section badges and progress ring;
-          the My/All filter has moved down beside the task sections. */}
-      <header className="mb-10 flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {formatToday()}
-          </p>
-          <h1 className="mt-1 break-words text-2xl font-semibold tracking-tight">
-            {profile ? contextualGreeting(profile.first_name) : "My Day"}
-          </h1>
-        </div>
-        {canManage && (
-          <AddButton
-            onClick={() => setActionSheetOpen(true)}
-            disabled={!isOnline}
-            label="Add task or appointment"
-          />
-        )}
+      {/* Page header — intentionally minimal: date and greeting only.
+          The AddButton and the My/All filter have both moved down to the
+          action row above the task sections, so the header now carries
+          only identity. */}
+      <header className="mb-10">
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {formatToday()}
+        </p>
+        <h1 className="mt-1 break-words text-2xl font-semibold tracking-tight">
+          {profile ? contextualGreeting(profile.first_name) : "My Day"}
+        </h1>
       </header>
 
       {/* Care Recipient hero card — only when display mode is "prominent" */}
@@ -1000,26 +992,45 @@ function MyDay() {
         </div>
       )}
 
-      {/* My / All filter — sits as the gateway into the task content, aligned
-          with the left edge of the section cards. Hidden during loading and
-          when the page is empty (no scope to filter). */}
-      {!isLoading && hasAnything && (
-        <div className="mb-5 inline-flex rounded-lg border border-border bg-card p-0.5">
-          {(["mine", "all"] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => handleSetFilter(f)}
-              className={cn(
-                "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-                myDayFilter === f
-                  ? "bg-accent text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {f === "mine" ? "My Tasks" : "All Tasks"}
-            </button>
-          ))}
+      {/* Action row — scope filter on the left, AddButton on the right.
+          Center-aligned vertically so the 48px button and ~36px toggle
+          share a common horizontal axis. The filter only renders when
+          there's content to filter; the AddButton always shows (admins
+          need it to add the first task on empty days). */}
+      {!isLoading && (hasAnything || canManage) && (
+        <div className="mb-5 flex items-center justify-between gap-3">
+          {/* My/All filter — taller (~36px) and larger text for thumb-friendly taps on mobile */}
+          {hasAnything ? (
+            <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
+              {(["mine", "all"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => handleSetFilter(f)}
+                  className={cn(
+                    "rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors",
+                    myDayFilter === f
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {f === "mine" ? "My Tasks" : "All Tasks"}
+                </button>
+              ))}
+            </div>
+          ) : (
+            // Spacer keeps the AddButton anchored to the right when the
+            // filter is hidden, instead of letting it slide leftward.
+            <div aria-hidden="true" />
+          )}
+
+          {canManage && (
+            <AddButton
+              onClick={() => setActionSheetOpen(true)}
+              disabled={!isOnline}
+              label="Add task or appointment"
+            />
+          )}
         </div>
       )}
 
