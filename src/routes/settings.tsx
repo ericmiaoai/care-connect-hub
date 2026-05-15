@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
 import {
-  Check, ChevronRight, Palette, Users, LogOut, Share2, Trash2, KeyRound, Eye, EyeOff, UserCircle, Camera,
+  Check, ChevronRight, Palette, Users, LogOut, Share2, Trash2, KeyRound, Eye, EyeOff, UserCircle, Camera, Heart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,12 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useMembers } from "@/hooks/useMembers";
-import { usePreferences } from "@/hooks/usePreferences";
+import { usePreferences, type PatientDisplay } from "@/hooks/usePreferences";
+import { usePatient } from "@/hooks/usePatient";
+import { can } from "@/lib/permissions";
+import { PatientEditSheet } from "@/components/PatientEditSheet";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { compressToAvatar as compressAvatar } from "@/lib/imageUtils";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
@@ -150,34 +155,14 @@ function SettingsRow({
   );
 }
 
-// ── Avatar compression (256×256, JPEG 0.85) ───────────────────────────────────
+// Avatar compression now lives in src/lib/imageUtils.ts (shared with PatientEditSheet)
 
-function compressAvatar(file: File): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const SIZE = 256;
-      const canvas = document.createElement("canvas");
-      canvas.width  = SIZE;
-      canvas.height = SIZE;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) { reject(new Error("Canvas not supported")); return; }
-      // Centre-crop to square before scaling
-      const min = Math.min(img.width, img.height);
-      const sx  = (img.width  - min) / 2;
-      const sy  = (img.height - min) / 2;
-      ctx.drawImage(img, sx, sy, min, min, 0, 0, SIZE, SIZE);
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error("Failed to compress image"));
-      }, "image/jpeg", 0.85);
-    };
-    img.onerror = reject;
-    img.src = url;
-  });
-}
+// ── Display-mode labels for the Care Recipient preference picker ─────────────
+const PATIENT_DISPLAY_LABEL: Record<PatientDisplay, string> = {
+  prominent: "Prominent — photo and details on My Day",
+  minimal:   "Minimal — sidebar strip only",
+  hidden:    "Hidden — Settings only",
+};
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -187,19 +172,25 @@ function SettingsPage() {
   const { user, profile, signOut, updateProfile, refreshProfile } = useAuth();
   const { careCircleId, careCircleName, role } = useCareCircle(user?.id);
   const { theme, setTheme }              = useTheme();
-  const { updatePrefs }                  = usePreferences(user?.id);
+  const { prefs, updatePrefs }           = usePreferences(user?.id);
+  const isOnline                         = useOnlineStatus();
   const {
     members, pendingInvites, isLoading: membersLoading,
     generateInvite, revokeInvite, removeMember, updateMemberRole,
   } = useMembers(careCircleId);
+  const { patient, updatePatient, uploadPhoto } = usePatient(careCircleId);
 
-  const isAdmin = role === "admin";
+  const isAdmin           = role === "admin";
+  const canEditPatient    = can(role, "manage_patient");
+  const patientDisplay: PatientDisplay = prefs.patientDisplay ?? "prominent";
 
   // Sheet open states
-  const [appearanceOpen, setAppearanceOpen] = useState(false);
-  const [membersOpen,    setMembersOpen]    = useState(false);
-  const [inviteOpen,     setInviteOpen]     = useState(false);
-  const [passwordOpen,   setPasswordOpen]   = useState(false);
+  const [appearanceOpen,    setAppearanceOpen]    = useState(false);
+  const [membersOpen,       setMembersOpen]       = useState(false);
+  const [inviteOpen,        setInviteOpen]        = useState(false);
+  const [passwordOpen,      setPasswordOpen]      = useState(false);
+  const [patientEditOpen,   setPatientEditOpen]   = useState(false);
+  const [displayPrefsOpen,  setDisplayPrefsOpen]  = useState(false);
   const [deleteOpen,         setDeleteOpen]         = useState(false);
   const [deleteLoading,      setDeleteLoading]      = useState(false);
   const [blockingCircles,    setBlockingCircles]    = useState<string[] | null>(null);
@@ -557,6 +548,49 @@ function SettingsPage() {
         </div>
       </div>
 
+      {/* Care Recipient section — floating label */}
+      {patient && (
+        <>
+          <p className="mb-1.5 px-1 text-sm font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
+            Care Recipient
+          </p>
+          <div className="mb-6 overflow-hidden rounded-xl border border-border bg-card">
+            <button
+              type="button"
+              onClick={() => canEditPatient && setPatientEditOpen(true)}
+              disabled={!canEditPatient}
+              className={cn(
+                "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors",
+                canEditPatient ? "hover:bg-accent/50 active:bg-accent cursor-pointer" : "cursor-default",
+              )}
+            >
+              {patient.avatar_url ? (
+                <img
+                  src={patient.avatar_url}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-border"
+                />
+              ) : (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-semibold text-foreground ring-1 ring-border">
+                  {`${patient.first_name[0] ?? ""}${patient.last_name[0] ?? ""}`.toUpperCase()}
+                </div>
+              )}
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-sm font-medium text-foreground">
+                  {patient.preferred_name?.trim() || `${patient.first_name} ${patient.last_name}`}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {patient.relationship?.trim() || (canEditPatient ? "Tap to add photo and details" : "—")}
+                </span>
+              </div>
+              {canEditPatient && (
+                <ChevronRight className="h-4 w-4 shrink-0" style={{ color: "oklch(0.62 0.13 74)" }} />
+              )}
+            </button>
+          </div>
+        </>
+      )}
+
       {/* Care Circle section — floating label */}
       <p className="mb-1.5 px-1 text-sm font-semibold uppercase tracking-wider" style={{ color: "oklch(0.62 0.13 74)" }}>
         Care Circle
@@ -581,6 +615,14 @@ function SettingsPage() {
           subtitle={`${THEMES.length} themes`}
           onClick={() => setAppearanceOpen(true)}
         />
+        {patient && (
+          <SettingsRow
+            icon={<Heart className="h-4 w-4" />}
+            label="Care Recipient display"
+            subtitle={PATIENT_DISPLAY_LABEL[patientDisplay]}
+            onClick={() => setDisplayPrefsOpen(true)}
+          />
+        )}
       </div>
 
       {/* Account section — floating label */}
@@ -752,6 +794,64 @@ function SettingsPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* ── Care Recipient display preference sheet ── */}
+      <Sheet open={displayPrefsOpen} onOpenChange={setDisplayPrefsOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Care Recipient display</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 flex flex-col gap-2">
+            <p className="mb-2 text-xs text-muted-foreground">
+              Choose how prominently the Care Recipient appears in your daily views. This is a personal preference — other circle members aren't affected.
+            </p>
+            {(["prominent", "minimal", "hidden"] as const).map((mode) => {
+              const isActive = patientDisplay === mode;
+              const description = mode === "prominent"
+                ? "Photo and details appear on My Day, plus a compact strip in the sidebar."
+                : mode === "minimal"
+                ? "Only a compact photo and name strip in the sidebar."
+                : "Nothing on My Day or the sidebar. Still editable here in Settings.";
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => updatePrefs({ patientDisplay: mode })}
+                  className={cn(
+                    "flex items-start gap-3 rounded-xl border p-4 text-left transition-colors",
+                    isActive
+                      ? "border-primary bg-accent/40"
+                      : "border-border bg-card hover:bg-accent/20",
+                  )}
+                >
+                  <div className={cn(
+                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                    isActive ? "border-primary bg-primary" : "border-border",
+                  )}>
+                    {isActive && <Check className="h-3 w-3" style={{ color: "var(--primary-foreground)" }} />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium capitalize text-foreground">{mode}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Patient (Care Recipient) edit sheet — admin only ── */}
+      {patient && canEditPatient && (
+        <PatientEditSheet
+          open={patientEditOpen}
+          onOpenChange={setPatientEditOpen}
+          patient={patient}
+          isOnline={isOnline}
+          onSave={updatePatient}
+          onUploadPhoto={uploadPhoto}
+        />
+      )}
 
       {/* ── Members sheet ── */}
       <Sheet open={membersOpen} onOpenChange={setMembersOpen}>

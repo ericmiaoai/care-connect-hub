@@ -3,6 +3,8 @@ import { Calendar, Megaphone, ScanLine, Sun, Settings, LogOut } from "lucide-rea
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
+import { usePatient } from "@/hooks/usePatient";
+import { usePreferences } from "@/hooks/usePreferences";
 import { can } from "@/lib/permissions";
 import {
   DropdownMenu,
@@ -54,17 +56,29 @@ export function BottomTabBar() {
 }
 
 export function SideNav() {
-  const { profile, signOut } = useAuth();
-  const navigate             = useNavigate();
-  const { role }             = useCareCircle(profile?.id);
+  const { profile, signOut }       = useAuth();
+  const navigate                   = useNavigate();
+  const { careCircleId, role }     = useCareCircle(profile?.id);
+  const { patient }                = usePatient(careCircleId);
+  const { prefs }                  = usePreferences(profile?.id);
   // Show while role is loading (null) — only hide once confirmed as viewer
-  const canScan              = role === null || can(role, "scan_avs");
-  const visibleMain          = MAIN_NAV.filter((n) => !("requiresScan" in n && n.requiresScan) || canScan);
+  const canScan                    = role === null || can(role, "scan_avs");
+  const visibleMain                = MAIN_NAV.filter((n) => !("requiresScan" in n && n.requiresScan) || canScan);
   const initials = profile
     ? `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase()
     : "…";
   const fullName = profile
     ? `${profile.first_name} ${profile.last_name}`
+    : "";
+
+  // Patient strip is shown in "prominent" and "minimal" modes; hidden in "hidden" mode.
+  const patientDisplay = prefs.patientDisplay ?? "prominent";
+  const showPatientStrip = patient && patientDisplay !== "hidden";
+  const patientDisplayName = patient
+    ? (patient.preferred_name?.trim() || patient.first_name)
+    : "";
+  const patientInitials = patient
+    ? `${patient.first_name[0] ?? ""}${patient.last_name[0] ?? ""}`.toUpperCase()
     : "";
 
   return (
@@ -74,6 +88,31 @@ export function SideNav() {
         <img src="/logo-icon.png" alt="CareSync" className="h-12 w-12 rounded-xl object-cover" style={{ filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.25))" }} />
         <span className="text-xl font-semibold tracking-tight">CareSync</span>
       </div>
+
+      {/* Care Recipient strip — quiet ambient reminder of who this circle is for */}
+      {showPatientStrip && (
+        <Link
+          to="/settings"
+          className="mb-4 flex items-center gap-2.5 rounded-lg border border-border/60 bg-card/50 px-2.5 py-2 transition-colors hover:bg-accent"
+          aria-label={`Caring for ${patientDisplayName} — open Settings`}
+        >
+          {patient!.avatar_url ? (
+            <img
+              src={patient!.avatar_url}
+              alt=""
+              className="h-8 w-8 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-foreground">
+              {patientInitials}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[10px] uppercase tracking-wider text-muted-foreground/80">Caring for</p>
+            <p className="truncate text-sm font-medium text-foreground">{patientDisplayName}</p>
+          </div>
+        </Link>
+      )}
 
       {/* Navigation links */}
       <nav aria-label="Primary">

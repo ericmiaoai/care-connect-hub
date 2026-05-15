@@ -106,6 +106,10 @@ export interface Database {
           first_name:        string;
           last_name:         string;
           date_of_birth:     string | null;   // date as ISO string
+          avatar_url:        string | null;   // patient photo (avatars/patient-{id}.jpg)
+          preferred_name:    string | null;   // nickname / how the circle refers to them
+          relationship:      string | null;   // free text — e.g. "Father", "Aunt"
+          about:             string | null;   // ≤ 200 chars, non-medical
           created_at:        string;
         };
         Insert: {
@@ -115,6 +119,10 @@ export interface Database {
           first_name:        string;
           last_name:         string;
           date_of_birth?:    string | null;
+          avatar_url?:       string | null;
+          preferred_name?:   string | null;
+          relationship?:     string | null;
+          about?:            string | null;
           created_at?:       string;
         };
         Update: {
@@ -122,6 +130,10 @@ export interface Database {
           first_name?:        string;
           last_name?:         string;
           date_of_birth?:     string | null;
+          avatar_url?:        string | null;
+          preferred_name?:    string | null;
+          relationship?:      string | null;
+          about?:             string | null;
         };
       };
 

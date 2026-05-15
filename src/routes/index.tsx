@@ -28,6 +28,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { TaskCard } from "@/components/TaskCard";
 import { TimeInput } from "@/components/TimeInput";
+import { PatientHeroCard } from "@/components/PatientHeroCard";
+import { PatientEditSheet } from "@/components/PatientEditSheet";
 import { useAuth } from "@/hooks/useAuth";
 import { useCareCircle } from "@/hooks/useCareCircle";
 import { useTasks } from "@/hooks/useTasks";
@@ -35,6 +37,7 @@ import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useMembers } from "@/hooks/useMembers";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { usePreferences } from "@/hooks/usePreferences";
+import { usePatient } from "@/hooks/usePatient";
 import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import {
@@ -419,6 +422,7 @@ function MyDay() {
     completeTask, restoreTask, addTask, updateTask, deleteTask, reorderTasks,
   } = useTasks(careCircleId);
   const { members } = useMembers(careCircleId);
+  const { patient, updatePatient, uploadPhoto } = usePatient(careCircleId);
   const isOnline = useOnlineStatus();
 
   // Today's local-time window for appointments
@@ -473,6 +477,9 @@ function MyDay() {
   // Action type sheet (+ button)
   const [actionSheetOpen,  setActionSheetOpen]  = useState(false);
   const [addTaskSheetOpen, setAddTaskSheetOpen] = useState(false);
+
+  // Patient edit sheet state
+  const [patientEditOpen, setPatientEditOpen] = useState(false);
 
   // Add-appointment sheet state
   const [submitting, setSubmitting] = useState(false);
@@ -997,6 +1004,16 @@ function MyDay() {
         )}
       </header>
 
+      {/* Care Recipient hero card — only when display mode is "prominent" */}
+      {!isLoading && patient && (prefs.patientDisplay ?? "prominent") === "prominent" && (
+        <PatientHeroCard
+          patient={patient}
+          canEdit={can(role, "manage_patient")}
+          onEdit={() => setPatientEditOpen(true)}
+          onMinimize={() => updatePrefs({ patientDisplay: "minimal" })}
+        />
+      )}
+
       {/* Progress ring — only when today has tasks */}
       {!isLoading && todayTotal > 0 && (
         <div className="mb-6 flex justify-center">
@@ -1232,6 +1249,18 @@ function MyDay() {
           addTask(title, dueDate, priority, user?.id ?? "", assignedTo, notes)
         }
       />
+
+      {/* Care Recipient edit sheet (admin only) */}
+      {patient && can(role, "manage_patient") && (
+        <PatientEditSheet
+          open={patientEditOpen}
+          onOpenChange={setPatientEditOpen}
+          patient={patient}
+          isOnline={isOnline}
+          onSave={updatePatient}
+          onUploadPhoto={uploadPhoto}
+        />
+      )}
 
     </div>
   );

@@ -5,7 +5,8 @@ export type Permission =
   | "manage_events"
   | "post_updates"
   | "delete_updates"
-  | "scan_avs";
+  | "scan_avs"
+  | "manage_patient";
 
 export function can(role: CareCircleRole | null, permission: Permission): boolean {
   if (!role) return false;
@@ -16,6 +17,7 @@ export function can(role: CareCircleRole | null, permission: Permission): boolea
       return role === "admin" || role === "collaborator";
     case "post_updates":
     case "delete_updates":
+    case "manage_patient":
       return role === "admin";
   }
 }

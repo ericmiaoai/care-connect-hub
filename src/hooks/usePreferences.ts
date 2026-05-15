@@ -2,12 +2,21 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Theme } from "@/lib/theme";
 
+export type PatientDisplay = "prominent" | "minimal" | "hidden";
+
 export interface MyDayPrefs {
-  sectionOrder?:  string[];
-  collapsed?:     Record<string, boolean>;
-  snoozedUntil?:  string | null;
-  myDayFilter?:   "mine" | "all";
-  theme?:         Theme;
+  sectionOrder?:   string[];
+  collapsed?:      Record<string, boolean>;
+  snoozedUntil?:   string | null;
+  myDayFilter?:    "mine" | "all";
+  theme?:          Theme;
+  /**
+   * How prominently the Care Recipient is displayed throughout the app.
+   * - "prominent" (default): hero card on My Day + strip in the sidebar
+   * - "minimal":             strip in the sidebar only
+   * - "hidden":              not displayed in daily views (still editable in Settings)
+   */
+  patientDisplay?: PatientDisplay;
 }
 
 interface UsePreferencesReturn {

@@ -445,7 +445,8 @@ If setting up against a brand-new Supabase project:
 2. Run `supabase/create_care_circle_fn.sql` in the SQL Editor
 3. Run `supabase/add_completion_fields.sql` in the SQL Editor
 4. Run `supabase/avs_scan_rate_limit.sql` in the SQL Editor (creates `avs_scan_logs` table + RLS policies for the Scan AVS rate limiter)
-5. Create the `avatars` storage bucket (Section 4 of this document)
+5. Run `supabase/add_patient_profile_fields.sql` in the SQL Editor (adds Care Recipient fields, enrolls patients in realtime, adds patient-photo storage policies)
+6. Create the `avatars` storage bucket (Section 4 of this document)
 
 ---
 
