@@ -85,9 +85,16 @@ function UpdatesBoard() {
         )}
       </header>
 
+      {/* Skeleton placeholders during load — matches the card shape that
+          UpdateCard will render once data arrives, so the visual transition
+          from loading → loaded is just a colour swap rather than an entirely
+          different layout. Prevents the brief "Loading updates…" text flash
+          previously visible during route mount. */}
       {isLoading && (
-        <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
-          Loading updates…
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="h-28 animate-pulse rounded-2xl bg-card/70" />
+          ))}
         </div>
       )}
 
