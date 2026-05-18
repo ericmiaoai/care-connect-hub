@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Calendar, Megaphone, ScanLine, Sun, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -6,6 +7,7 @@ import { useCareCircle } from "@/hooks/useCareCircle";
 import { usePatient } from "@/hooks/usePatient";
 import { usePreferences } from "@/hooks/usePreferences";
 import { can } from "@/lib/permissions";
+import { prefetchForRoute } from "@/lib/routePrefetch";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -101,6 +103,30 @@ export function SideNav() {
     ? `${patient.first_name[0] ?? ""}${patient.last_name[0] ?? ""}`.toUpperCase()
     : "";
 
+  // ── Hover-prefetch — Apple-style intent detection ───────────────────────
+  // On sustained mouse-enter (~150ms) of a nav link, kick off the destination
+  // route's Supabase queries in the background. By the time the user clicks,
+  // the data is hot in the cache and the new view appears instantly.
+  // Cancelled if the cursor leaves before the threshold (avoids false-fetches
+  // for users who just sweep their mouse across the sidebar).
+  const hoverTimerRef = useRef<number | null>(null);
+
+  const handleNavHover = (to: string) => {
+    if (!careCircleId) return;
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = window.setTimeout(() => {
+      prefetchForRoute(to, careCircleId);
+      hoverTimerRef.current = null;
+    }, 150);
+  };
+
+  const handleNavLeave = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  };
+
   return (
     <aside className="hidden border-r border-border bg-card/30 md:flex md:w-60 md:flex-col md:p-4">
       {/* Logo */}
@@ -142,6 +168,8 @@ export function SideNav() {
               <Link
                 to={to}
                 activeOptions={{ exact: to === "/" }}
+                onMouseEnter={() => handleNavHover(to)}
+                onMouseLeave={handleNavLeave}
                 className={cn(
                   "touch-target flex items-center gap-3 rounded-lg px-3 text-sm text-muted-foreground transition-colors",
                   "hover:bg-accent hover:text-foreground",
@@ -163,6 +191,8 @@ export function SideNav() {
       <Link
         to="/settings"
         activeOptions={{ exact: true }}
+        onMouseEnter={() => handleNavHover("/settings")}
+        onMouseLeave={handleNavLeave}
         className={cn(
           "touch-target flex items-center gap-3 rounded-lg px-3 text-sm text-muted-foreground transition-colors",
           "hover:bg-accent hover:text-foreground",

@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { adaptTask, type UITask, type DBTaskWithAssignee } from "@/lib/adapters";
 import { setChannelStatus } from "@/lib/realtimeSyncStore";
 import { useReportLoading } from "@/lib/routeReadiness";
+import { getCached, setCached, cacheKey, type CachedTasks } from "@/lib/routePrefetch";
 
 interface UseTasksReturn {
   tasks:                       UITask[];
@@ -34,6 +35,18 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
       return;
     }
 
+    // Fast path: data was already prefetched (e.g. by SideNav hover) — use
+    // it instantly and skip the loading state entirely.
+    if (!silent) {
+      const cached = getCached<CachedTasks>(cacheKey.tasks(careCircleId));
+      if (cached) {
+        setTasks(cached.active);
+        setCompletedUnscheduledTasks(cached.completed);
+        setIsLoading(false);
+        return;
+      }
+    }
+
     if (!silent) setIsLoading(true);
     setError(null);
 
@@ -57,11 +70,17 @@ export function useTasks(careCircleId: string | null | undefined): UseTasksRetur
     if (activeResult.error) {
       setError(activeResult.error.message);
       setTasks([]);
+      setCompletedUnscheduledTasks(
+        (completedResult.data ?? []).map((r) => adaptTask(r as DBTaskWithAssignee)),
+      );
     } else {
-      setTasks((activeResult.data ?? []).map((r) => adaptTask(r as DBTaskWithAssignee)));
+      const active    = (activeResult.data    ?? []).map((r) => adaptTask(r as DBTaskWithAssignee));
+      const completed = (completedResult.data ?? []).map((r) => adaptTask(r as DBTaskWithAssignee));
+      setTasks(active);
+      setCompletedUnscheduledTasks(completed);
+      // Warm the cache for next time (subsequent visits + hover prefetch path)
+      setCached<CachedTasks>(cacheKey.tasks(careCircleId), { active, completed });
     }
-
-    setCompletedUnscheduledTasks((completedResult.data ?? []).map((r) => adaptTask(r as DBTaskWithAssignee)));
 
     setIsLoading(false);
   }, [careCircleId]);

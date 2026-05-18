@@ -7,6 +7,7 @@ import {
 } from "@/lib/adapters";
 import { setChannelStatus } from "@/lib/realtimeSyncStore";
 import { useReportLoading } from "@/lib/routeReadiness";
+import { getCached, setCached, cacheKey } from "@/lib/routePrefetch";
 
 interface UseCalendarEventsReturn {
   events:         UICalendarEvent[];
@@ -39,6 +40,19 @@ export function useCalendarEvents(
       return;
     }
 
+    // Fast path: data was already prefetched (e.g. by SideNav hover) for this
+    // exact range — use it instantly and skip the loading state entirely.
+    if (!silent) {
+      const cached = getCached<UICalendarEvent[]>(
+        cacheKey.events(careCircleId, rangeStartISO, rangeEndISO),
+      );
+      if (cached) {
+        setEvents(cached);
+        setIsLoading(false);
+        return;
+      }
+    }
+
     if (!silent) setIsLoading(true);
     setError(null);
 
@@ -54,7 +68,13 @@ export function useCalendarEvents(
       setError(sbError.message);
       setEvents([]);
     } else {
-      setEvents((data as DBCalendarEventWithCompleter[] ?? []).map(adaptCalendarEvent));
+      const adapted = (data as DBCalendarEventWithCompleter[] ?? []).map(adaptCalendarEvent);
+      setEvents(adapted);
+      // Warm the cache (per-range key so different views don't collide)
+      setCached<UICalendarEvent[]>(
+        cacheKey.events(careCircleId, rangeStartISO, rangeEndISO),
+        adapted,
+      );
     }
 
     setIsLoading(false);

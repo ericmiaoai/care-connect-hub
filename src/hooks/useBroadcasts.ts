@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { adaptBroadcast, type UIBroadcast, type DBBroadcastWithAuthor } from "@/lib/adapters";
 import { setChannelStatus } from "@/lib/realtimeSyncStore";
 import { useReportLoading } from "@/lib/routeReadiness";
+import { getCached, setCached, cacheKey } from "@/lib/routePrefetch";
 
 interface UseBroadcastsReturn {
   broadcasts:      UIBroadcast[];
@@ -33,6 +34,15 @@ export function useBroadcasts(
       return;
     }
 
+    // Fast path: data was already prefetched (e.g. by SideNav hover) — use
+    // it instantly and skip the loading state entirely.
+    const cached = getCached<UIBroadcast[]>(cacheKey.broadcasts(careCircleId));
+    if (cached) {
+      setBroadcasts(cached);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -46,9 +56,10 @@ export function useBroadcasts(
       setError(sbError.message);
       setBroadcasts([]);
     } else {
-      setBroadcasts(
-        (data ?? []).map((row) => adaptBroadcast(row as DBBroadcastWithAuthor)),
-      );
+      const adapted = (data ?? []).map((row) => adaptBroadcast(row as DBBroadcastWithAuthor));
+      setBroadcasts(adapted);
+      // Warm the cache for next time (e.g. user navigates away then back)
+      setCached(cacheKey.broadcasts(careCircleId), adapted);
     }
 
     setIsLoading(false);
