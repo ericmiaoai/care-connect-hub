@@ -472,7 +472,7 @@
       z-index: 0;
     }
     .arrow {
-      stroke: var(--accent-line);
+      stroke: var(--accent-line);   /* fallback if no shade class is applied */
       stroke-width: 1.5;
       fill: none;
       opacity: 0;
@@ -480,11 +480,27 @@
     }
     .arrow.is-on { opacity: 0.85; }
     .arrow-head {
-      fill: var(--accent-line);
+      fill: var(--accent-line);     /* fallback if no shade class is applied */
       opacity: 0;
       transition: opacity 0.5s var(--ease);
     }
     .arrow-head.is-on { opacity: 0.95; }
+
+    /* ── Arrow shade palette ─────────────────────────────────────────────
+       Four gold/amber shades from the same hue family. Arrows cycle through
+       these by sequence index so adjacent arrows are always visually distinct,
+       while the whole flow stays inside the warm-amber theme.
+       Shade 3 (#fbbf24) is the existing --accent colour, kept as the anchor.
+       ────────────────────────────────────────────────────────────────── */
+    .arrow.shade-1 { stroke: #fde68a; }   /* pale honey — amber-200 */
+    .arrow.shade-2 { stroke: #fcd34d; }   /* warm gold — amber-300 */
+    .arrow.shade-3 { stroke: #fbbf24; }   /* current gold — amber-400 */
+    .arrow.shade-4 { stroke: #f59e0b; }   /* rich amber — amber-500 */
+
+    .arrow-head.ah-1 { fill: #fde68a; }
+    .arrow-head.ah-2 { fill: #fcd34d; }
+    .arrow-head.ah-3 { fill: #fbbf24; }
+    .arrow-head.ah-4 { fill: #f59e0b; }
 
     /* Empty state */
     .empty {
@@ -555,9 +571,29 @@
 
       <svg class="arrows" id="arrows" xmlns="http://www.w3.org/2000/svg">
         <defs>
+          <!-- Default marker (kept for back-compat / fallback) -->
           <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5"
                   markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" class="arrow-head" />
+          </marker>
+          <!-- Shade-cycled markers — one per palette colour. Each path carries
+               the matching .ah-N class so the fill colour pairs with the
+               stroke colour of the .shade-N arrow that references it. -->
+          <marker id="arrowhead-1" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="arrow-head ah-1" />
+          </marker>
+          <marker id="arrowhead-2" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="arrow-head ah-2" />
+          </marker>
+          <marker id="arrowhead-3" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="arrow-head ah-3" />
+          </marker>
+          <marker id="arrowhead-4" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" class="arrow-head ah-4" />
           </marker>
         </defs>
       </svg>
@@ -1163,10 +1199,15 @@
 
       const d = routeArrow(from, to);
 
+      // Cycle through the 4-shade gold palette by sequence index so adjacent
+      // arrows are always visually distinct. Shades stay within the warm-amber
+      // theme — see CSS `.arrow.shade-N` and `.arrow-head.ah-N`.
+      const shadeIdx = (i % 4) + 1;
+
       const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
       el.setAttribute("d", d);
-      el.setAttribute("class", "arrow is-on");
-      el.setAttribute("marker-end", "url(#arrowhead)");
+      el.setAttribute("class", `arrow shade-${shadeIdx} is-on`);
+      el.setAttribute("marker-end", `url(#arrowhead-${shadeIdx})`);
       $arrows.appendChild(el);
     }
 
