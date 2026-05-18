@@ -63,9 +63,10 @@ export function setCached<T>(key: string, data: T): void {
 // ── Cache keys (centralised so prefetch and hooks stay in sync) ─────────────
 
 export const cacheKey = {
-  broadcasts: (cid: string)                          => `b:${cid}`,
-  tasks:      (cid: string)                          => `t:${cid}`,
-  events:     (cid: string, start: string, end: string) => `e:${cid}:${start}:${end}`,
+  broadcasts:    (cid: string)                             => `b:${cid}`,
+  tasks:         (cid: string)                             => `t:${cid}`,
+  events:        (cid: string, start: string, end: string) => `e:${cid}:${start}:${end}`,
+  calendarTasks: (cid: string, start: string, end: string) => `ct:${cid}:${start}:${end}`,
 };
 
 // ── Today's local-date range — shared so prefetch and the My Day hook agree
@@ -160,6 +161,65 @@ export async function prefetchTodayEvents(careCircleId: string): Promise<void> {
   });
 }
 
+export interface CachedCalendarTasks {
+  /** Merged ranged + active-unscheduled tasks (matches useCalendarTasks.tasks). */
+  tasks:                     UITask[];
+  /** Completed unscheduled tasks for the "Show Completed" toggle. */
+  completedUnscheduled:      UITask[];
+}
+
+/**
+ * Prefetch the three parallel queries useCalendarTasks runs, scoped to
+ * today's day view (Calendar's default landing range). This is the heaviest
+ * single piece of route data in the app, so prefetching it has an outsized
+ * impact on perceived Calendar load time.
+ *
+ * The widening (±1 day) mirrors useCalendarTasks exactly so the cache key
+ * matches what the hook checks on mount.
+ */
+export async function prefetchCalendarTasks(careCircleId: string): Promise<void> {
+  const { start: rangeStartISO, end: rangeEndISO } = todayRange();
+  const key = cacheKey.calendarTasks(careCircleId, rangeStartISO, rangeEndISO);
+  await once(key, async () => {
+    // Mirror useCalendarTasks's widening logic — see comments in that file.
+    const widenStart = new Date(rangeStartISO); widenStart.setUTCDate(widenStart.getUTCDate() - 1);
+    const widenEnd   = new Date(rangeEndISO);   widenEnd.setUTCDate(widenEnd.getUTCDate() + 1);
+    const startTs    = widenStart.toISOString();
+    const endTs      = widenEnd.toISOString();
+
+    const [ranged, unscheduled, completedUnscheduled] = await Promise.all([
+      supabase.from("tasks")
+        .select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
+        .eq("care_circle_id", careCircleId)
+        .gte("due_date", startTs)
+        .lte("due_date", endTs)
+        .order("due_date", { ascending: true }),
+      supabase.from("tasks")
+        .select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
+        .eq("care_circle_id", careCircleId)
+        .is("due_date", null)
+        .in("status", ["pending", "in_progress"])
+        .order("sort_order", { ascending: true, nullsFirst: false }),
+      supabase.from("tasks")
+        .select("*, assignee:assigned_to(first_name, last_name, avatar_url)")
+        .eq("care_circle_id", careCircleId)
+        .eq("status", "completed")
+        .is("due_date", null)
+        .order("completed_at", { ascending: false })
+        .limit(50),
+    ]);
+
+    setCached<CachedCalendarTasks>(key, {
+      tasks: [...(ranged.data ?? []), ...(unscheduled.data ?? [])].map(
+        (r) => adaptTask(r as DBTaskWithAssignee),
+      ),
+      completedUnscheduled: (completedUnscheduled.data ?? []).map(
+        (r) => adaptTask(r as DBTaskWithAssignee),
+      ),
+    });
+  });
+}
+
 // ── Dispatcher used by SideNav hover handlers ──────────────────────────────
 
 export function prefetchForRoute(to: string, careCircleId: string): void {
@@ -171,8 +231,11 @@ export function prefetchForRoute(to: string, careCircleId: string): void {
       void prefetchTodayEvents(careCircleId);
       break;
     case "/calendar":
-      // Calendar opens on day view (today) by default; prefetch matches.
+      // Calendar opens on day view (today) by default. Fire both event and
+      // task prefetches in parallel — useCalendarTasks is the heaviest hook
+      // in the app (3 queries) so this is the biggest perceptual win.
       void prefetchTodayEvents(careCircleId);
+      void prefetchCalendarTasks(careCircleId);
       break;
     case "/updates":
       void prefetchUpdates(careCircleId);

@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { adaptTask, type UITask, type DBTaskWithAssignee } from "@/lib/adapters";
 import { setChannelStatus } from "@/lib/realtimeSyncStore";
 import { useReportLoading } from "@/lib/routeReadiness";
+import { getCached, setCached, cacheKey, type CachedCalendarTasks } from "@/lib/routePrefetch";
 
 interface UseCalendarTasksReturn {
   tasks:                       UITask[];
@@ -36,6 +37,20 @@ export function useCalendarTasks(
       // here causes a brief flash of the empty state during route mount,
       // before the real fetch runs with a valid circleId.
       return;
+    }
+
+    // Fast path: data was already prefetched (e.g. by SideNav hover) for this
+    // exact range — use it instantly and skip the loading state entirely.
+    if (!silent) {
+      const cached = getCached<CachedCalendarTasks>(
+        cacheKey.calendarTasks(careCircleId, rangeStartISO, rangeEndISO),
+      );
+      if (cached) {
+        setTasks(cached.tasks);
+        setCompletedUnscheduledTasks(cached.completedUnscheduled);
+        setIsLoading(false);
+        return;
+      }
     }
 
     if (!silent) setIsLoading(true);
@@ -82,14 +97,29 @@ export function useCalendarTasks(
     ]);
 
     const err = rangedError ?? unscheduledError;
+    const completedUnscheduledAdapted = (completedUnscheduledData ?? []).map(
+      (r) => adaptTask(r as DBTaskWithAssignee),
+    );
+
     if (err) {
       setError(err.message);
       setTasks([]);
+      setCompletedUnscheduledTasks(completedUnscheduledAdapted);
     } else {
-      setTasks([...(rangedData ?? []), ...(unscheduledData ?? [])].map((r) => adaptTask(r as DBTaskWithAssignee)));
+      const tasksAdapted = [
+        ...(rangedData ?? []),
+        ...(unscheduledData ?? []),
+      ].map((r) => adaptTask(r as DBTaskWithAssignee));
+      setTasks(tasksAdapted);
+      setCompletedUnscheduledTasks(completedUnscheduledAdapted);
+      // Warm the cache so subsequent visits to this same range hit the fast
+      // path. Keyed by the ORIGINAL (un-widened) range to match what the
+      // cache-read at the top of this function looks up.
+      setCached<CachedCalendarTasks>(
+        cacheKey.calendarTasks(careCircleId, rangeStartISO, rangeEndISO),
+        { tasks: tasksAdapted, completedUnscheduled: completedUnscheduledAdapted },
+      );
     }
-
-    setCompletedUnscheduledTasks((completedUnscheduledData ?? []).map((r) => adaptTask(r as DBTaskWithAssignee)));
 
     setIsLoading(false);
   }, [careCircleId, rangeStartISO, rangeEndISO]);
