@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { adaptTask, type UITask, type DBTaskWithAssignee } from "@/lib/adapters";
 import { setChannelStatus } from "@/lib/realtimeSyncStore";
+import { useReportLoading } from "@/lib/routeReadiness";
 
 interface UseCalendarTasksReturn {
   tasks:                       UITask[];
@@ -25,6 +26,9 @@ export function useCalendarTasks(
   const [completedUnscheduledTasks, setCompletedUnscheduledTasks] = useState<UITask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error,     setError]     = useState<string | null>(null);
+
+  // Report loading state to the route-readiness store (see lib/routeReadiness).
+  useReportLoading(isLoading);
 
   const fetchTasks = useCallback(async (silent = false) => {
     if (!careCircleId) {

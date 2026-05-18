@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { adaptBroadcast, type UIBroadcast, type DBBroadcastWithAuthor } from "@/lib/adapters";
 import { setChannelStatus } from "@/lib/realtimeSyncStore";
+import { useReportLoading } from "@/lib/routeReadiness";
 
 interface UseBroadcastsReturn {
   broadcasts:      UIBroadcast[];
@@ -17,6 +18,11 @@ export function useBroadcasts(
   const [broadcasts, setBroadcasts] = useState<UIBroadcast[]>([]);
   const [isLoading,  setIsLoading]  = useState(true);
   const [error,      setError]      = useState<string | null>(null);
+
+  // Report loading state to the global readiness store so the route
+  // transition logic in __root.tsx knows to hold the previous view
+  // until this hook finishes its initial fetch.
+  useReportLoading(isLoading);
 
   const fetchBroadcasts = useCallback(async () => {
     if (!careCircleId) {

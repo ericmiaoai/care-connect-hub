@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { setChannelStatus } from "@/lib/realtimeSyncStore";
+import { useReportLoading } from "@/lib/routeReadiness";
 
 export interface Member {
   id:        string;
@@ -38,6 +39,9 @@ export function useMembers(careCircleId: string | null | undefined): UseMembersR
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [isLoading,      setIsLoading]      = useState(true);
   const [error,          setError]          = useState<string | null>(null);
+
+  // Report loading state to the route-readiness store (see lib/routeReadiness).
+  useReportLoading(isLoading);
 
   const fetchAll = useCallback(async () => {
     if (!careCircleId) {

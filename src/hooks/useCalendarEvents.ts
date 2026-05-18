@@ -6,6 +6,7 @@ import {
   type DBCalendarEventWithCompleter,
 } from "@/lib/adapters";
 import { setChannelStatus } from "@/lib/realtimeSyncStore";
+import { useReportLoading } from "@/lib/routeReadiness";
 
 interface UseCalendarEventsReturn {
   events:         UICalendarEvent[];
@@ -26,6 +27,9 @@ export function useCalendarEvents(
   const [events,    setEvents]    = useState<UICalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error,     setError]     = useState<string | null>(null);
+
+  // Report loading state to the route-readiness store (see lib/routeReadiness).
+  useReportLoading(isLoading);
 
   const fetchEvents = useCallback(async (silent = false) => {
     if (!careCircleId) {

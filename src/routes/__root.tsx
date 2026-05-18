@@ -1,7 +1,7 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts, useNavigate, useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { WifiOff, RefreshCw, Settings, LogOut } from "lucide-react";
 import { BottomTabBar, SideNav } from "@/components/AppNav";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
@@ -11,6 +11,7 @@ import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useNewMemberAlert } from "@/hooks/useNewMemberAlert";
 import { useVisualViewport } from "@/hooks/useVisualViewport";
 import { useRealtimeSyncHealth } from "@/lib/realtimeSyncStore";
+import { useAnyHookLoading } from "@/lib/routeReadiness";
 import { applyTheme, getStoredTheme } from "@/lib/theme";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
@@ -155,6 +156,81 @@ function Disclaimer() {
   );
 }
 
+/**
+ * DeferredRouteContent — wraps Outlet and AnimatePresence to keep the
+ * new route's content invisible (opacity 0) until all of its data hooks
+ * report ready via the global routeReadiness store. Once ready, fades in.
+ *
+ * Why: the previous implementation faded in the new route immediately on
+ * mount, exposing skeleton/loading states and any leftover paint frames
+ * from the previous route. Users described this as "remnant artifacts"
+ * and "messy transitions."
+ *
+ * Behaviour:
+ *   - Old route exits quickly (60ms fade-out) so the gap is small
+ *   - New route mounts at opacity 0
+ *   - As soon as no hook reports loading, new fades in (180ms)
+ *   - Safety: a max-wait (800ms) reveals new even if a hook stays stuck
+ *     loading, so the UI is never permanently blank
+ */
+function DeferredRouteContent({ path }: { path: string }) {
+  const isLoading = useAnyHookLoading();
+  // Local "revealed" flag: false during the brief load window, then true.
+  // Reset on every route change so subsequent navigations re-defer.
+  const [revealed, setRevealed] = useState(!isLoading);
+  const prevPathRef = useRef(path);
+
+  // On route change: reset to hidden until either loading clears or the
+  // safety timeout fires.
+  useEffect(() => {
+    if (prevPathRef.current === path) return;
+    prevPathRef.current = path;
+    setRevealed(false);
+  }, [path]);
+
+  // Reveal when loading clears.
+  useEffect(() => {
+    if (revealed) return;
+    if (!isLoading) {
+      // Single rAF gives React time to commit any pending state from the
+      // hooks that just resolved, so the first painted frame is complete.
+      const frame = requestAnimationFrame(() => setRevealed(true));
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [revealed, isLoading]);
+
+  // Safety: never leave the screen hidden indefinitely. 800ms is generous
+  // — most navigations resolve in 100–400ms. If a hook is genuinely stuck,
+  // the route should still appear (with its own skeleton/loading UI).
+  useEffect(() => {
+    if (revealed) return;
+    const t = setTimeout(() => setRevealed(true), 800);
+    return () => clearTimeout(t);
+  }, [revealed, path]);
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={path}
+        initial={{ opacity: 0 }}
+        // Soft entry once the new content is ready to be seen
+        animate={{ opacity: revealed ? 1 : 0, transition: { duration: 0.18, ease: "easeOut" } }}
+        // Fast exit so the brief blank gap before the next route is minimised
+        exit={{ opacity: 0, transition: { duration: 0.06, ease: "easeIn" } }}
+      >
+        <main className="pb-24 md:pb-12">
+          <AppErrorBoundary>
+            <Outlet />
+          </AppErrorBoundary>
+        </main>
+        <footer className="border-t border-border">
+          <Disclaimer />
+        </footer>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 function OfflineBanner() {
   const isOnline = useOnlineStatus();
   if (isOnline) return null;
@@ -259,24 +335,7 @@ function RootComponent() {
           <OfflineBanner />
           <SyncErrorBanner />
           <div className="flex-1 overflow-y-auto">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={currentPath}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12, ease: "easeInOut" }}
-              >
-                <main className="pb-24 md:pb-12">
-                  <AppErrorBoundary>
-                    <Outlet />
-                  </AppErrorBoundary>
-                </main>
-                <footer className="border-t border-border">
-                  <Disclaimer />
-                </footer>
-              </motion.div>
-            </AnimatePresence>
+            <DeferredRouteContent path={currentPath} />
           </div>
         </div>
         <BottomTabBar />

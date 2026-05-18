@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback, useId } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { setChannelStatus } from "@/lib/realtimeSyncStore";
+import { useReportLoading } from "@/lib/routeReadiness";
 import type { Patient } from "@/lib/database.types";
 
 export interface PatientUpdate {
@@ -38,6 +39,9 @@ export function usePatient(careCircleId: string | null | undefined): UsePatientR
   const [patient,   setPatient]   = useState<Patient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error,     setError]     = useState<string | null>(null);
+
+  // Report loading state to the route-readiness store (see lib/routeReadiness).
+  useReportLoading(isLoading);
 
   const fetchPatient = useCallback(async (silent = false) => {
     if (!careCircleId) {
