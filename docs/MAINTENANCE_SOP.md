@@ -530,6 +530,7 @@ CareSync displays two status banners at the top of the screen to keep users info
 | Realtime sync stops working | Re-run Section 7 realtime configuration SQL |
 | A route shows an error fallback instead of crashing | Expected behaviour — `AppErrorBoundary` caught a render crash. Check the browser console for the error message logged by the boundary. Fix the underlying component issue and redeploy. |
 | Error boundary fallback appears on every page load | A persistent render crash — likely a bad data shape from Supabase. Check the console error, inspect the relevant hook/query, and verify the data contract matches `database.types.ts`. |
+| Tab transitions feel jaggy / brief loading state visible | Likely a new data hook isn't reporting to the route-readiness store, or a new route isn't wired into prefetch. See **Section 11 — Performance Patterns**. |
 
 ---
 
@@ -584,4 +585,75 @@ This returns code, Git history, and the deployed app to exactly the saved state.
 
 ---
 
-*Last updated: May 2026 — CareSync v1.5 (operational additions: Netlify migration procedure + rollback strategy)*
+## 11. Performance Patterns — Adding New Routes / Data Hooks
+
+CareSync's tab transitions feel near-instant because of two load-bearing systems that work invisibly. If you add a new route or a new data hook without integrating with them, transitions will regress and nobody will know why. This section is the checklist.
+
+### What's in place
+
+| File | What it does |
+|---|---|
+| `src/lib/routeReadiness.ts` | Module-level singleton that tracks whether ANY data hook is currently loading. Data hooks report via `useReportLoading(isLoading)`; the router reads aggregate state via `useAnyHookLoading()`. |
+| `src/lib/routePrefetch.ts` | 30-second in-memory cache + per-route prefetch functions + a dispatcher (`prefetchForRoute`). Hover handlers in `AppNav.tsx` call this with a 150ms intent delay to warm data before the user clicks. |
+| `src/routes/__root.tsx` — `DeferredRouteContent` | Wraps `<Outlet />`. Resets a `revealed` flag on every route change and only sets it `true` once `useAnyHookLoading()` returns `false` (or 800ms safety timeout). The new route mounts at opacity 0 and fades in only when its data is ready. |
+
+Together: tab clicks render the destination route instantly (cache hit) or wait silently behind the old view (deferred reveal) — never a flash of skeleton or partial content.
+
+### Checklist — adding a new data hook
+
+Whenever you create a hook that fetches Supabase data on mount (mirroring `useTasks`, `useBroadcasts`, etc.):
+
+1. **Report loading state.** Add this one line at the top of the hook body:
+   ```typescript
+   import { useReportLoading } from "@/lib/routeReadiness";
+   // ...
+   useReportLoading(isLoading);
+   ```
+   Without this, the deferred-mount router won't know to wait for your hook, and the route will appear before your data is ready.
+
+2. **Check the prefetch cache before fetching.** At the top of your `fetchX` function, after the `if (!careCircleId) return` guard:
+   ```typescript
+   const cached = getCached<MyType>(cacheKey.myThing(careCircleId));
+   if (cached) {
+     setData(cached);
+     setIsLoading(false);
+     return;
+   }
+   ```
+
+3. **Warm the cache on successful fetch.** In the success branch after adapting your data:
+   ```typescript
+   setCached<MyType>(cacheKey.myThing(careCircleId), adapted);
+   ```
+
+4. **Don't set `isLoading(false)` in the `if (!careCircleId)` early-return.** Just `return`. Setting it false causes a brief empty-state flash before the real fetch runs.
+
+### Checklist — adding a new route
+
+1. **Decide whether the route warrants prefetch.** Heuristic: yes if the route runs at least one Supabase query and is reachable from the sidebar. No if it's a static page (e.g. confirmation screen) or doesn't fetch (e.g. Scan AVS is a camera-only page).
+
+2. **If yes:**
+   - Add a `prefetchXxx(careCircleId)` function in `src/lib/routePrefetch.ts` that runs the same Supabase query as the route's hook(s) and writes to the cache under the same key (`cacheKey.xxx(...)`).
+   - Add a `case "/your-route"` branch to `prefetchForRoute(to, careCircleId)`.
+   - Confirm the route's hook(s) read from the same cache key.
+   - The SideNav already calls `prefetchForRoute` via `onMouseEnter` — no nav changes needed if you've added your route's `to` to the existing `NAV` array.
+
+3. **If no:** Still safe — `prefetchForRoute` falls through to a no-op for routes you don't register, and the deferred-mount logic still applies.
+
+### Cache TTL and consistency
+
+- **TTL:** 30 seconds. After that, cache entries are evicted on next read and a fresh fetch runs. Long enough for typical tab-to-tab navigation, short enough that you don't see stale data.
+- **Realtime updates do NOT invalidate the cache directly.** The hook still maintains its own state via realtime; if a user is on the page when data changes, they see it. When they navigate away and back within 30s, they see the cached (possibly slightly stale) snapshot, then realtime patches it on remount. This is acceptable for CareSync's data shapes; if a route ever holds critically-fresh data, manually invalidate via `setCached(key, null)` or shorten the TTL.
+
+### Debugging
+
+| Symptom | Likely cause |
+|---|---|
+| Loading skeleton briefly visible during tab switch | A data hook on the destination route doesn't call `useReportLoading`. Add it. |
+| Tab feels noticeably slower than other tabs on hover-then-click | Route isn't registered in `prefetchForRoute`, or its hook doesn't check the cache. |
+| Stale data shows after switching back to a recently-visited tab | Cache TTL too long for this hook's data — shorten in `routePrefetch.ts` or invalidate explicitly. |
+| Whole app appears stuck on a blank page | The 800ms safety timeout in `DeferredRouteContent` should prevent this; if it persists, a hook is stuck in `isLoading: true` indefinitely. Check for an unresolved fetch in console. |
+
+---
+
+*Last updated: May 2026 — CareSync v1.5 (operational additions: Netlify migration procedure, rollback strategy, performance patterns)*
