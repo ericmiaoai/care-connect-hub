@@ -130,9 +130,9 @@ function ScanAVS() {
     try {
       const isPDF = file.type === "application/pdf";
       const { base64, mimeType } = isPDF
-        ? await new Promise<{ base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp" }>((resolve, reject) => {
+        ? await new Promise<{ base64: string; mimeType: "application/pdf" }>((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload  = () => resolve({ base64: (reader.result as string).split(",")[1], mimeType: "image/jpeg" });
+            reader.onload  = () => resolve({ base64: (reader.result as string).split(",")[1], mimeType: "application/pdf" });
             reader.onerror = reject;
             reader.readAsDataURL(file);
           })

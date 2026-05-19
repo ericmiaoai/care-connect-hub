@@ -1192,7 +1192,19 @@
       };
     });
 
-    for (let i = 0; i < path.length - 1; i++) {
+    // Option B — fading trail. The last (most recent) arrow renders at full
+    // brightness; earlier ones fade proportionally so the path reads like a
+    // sequence being walked rather than a flat diagram.
+    const totalArrows = path.length - 1;
+
+    // Arrowhead markers are shared elements (one polygon per shade). Set them
+    // to full opacity here so SVG compositing on the path element controls
+    // the per-arrow dimming for both stroke and arrowhead together.
+    document.querySelectorAll(".arrow-head").forEach((ah) => {
+      ah.style.opacity = "1";
+    });
+
+    for (let i = 0; i < totalArrows; i++) {
       const from = rects[path[i]];
       const to   = rects[path[i + 1]];
       if (!from || !to) continue;
@@ -1204,14 +1216,19 @@
       // theme — see CSS `.arrow.shade-N` and `.arrow-head.ah-N`.
       const shadeIdx = (i % 4) + 1;
 
+      // Fade from ~0.50 at the first arrow up to 0.85 at the last.
+      // Single-arrow paths stay at full brightness.
+      const trailOpacity = totalArrows === 1
+        ? 0.85
+        : 0.50 + 0.35 * (i / (totalArrows - 1));
+
       const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
       el.setAttribute("d", d);
-      el.setAttribute("class", `arrow shade-${shadeIdx} is-on`);
+      el.setAttribute("class", `arrow shade-${shadeIdx}`);
       el.setAttribute("marker-end", `url(#arrowhead-${shadeIdx})`);
+      el.style.opacity = trailOpacity.toFixed(2);
       $arrows.appendChild(el);
     }
-
-    document.querySelectorAll(".arrow-head").forEach((ah) => ah.classList.add("is-on"));
   }
 
   /**

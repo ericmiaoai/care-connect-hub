@@ -253,7 +253,7 @@ export const handler: Handler = async (event: HandlerEvent) => {
 
   // Parse and validate the request body
   let imageBase64: string;
-  let mimeType: "image/jpeg" | "image/png" | "image/webp";
+  let mimeType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
 
   try {
     const body = JSON.parse(event.body ?? "{}");
