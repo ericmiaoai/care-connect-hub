@@ -22,14 +22,14 @@ export function Dropzone({ loading, onFileSelect }: DropzoneProps) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
         className="sr-only"
         onChange={handleChange}
       />
       <input
         ref={cameraInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
         capture="environment"
         className="sr-only"
         onChange={handleChange}
@@ -55,7 +55,7 @@ export function Dropzone({ loading, onFileSelect }: DropzoneProps) {
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">Upload AVS Document</p>
-              <p className="mt-1 text-xs text-muted-foreground">JPEG, PNG, or PDF — tap to select</p>
+              <p className="mt-1 text-xs text-muted-foreground">JPEG, PNG, WebP, HEIC, or PDF — tap to select</p>
             </div>
           </>
         )}

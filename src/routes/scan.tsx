@@ -128,11 +128,14 @@ function ScanAVS() {
     setPhase("scanning");
     setScanError(null);
     try {
-      const isPDF = file.type === "application/pdf";
-      const { base64, mimeType } = isPDF
-        ? await new Promise<{ base64: string; mimeType: "application/pdf" }>((resolve, reject) => {
+      // Formats Gemini handles natively — pass through as-is without canvas compression.
+      // JPEG/PNG/WebP are compressed via canvas; everything else is sent raw.
+      const PASSTHROUGH_TYPES = ["application/pdf", "image/heic", "image/heif"];
+      const isPassthrough = PASSTHROUGH_TYPES.includes(file.type);
+      const { base64, mimeType } = isPassthrough
+        ? await new Promise<{ base64: string; mimeType: string }>((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload  = () => resolve({ base64: (reader.result as string).split(",")[1], mimeType: "application/pdf" });
+            reader.onload  = () => resolve({ base64: (reader.result as string).split(",")[1], mimeType: file.type });
             reader.onerror = reject;
             reader.readAsDataURL(file);
           })
