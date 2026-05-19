@@ -39,8 +39,30 @@ interface EditableAppt {
 
 const INPUT_SM = "w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring";
 
-// Display-only — must match AVS_DAILY_SCAN_LIMIT env var on the server (default: 10)
-const DISPLAY_DAILY_LIMIT = 10;
+// Formats ISO date-time strings from Gemini into a user-friendly local format.
+// Date-only strings (no T) are parsed as local date to avoid UTC midnight shifting the day.
+function formatAVSDateTime(dt: string): string {
+  if (!dt) return dt;
+  try {
+    const hasTime = dt.includes("T");
+    const date = hasTime
+      ? new Date(dt)
+      : (() => { const [y, m, d] = dt.split("-").map(Number); return new Date(y, m - 1, d); })();
+    if (isNaN(date.getTime())) return dt;
+    return new Intl.DateTimeFormat("en-US", {
+      month:        "2-digit",
+      day:          "2-digit",
+      year:         "numeric",
+      ...(hasTime && { hour: "numeric", minute: "2-digit", hour12: true, timeZoneName: "short" }),
+    }).format(date);
+  } catch {
+    return dt;
+  }
+}
+
+// Mirrors AVS_DAILY_SCAN_LIMIT on the server. Update VITE_AVS_DAILY_SCAN_LIMIT in .env
+// and rebuild whenever the server-side limit changes.
+const DISPLAY_DAILY_LIMIT = parseInt(import.meta.env.VITE_AVS_DAILY_SCAN_LIMIT ?? "10", 10);
 
 function compressImage(file: File): Promise<{ base64: string; mimeType: "image/jpeg" | "image/png" | "image/webp" }> {
   return new Promise((resolve, reject) => {
@@ -453,7 +475,7 @@ function ScanAVS() {
                         <p className="text-sm font-medium text-foreground">
                           {appt.specialty_or_provider}
                         </p>
-                        <p className="text-xs text-muted-foreground">{appt.date_time}</p>
+                        <p className="text-xs text-muted-foreground">{formatAVSDateTime(appt.date_time)}</p>
                         {appt.location && (
                           <p className="text-xs text-muted-foreground">{appt.location}</p>
                         )}
