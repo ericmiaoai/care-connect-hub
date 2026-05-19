@@ -84,20 +84,27 @@ export function useMembers(careCircleId: string | null | undefined): UseMembersR
       })));
     }
 
-    // list_pending_invites raises an exception for non-admins — treat errors as empty
+    // Only admins can list pending invites — skip the RPC for other roles to
+    // avoid a noisy 400 in the browser console.
+    const { data: { session } } = await supabase.auth.getSession();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invitesData } = await (supabase as any)
-      .rpc("list_pending_invites", { p_care_circle_id: careCircleId });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setPendingInvites((invitesData ?? []).map((i: any) => ({
-      id:           i.id,
-      role:         i.role,
-      inviteToken:  i.invite_token,
-      attemptCount: i.attempt_count,
-      expiresAt:    i.expires_at,
-      createdAt:    i.created_at,
-    })));
+    const currentRole = (membersData ?? []).find((m: any) => m.user_id === session?.user?.id)?.role;
+    if (currentRole === "admin") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: invitesData } = await (supabase as any)
+        .rpc("list_pending_invites", { p_care_circle_id: careCircleId });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setPendingInvites((invitesData ?? []).map((i: any) => ({
+        id:           i.id,
+        role:         i.role,
+        inviteToken:  i.invite_token,
+        attemptCount: i.attempt_count,
+        expiresAt:    i.expires_at,
+        createdAt:    i.created_at,
+      })));
+    } else {
+      setPendingInvites([]);
+    }
 
     setIsLoading(false);
   }, [careCircleId]);
