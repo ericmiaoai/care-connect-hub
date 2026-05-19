@@ -631,8 +631,8 @@
   <div class="flow-arrow-down">↓</div>
 
   <div class="flow-step amber">
-    🖼 Client-side image validation &amp; compression
-    <small>HEIC check · 15 MB size guard · Canvas API → JPEG 0.85 quality · 1600px max</small>
+    🖼 Client-side file validation &amp; processing
+    <small>JPEG/PNG/WebP → Canvas API compression (JPEG 0.85, 1600px max) · HEIC/HEIF/PDF → passed through natively · 15 MB size guard</small>
   </div>
   <div class="flow-arrow-down">↓</div>
 
@@ -757,7 +757,7 @@
   </tr>
   <tr>
     <td><strong>Theme</strong></td>
-    <td>Black, Gray, Light, Blue, Stone, Purple, Granite — stored locally, applied on load</td>
+    <td>Black, Gray, Light, Blue, Stone, Purple, Granite — stored in Supabase, synced across devices. Default for new users: <strong>Granite</strong></td>
   </tr>
   <tr>
     <td><strong>My Day filter</strong></td>
@@ -1337,17 +1337,34 @@
 
 </div>
 
+  <div class="tl-item">
+    <div class="tl-dot amber"></div>
+    <div class="tl-date">May 18, 2026</div>
+    <div class="tl-phase amber">Phase 9 — Scan AVS Hardening &amp; Polish</div>
+    <div class="tl-title">Multi-Format Scan Support, UX Improvements &amp; Reliability Fixes</div>
+    <ul class="tl-list">
+      <li>PDF scanning fixed — HEIC and HEIF formats added (all major mobile camera formats now supported without manual conversion)</li>
+      <li>Appointment date/time display reformatted to MM/DD/YYYY, 12-hour clock with local timezone label</li>
+      <li>Daily scan limit counter now driven by <code>VITE_AVS_DAILY_SCAN_LIMIT</code> env var — stays in sync with server-side limit without code changes</li>
+      <li>Non-admin 400 console error eliminated — <code>list_pending_invites</code> RPC skipped for non-admin users</li>
+      <li>Default theme for new users changed to Granite</li>
+      <li>Workflow diagram arrows updated with fading trail effect (most recent step brightest)</li>
+    </ul>
+  </div>
+
+</div>
+
 <div class="callout green">
   <div class="callout-title">Project summary</div>
-  <strong>19 days</strong> from first commit to feature-complete deployment &nbsp;·&nbsp;
-  <strong>30+ commits</strong> across 8 development phases &nbsp;·&nbsp;
+  <strong>26 days</strong> from first commit to feature-complete deployment &nbsp;·&nbsp;
+  <strong>40+ commits</strong> across 9 development phases &nbsp;·&nbsp;
   <strong>1 live PWA</strong> on Cloudflare Workers + Netlify + Supabase
 </div>
 
 <br/><br/>
 <hr style="border:none;border-top:2px solid #e2e8f0;margin:32px 0 16px;"/>
 <p style="text-align:center;color:#94a3b8;font-size:12px;">
-  CareSync v1.2 &nbsp;·&nbsp; CIMA 130 — Introduction to AI &nbsp;·&nbsp; May 2026<br/>
+  CareSync v1.6 &nbsp;·&nbsp; CIMA 130 — Introduction to AI &nbsp;·&nbsp; May 2026<br/>
   GitHub: <a href="https://github.com/ericmiaoai/caresync">github.com/ericmiaoai/caresync</a>
   &nbsp;·&nbsp;
   Live: <a href="https://caresync-ericmiao.netlify.app">caresync.*.workers.dev</a>

@@ -180,13 +180,11 @@ Users tap their avatar circle in Settings to upload a new photo. The app:
 5. Fires a `caresync:profile-updated` browser event that refreshes avatars
    everywhere in the app simultaneously (sidebar, header, member list, updates)
 
-### HEIC support
-- iOS devices auto-convert HEIC to JPEG when selecting from the camera roll
-  on a mobile browser — no extra handling needed for the primary use case
-- Desktop users with HEIC files receive a friendly error message guiding
-  them to convert to JPEG first (via iPhone camera roll or Mac Preview)
-- `heic2any` library is intentionally NOT used — untested without an iPhone
-  and adds complexity for a rare edge case. Re-evaluate for v2.0.
+### Supported upload formats
+JPEG, PNG, WebP, HEIC, HEIF, and PDF are all accepted without any conversion
+required from the user. JPEG, PNG, and WebP are compressed client-side via
+canvas before upload. HEIC, HEIF, and PDF are passed through as-is to Gemini,
+which handles them natively as inline data types.
 
 ### Storage limits
 - Supabase free tier: 1GB total storage
@@ -198,11 +196,12 @@ Users tap their avatar circle in Settings to upload a new photo. The app:
 
 ## 5. Supabase Maintenance
 
-### Environment variables (nine required)
+### Environment variables (ten required)
 | Variable | Used by | Where set |
 |---|---|---|
 | `VITE_SUPABASE_URL` | React app (browser bundle) | `.env` (baked in at build time) |
 | `VITE_SUPABASE_ANON_KEY` | React app (browser bundle) | `.env` (baked in at build time) |
+| `VITE_AVS_DAILY_SCAN_LIMIT` | Scan AVS counter display | `.env` (baked in at build time) — must match `AVS_DAILY_SCAN_LIMIT` |
 | `SUPABASE_URL` | Netlify functions (server) | `.env` + Netlify dashboard |
 | `SUPABASE_ANON_KEY` | Netlify functions (server) | `.env` + Netlify dashboard |
 | `CARESYNC_GEMINI_KEY` | `process-avs` function | `.env` + Netlify dashboard |
@@ -278,14 +277,14 @@ CareSync uses a split deployment model:
 | Layer | Platform | URL | What it does |
 |---|---|---|---|
 | Frontend + SSR | Cloudflare Workers | `caresync.*.workers.dev` | Serves the React app |
-| Serverless functions | Netlify Functions | `caresync-ericmiao.netlify.app` | `process-avs` (Gemini) + `delete-account` + `health` |
+| Serverless functions | Netlify Functions | `caresync-ericmiao3.netlify.app` | `process-avs` (Gemini) + `delete-account` + `health` |
 | Database + Auth | Supabase | `*.supabase.co` | Stores all app data |
 
 ### Health check
 The Netlify functions layer exposes a public liveness endpoint:
 
 ```
-GET https://caresync-ericmiao.netlify.app/.netlify/functions/health
+GET https://caresync-ericmiao3.netlify.app/.netlify/functions/health
 ```
 
 Returns `{ "status": "ok", "service": "caresync-netlify", "timestamp": "..." }` with HTTP 200 while healthy. No authentication required. Connect this URL to an external monitor (e.g. UptimeRobot — free tier, 5-minute polling) to receive alerts if the functions layer goes down.
@@ -300,6 +299,7 @@ stays on Netlify because it was already working there and requires no changes.
 - [ ] `npx tsc --noEmit` returns no TypeScript errors
 - [ ] `.env` has correct values for all `VITE_` variables
 - [ ] `VITE_AVS_ENDPOINT` points to the Netlify function URL
+- [ ] `VITE_AVS_DAILY_SCAN_LIMIT` matches `AVS_DAILY_SCAN_LIMIT` in Netlify dashboard
 - [ ] `npm run build` completes without errors
 - [ ] `npx wrangler deploy` succeeds
 
@@ -358,6 +358,8 @@ The Netlify subdomain changes (e.g. `caresync-ericmiao.netlify.app` → `caresyn
 - Netlify auto-deploys the functions from the `main` branch — no build settings change needed (Netlify only runs the functions, not the frontend)
 
 **2. Set all environment variables in the new Netlify dashboard** (Site Settings → Environment Variables):
+
+> **Tip — bulk import:** Instead of entering variables one by one, go to Environment Variables → **Add variables → Import from a .env file** and paste the contents of a `netlify.env` file containing all server-side vars. Alternatively, run `netlify env:import netlify.env` via the Netlify CLI. Keep a `netlify.env` file locally (never commit it — it contains secrets) with all seven server-side variables pre-filled for fast re-use on the next account switch.
 
 | Variable | Value source |
 |---|---|
@@ -516,14 +518,14 @@ CareSync displays two status banners at the top of the screen to keep users info
 | Supabase rotates service role key | Update `SUPABASE_SERVICE_ROLE_KEY` in Netlify dashboard only |
 | New developer joins team | Follow Section 7 onboarding |
 | Netlify free tier limit approached / new account needed | Both `process-avs` and `delete-account` run on Netlify. Migrate by following **Section 6.5 — Switching Netlify Accounts** |
-| Scan AVS daily limit needs adjusting | Update `AVS_DAILY_SCAN_LIMIT` in Netlify dashboard — takes effect immediately, no redeploy needed |
+| Scan AVS daily limit needs adjusting | Update `AVS_DAILY_SCAN_LIMIT` in Netlify dashboard (enforces the new limit) AND update `VITE_AVS_DAILY_SCAN_LIMIT` in local `.env` then `npm run build && npx wrangler deploy` (updates the display counter) |
 | Users receiving unexpected 429 on Scan AVS | Check `avs_scan_logs` table in Supabase for the user's recent rows; verify RLS policies from `avs_scan_rate_limit.sql` are applied |
 | Viewer can access Scan AVS | Verify `can(role, "scan_avs")` in `src/lib/permissions.ts` and role check in `netlify/functions/process-avs.ts` |
 | Cloudflare Workers free tier limit approached | 100,000 requests/day free; upgrade plan if exceeded |
 | iOS major update | Test Scan AVS camera capture + profile photo upload on iPhone |
 | Android major update | Test Scan AVS camera capture + profile photo upload on Android |
 | New Supabase project created | Re-run all SQL files, re-create avatars bucket (Section 4) |
-| HEIC support needed on desktop | Evaluate `heic2any` library — requires iPhone for testing |
+| New mobile image format needs support | Add MIME type to `PASSTHROUGH_TYPES` in `scan.tsx` and `accept` attribute in `Dropzone.tsx` — only needed for formats Gemini supports natively as inline data |
 | Member role changes not persisting | Verify `members: admin can update` RLS policy exists (Section 5) |
 | Member names/avatars showing as blank | Verify `profiles: read circle peers` RLS policy exists (Section 5) |
 | Role change not reflecting without refresh | Verify `care_circle_members` is in realtime publication (Section 5) |
@@ -656,4 +658,4 @@ Whenever you create a hook that fetches Supabase data on mount (mirroring `useTa
 
 ---
 
-*Last updated: May 2026 — CareSync v1.5 (operational additions: Netlify migration procedure, rollback strategy, performance patterns)*
+*Last updated: May 18, 2026 — CareSync v1.6 (additions: HEIC/HEIF/PDF scan support, VITE_AVS_DAILY_SCAN_LIMIT display variable, netlify.env bulk import tip, Netlify account updated to caresync-ericmiao3, Granite default theme for new users)*
