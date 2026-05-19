@@ -18,7 +18,7 @@ export function getStoredTheme(): Theme {
     if (v === "black" || v === "gray" || v === "light" || v === "blue" ||
         v === "sandstone" || v === "indigo" || v === "granite") return v as Theme;
   } catch { /* SSR / privacy mode */ }
-  return "black";
+  return "granite";
 }
 
 export function applyTheme(theme: Theme) {
